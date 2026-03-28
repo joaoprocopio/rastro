@@ -15,9 +15,9 @@ extensions:
 
 exporters:
   clickhouse:
-    endpoint: "${OTELCOL_CLICKHOUSE_ENDPOINT}"
-    username: "${OTELCOL_CLICKHOUSE_USERNAME}"
-    password: "${OTELCOL_CLICKHOUSE_PASSWORD}"
+    endpoint: "${RASTRO_OTEL_CLICKHOUSE_ENDPOINT}"
+    username: "${RASTRO_OTEL_CLICKHOUSE_USERNAME}"
+    password: "${RASTRO_OTEL_CLICKHOUSE_PASSWORD}"
   debug:
     verbosity: "detailed"
 

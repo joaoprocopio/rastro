@@ -5,10 +5,10 @@ datasources:
     type: "grafana-clickhouse-datasource"
     access: "proxy"
     jsonData:
-      protocol: "${GRAFANA_CLICKHOUSE_PROTOCOL}"
-      host: "${GRAFANA_CLICKHOUSE_HOST}"
-      port: "${GRAFANA_CLICKHOUSE_PORT}"
-      username: "${GRAFANA_CLICKHOUSE_USER}"
+      protocol: "${RASTRO_GF_CLICKHOUSE_PROTOCOL}"
+      host: "${RASTRO_GF_CLICKHOUSE_HOST}"
+      port: "${RASTRO_GF_CLICKHOUSE_PORT}"
+      username: "${RASTRO_GF_CLICKHOUSE_USER}"
     secureJsonData:
-      password: "${GRAFANA_CLICKHOUSE_PASSWORD}"
+      password: "${RASTRO_GF_CLICKHOUSE_PASSWORD}"
     isDefault: true

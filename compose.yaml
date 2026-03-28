@@ -48,12 +48,12 @@ services:
         source: clickhouse_data
         target: /var/lib/clickhouse
 
-  otelcol:
+  otel:
     image: "otel/opentelemetry-collector-contrib:0.148.0"
     environment:
-      OTELCOL_CLICKHOUSE_ENDPOINT: "tcp://clickhouse:9000"
-      OTELCOL_CLICKHOUSE_USERNAME: "clickhouse"
-      OTELCOL_CLICKHOUSE_PASSWORD: "clickhouse"
+      RASTRO_OTEL_CLICKHOUSE_ENDPOINT: "tcp://clickhouse:9000"
+      RASTRO_OTEL_CLICKHOUSE_USERNAME: "clickhouse"
+      RASTRO_OTEL_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: Healthcheck
         published: 13133
@@ -74,11 +74,11 @@ services:
     image: "grafana/grafana:main"
     environment:
       GF_INSTALL_PLUGINS: "grafana-clickhouse-datasource"
-      GRAFANA_CLICKHOUSE_HOST: "clickhouse"
-      GRAFANA_CLICKHOUSE_PORT: "9000"
-      GRAFANA_CLICKHOUSE_PROTOCOL: "native"
-      GRAFANA_CLICKHOUSE_USER: "clickhouse"
-      GRAFANA_CLICKHOUSE_PASSWORD: "clickhouse"
+      RASTRO_GF_CLICKHOUSE_HOST: "clickhouse"
+      RASTRO_GF_CLICKHOUSE_PORT: "9000"
+      RASTRO_GF_CLICKHOUSE_PROTOCOL: "native"
+      RASTRO_GF_CLICKHOUSE_USER: "clickhouse"
+      RASTRO_GF_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: UI
         published: 7141
