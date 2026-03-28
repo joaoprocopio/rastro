@@ -20,7 +20,7 @@ exporters:
     username: "${CLICKHOUSE_USERNAME}"
     password: "${CLICKHOUSE_PASSWORD}"
   debug:
-    verbosity: "normal"
+    verbosity: "detailed"
 
 service:
   extensions:
