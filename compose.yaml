@@ -15,5 +15,13 @@ services:
     volumes:
       - "postgres_data:/postgres:/var/lib/postgresql/data"
 
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "7141:3000"
+    volumes:
+      - "grafana_data:/var/lib/grafana"
+
 volumes:
   postgres_data:
+  grafana_data:
