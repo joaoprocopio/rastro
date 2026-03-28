@@ -18,6 +18,7 @@ services:
   otel-collector:
     image: "otel/opentelemetry-collector:latest"
     ports:
+      - "13133:13133" # Healthcheck
       - "4318:4318" # HTTP
       - "4317:4317" # gRPC
     volumes:
