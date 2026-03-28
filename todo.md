@@ -1,5 +1,3 @@
 - coletar structured logging
 - coletar metricas
-- coletar traces
 - montar um dashboard no grafana
-- deixa o grafana production-ready
