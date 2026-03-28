@@ -7,25 +7,77 @@ services:
       POSTGRES_PASSWORD: "postgres"
     ports:
       - "5432:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -d ${POSTGRES_DB:-postgres} -U ${POSTGRES_USER:-postgres}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     volumes:
-      - "postgres_data:/var/lib/postgresql"
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql
+
+  clickhouse:
+    image: "clickhouse/clickhouse-server:26.2"
+    environment:
+      CLICKHOUSE_DB: "clickhouse"
+      CLICKHOUSE_USER: "clickhouse"
+      CLICKHOUSE_PASSWORD: "clickhouse"
+    ports:
+      - name: Native
+        published: 9000
+        target: 9000
+      - name: HTTP
+        published: 8123
+        target: 8123
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - type: volume
+        source: clickhouse_data
+        target: /var/lib/clickhouse
 
   otelcol:
     image: "otel/opentelemetry-collector-contrib:0.148.0"
     ports:
-      - "13133:13133"
-      - "4318:4318"
-      - "4317:4317"
+      - name: Healthcheck
+        published: 13133
+        target: 13133
+      - name: HTTP
+        published: 4318
+        target: 4318
+      - name: gRPC
+        published: 4317
+        target: 4317
+    depends_on:
+      clickhouse:
+        condition: service_healthy
     volumes:
       - "./docker/otel/config.yaml:/etc/otelcol-contrib/config.yaml"
 
   grafana:
     image: "grafana/grafana:main"
     ports:
-      - "7141:3000"
+      - name: UI
+        published: 7141
+        target: 3000
     volumes:
-      - "grafana_data:/var/lib/grafana"
-
+      # TODO: bind local dashboards and data sources
+      - type: volume
+        source: grafana_data
+        target: /var/lib/grafana
 volumes:
   postgres_data:
   grafana_data:
+  clickhouse_data:

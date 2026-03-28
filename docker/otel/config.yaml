@@ -1,10 +1,10 @@
 receivers:
   otlp:
     protocols:
-      grpc:
-        endpoint: "0.0.0.0:4317"
       http:
         endpoint: "0.0.0.0:4318"
+      grpc:
+        endpoint: "0.0.0.0:4317"
 
 processors:
   batch:
@@ -14,8 +14,8 @@ extensions:
     endpoint: "0.0.0.0:13133"
 
 exporters:
-  debug:
-    verbosity: "detailed"
+  clickhouse:
+    endpoint: tcp://clickhouse:9000
 
 service:
   extensions:
@@ -27,16 +27,16 @@ service:
       processors:
         - "batch"
       exporters:
-        - "debug"
+        - "clickhouse"
 
     # metrics:
     #   receivers:
     #     - "otlp"
     #   exporters:
-    #     - "debug"
+    #     - "clickhouse"
 
     # logs:
     #   receivers:
     #     - "otlp"
     #   exporters:
-    #     - "debug"
+    #     - "clickhouse"
