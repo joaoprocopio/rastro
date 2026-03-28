@@ -1,16 +1,25 @@
+import os
 from pathlib import Path
+
+from pydantic import TypeAdapter
+
+from .schemas import Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = "django-insecure-50#*cg2-slv%1ax*92f0_2x83*4z1(kh^#i@7!gpk+6wr_@ivs"
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    default="i-nh1u%jl!9-f=-kws-k4&z=0z%49e_%m!7dwf=u(c9-wqh)b^",
+)
 
-DEBUG = True
+DEBUG = TypeAdapter(bool).validate_strings(os.getenv("DJANGO_DEBUG", default="true"))
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = TypeAdapter(Csv).validate_strings(
+    os.getenv("DJANGO_ALLOWED_HOSTS", default="localhost, 127.0.0.1, [::1]")
+)
 
-
-INSTALLED_APPS = [
+DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -18,6 +27,13 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+
+LOCAL_APPS = [
+    "users",
+    "tasks",
+]
+
+INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -51,8 +67,27 @@ WSGI_APPLICATION = "djangotel.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv(
+            "DJANGO_POSTGRES_NAME",
+            default="postgres",
+        ),
+        "USER": os.getenv(
+            "DJANGO_POSTGRES_USER",
+            default="postgres",
+        ),
+        "PASSWORD": os.getenv(
+            "DJANGO_POSTGRES_PASSWORD",
+            default="postgres",
+        ),
+        "HOST": os.getenv(
+            "DJANGO_POSTGRES_HOST",
+            default="localhost",
+        ),
+        "PORT": os.getenv(
+            "DJANGO_POSTGRES_PORT",
+            default="5432",
+        ),
     }
 }
 
