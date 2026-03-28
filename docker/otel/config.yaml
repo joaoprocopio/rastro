@@ -15,10 +15,10 @@ extensions:
 
 exporters:
   clickhouse:
-    endpoint: "${CLICKHOUSE_ENDPOINT}"
-    database: "${CLICKHOUSE_DATABASE}"
-    username: "${CLICKHOUSE_USERNAME}"
-    password: "${CLICKHOUSE_PASSWORD}"
+    endpoint: "${OTELCOL_CLICKHOUSE_ENDPOINT}"
+    database: "${OTELCOL_CLICKHOUSE_DB}"
+    username: "${OTELCOL_CLICKHOUSE_USERNAME}"
+    password: "${OTELCOL_CLICKHOUSE_PASSWORD}"
   debug:
     verbosity: "detailed"
 

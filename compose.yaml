@@ -51,10 +51,10 @@ services:
   otelcol:
     image: "otel/opentelemetry-collector-contrib:0.148.0"
     environment:
-      CLICKHOUSE_ENDPOINT: "tcp://clickhouse:9000"
-      CLICKHOUSE_USERNAME: "clickhouse"
-      CLICKHOUSE_PASSWORD: "clickhouse"
-      CLICKHOUSE_DATABASE: "clickhouse"
+      OTELCOL_CLICKHOUSE_ENDPOINT: "tcp://clickhouse:9000"
+      OTELCOL_CLICKHOUSE_DB: "clickhouse"
+      OTELCOL_CLICKHOUSE_USERNAME: "clickhouse"
+      OTELCOL_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: Healthcheck
         published: 13133
@@ -75,6 +75,10 @@ services:
     image: "grafana/grafana:main"
     environment:
       GF_INSTALL_PLUGINS: "grafana-clickhouse-datasource"
+      GRAFANA_CLICKHOUSE_URL: "http://clickhouse:8123"
+      GRAFANA_CLICKHOUSE_DB: "clickhouse"
+      GRAFANA_CLICKHOUSE_USER: "clickhouse"
+      GRAFANA_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: UI
         published: 7141
@@ -84,6 +88,11 @@ services:
       - type: volume
         source: grafana_data
         target: /var/lib/grafana
+      - type: bind
+        source: ./docker/grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+
 volumes:
   postgres_data:
   grafana_data:
