@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.semconv._incubating.attributes import deployment_attributes
 from opentelemetry.semconv.attributes import service_attributes
 
-from djangotel.settings import DEPLOYMENT_ENVIRONMENT, DEPLOYMENT_ID, OTEL_GRPC_ENDPOINT
+from rastro.settings import DEPLOYMENT_ENVIRONMENT, DEPLOYMENT_ID, OTEL_GRPC_ENDPOINT
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def instrument_django_wsgi_telemetry():
     resource = Resource(
         attributes={
-            service_attributes.SERVICE_NAME: "djangotel",
+            service_attributes.SERVICE_NAME: "rastro",
             deployment_attributes.DEPLOYMENT_ID: DEPLOYMENT_ID,
             deployment_attributes.DEPLOYMENT_ENVIRONMENT: DEPLOYMENT_ENVIRONMENT,
         }

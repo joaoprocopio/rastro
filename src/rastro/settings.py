@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from djangotel.schemas import Csv
+from rastro.schemas import Csv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -33,8 +33,8 @@ DJANGO_APPS = [
 ]
 
 LOCAL_APPS = [
-    "djangotel.users",
-    "djangotel.tasks",
+    "rastro.conta",
+    "rastro.tarefas",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
@@ -49,7 +49,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "djangotel.urls"
+ROOT_URLCONF = "rastro.urls"
 
 TEMPLATES = [
     {
@@ -66,7 +66,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "djangotel.wsgi.application"
+WSGI_APPLICATION = "rastro.wsgi.application"
 
 
 DATABASES = {
