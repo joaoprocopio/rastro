@@ -9,4 +9,6 @@
 https://github.com/codescale-dev/frontinvale2023/tree/main/with-ddd-scaled
 https://github.com/Tishka17/deseos17
 
-- more value objects
+- expandir o clean arch pra outras partes do projeto
+- mais value objects
+- traduzir entidades pra portugues

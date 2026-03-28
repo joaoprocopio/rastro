@@ -3,28 +3,34 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from rastro.schemas import Csv
+from rastro.shared.domain.value_objects import Csv
+from rastro.config import (
+    DatabaseConfig,
+    DeploymentConfig,
+    SecurityConfig,
+    OtelConfig,
+    get_env,
+    get_env_bool,
+    get_env_csv,
+)
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-DEPLOYMENT_ID = os.getenv("RASTRO_DJANGO_DEPLOYMENT_ID", default="2f92ca37")
+DEPLOYMENT_ID = get_env("RASTRO_DJANGO_DEPLOYMENT_ID", default="2f92ca37")
 
-DEPLOYMENT_ENVIRONMENT = os.getenv(
-    "RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT", default="dev"
-)
+DEPLOYMENT_ENVIRONMENT = get_env("RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT", default="dev")
 
-SECRET_KEY = os.getenv(
+SECRET_KEY = get_env(
     "RASTRO_DJANGO_SECRET_KEY",
     default="i-nh1u%jl!9-f=-kws-k4&z=0z%49e_%m!7dwf=u(c9-wqh)b^",
 )
 
-DEBUG = TypeAdapter(bool).validate_strings(
-    os.getenv("RASTRO_DJANGO_DEBUG", default="true")
-)
+DEBUG = get_env_bool("RASTRO_DJANGO_DEBUG", default=True)
 
-ALLOWED_HOSTS = TypeAdapter(Csv).validate_strings(
-    os.getenv("RASTRO_DJANGO_ALLOWED_HOSTS", default="localhost, 127.0.0.1, [::1]")
+ALLOWED_HOSTS = get_env_csv(
+    "RASTRO_DJANGO_ALLOWED_HOSTS", default="localhost, 127.0.0.1, [::1]"
 )
 
 DJANGO_APPS = [
@@ -76,26 +82,11 @@ WSGI_APPLICATION = "rastro.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv(
-            "RASTRO_DJANGO_POSTGRES_DB",
-            default="postgres",
-        ),
-        "USER": os.getenv(
-            "RASTRO_DJANGO_POSTGRES_USER",
-            default="postgres",
-        ),
-        "PASSWORD": os.getenv(
-            "RASTRO_DJANGO_POSTGRES_PASSWORD",
-            default="postgres",
-        ),
-        "HOST": os.getenv(
-            "RASTRO_DJANGO_POSTGRES_HOST",
-            default="localhost",
-        ),
-        "PORT": os.getenv(
-            "RASTRO_DJANGO_POSTGRES_PORT",
-            default="5432",
-        ),
+        "NAME": get_env("RASTRO_DJANGO_POSTGRES_DB", default="postgres"),
+        "USER": get_env("RASTRO_DJANGO_POSTGRES_USER", default="postgres"),
+        "PASSWORD": get_env("RASTRO_DJANGO_POSTGRES_PASSWORD", default="postgres"),
+        "HOST": get_env("RASTRO_DJANGO_POSTGRES_HOST", default="localhost"),
+        "PORT": get_env("RASTRO_DJANGO_POSTGRES_PORT", default="5432"),
     }
 }
 
@@ -127,9 +118,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-OTEL_GRPC_ENDPOINT = os.getenv(
+OTEL_GRPC_ENDPOINT = get_env(
     "RASTRO_DJANGO_OTEL_GRPC_ENDPOINT", default="localhost:4317"
 )
-OTEL_HTTP_ENDPOINT = os.getenv(
+OTEL_HTTP_ENDPOINT = get_env(
     "RASTRO_DJANGO_OTEL_HTTP_ENDPOINT", default="localhost:4318"
 )
