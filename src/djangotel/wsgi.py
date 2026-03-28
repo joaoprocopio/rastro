@@ -6,6 +6,6 @@ from djangotel import telemetry
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "djangotel.settings")
 
-telemetry.setup()
+telemetry.instrument_django_wsgi_telemetry()
 
 application = get_wsgi_application()

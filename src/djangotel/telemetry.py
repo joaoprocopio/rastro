@@ -14,7 +14,7 @@ from djangotel.settings import DEPLOYMENT_ENVIRONMENT, DEPLOYMENT_ID, OTEL_GRPC_
 logger = logging.getLogger(__name__)
 
 
-def setup():
+def instrument_django_wsgi_telemetry():
     resource = Resource(
         attributes={
             service_attributes.SERVICE_NAME: "djangotel",
@@ -24,11 +24,9 @@ def setup():
     )
 
     tracer_provider = TracerProvider(resource=resource)
-    tracer_processor = BatchSpanProcessor(
-        OTLPSpanExporter(endpoint=OTEL_GRPC_ENDPOINT, insecure=True)
-    )
+    tracer_exporter = OTLPSpanExporter(endpoint=OTEL_GRPC_ENDPOINT, insecure=True)
+    tracer_processor = BatchSpanProcessor(tracer_exporter)
     tracer_provider.add_span_processor(tracer_processor)
-
     trace.set_tracer_provider(tracer_provider)
 
     def response_hook(span, request, response):
