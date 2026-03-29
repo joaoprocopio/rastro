@@ -4,33 +4,34 @@ from typing import Callable, TypeVar, overload
 T = TypeVar("T")
 
 
-@overload
-def get_env(
-    key: str,
-    *,
-    cast: Callable[[str], T],
-    default: T,
-) -> T: ...
+def cast_env(value, *, caster: Callable[[str], T]) -> T:
+    return caster(value)
 
 
 @overload
 def get_env(
     key: str,
     *,
-    cast: Callable[[str], T],
+    default: str,
+) -> str: ...
+
+
+@overload
+def get_env(
+    key: str,
+    *,
     default: None = None,
-) -> T | None: ...
+) -> str | None: ...
 
 
 def get_env(
     key: str,
     *,
-    cast: Callable[[str], T],
-    default: T | None = None,
-) -> T | None:
+    default: str | None = None,
+) -> str | None:
     value = os.environ.get(key)
 
     if value is None:
         return default
 
-    return cast(value)
+    return value

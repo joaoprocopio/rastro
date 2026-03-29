@@ -3,7 +3,7 @@ from pathlib import Path
 import django_stubs_ext
 
 from rastro.base.parsers import parse_booleanish, parse_csv
-from rastro.env import get_env
+from rastro.env import cast_env, get_env
 
 django_stubs_ext.monkeypatch()
 
@@ -13,31 +13,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEPLOYMENT_ID = get_env(
     "RASTRO_DJANGO_DEPLOYMENT_ID",
     default="2f92ca37",
-    cast=str,
 )
 
 DEPLOYMENT_ENVIRONMENT = get_env(
     "RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT",
     default="dev",
-    cast=str,
 )
 
 SECRET_KEY = get_env(
     "RASTRO_DJANGO_SECRET_KEY",
     default="i-nh1u%jl!9-f=-kws-k4&z=0z%49e_%m!7dwf=u(c9-wqh)b^",
-    cast=str,
 )
 
-DEBUG = get_env(
-    "RASTRO_DJANGO_DEBUG",
-    default=True,
-    cast=parse_booleanish,
+DEBUG = cast_env(
+    get_env(
+        "RASTRO_DJANGO_DEBUG",
+        default="true",
+    ),
+    caster=parse_booleanish,
 )
 
-ALLOWED_HOSTS = get_env(
-    "RASTRO_DJANGO_ALLOWED_HOSTS",
-    default=["localhost", "127.0.0.1", "[::1]"],
-    cast=parse_csv,
+ALLOWED_HOSTS = cast_env(
+    get_env(
+        "RASTRO_DJANGO_ALLOWED_HOSTS",
+        default="localhost, 127.0.0.1, [::1]",
+    ),
+    caster=parse_csv,
 )
 
 DJANGO_APPS = [
@@ -92,27 +93,22 @@ DATABASES = {
         "NAME": get_env(
             "RASTRO_DJANGO_POSTGRES_DB",
             default="postgres",
-            cast=str,
         ),
         "USER": get_env(
             "RASTRO_DJANGO_POSTGRES_USER",
             default="postgres",
-            cast=str,
         ),
         "PASSWORD": get_env(
             "RASTRO_DJANGO_POSTGRES_PASSWORD",
             default="postgres",
-            cast=str,
         ),
         "HOST": get_env(
             "RASTRO_DJANGO_POSTGRES_HOST",
             default="localhost",
-            cast=str,
         ),
         "PORT": get_env(
             "RASTRO_DJANGO_POSTGRES_PORT",
             default="5432",
-            cast=str,
         ),
     }
 }
@@ -148,10 +144,8 @@ STATIC_URL = "static/"
 OTEL_GRPC_ENDPOINT = get_env(
     "RASTRO_DJANGO_OTEL_GRPC_ENDPOINT",
     default="localhost:4317",
-    cast=str,
 )
 OTEL_HTTP_ENDPOINT = get_env(
     "RASTRO_DJANGO_OTEL_HTTP_ENDPOINT",
     default="localhost:4318",
-    cast=str,
 )
