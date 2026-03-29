@@ -10,9 +10,38 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "django>=6.0.3",
+    "django-stubs-ext>=6.0.1",
     "opentelemetry-exporter-otlp>=1.40.0",
     "opentelemetry-instrumentation-django>=0.61b0",
     "opentelemetry-sdk>=1.40.0",
     "psycopg2>=2.9.11",
     "pydantic>=2.12.5",
 ]
+
+[dependency-groups]
+dev = [
+    "django-stubs[compatible-mypy]>=6.0.1",
+]
+
+[tool.mypy]
+strict = true
+plugins = ["mypy_django_plugin.main"]
+disallow_any_unimported = true   # error on Any from missing stubs
+disallow_any_expr = true         # no Any anywhere in expressions (very aggressive)
+disallow_any_decorated = true    # error if decorator makes return type Any
+disallow_any_explicit = true     # ban explicit Any annotations
+warn_unreachable = true          # error on unreachable code
+no_implicit_optional = true      # disallow implicit Optional (PEP 484)
+strict_optional = true           # None is not compatible with any type
+warn_no_return = true            # error if not all paths return a value
+show_error_codes = true          # show error codes for easier ignore comments
+
+[[tool.mypy.overrides]]
+module = [
+    "django.*",
+    "psycopg2.*",
+]
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "rastro.settings"

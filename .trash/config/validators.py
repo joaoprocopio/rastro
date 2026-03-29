@@ -1,6 +1,6 @@
 import os
-from pydantic import TypeAdapter, ValidationError
 
+from pydantic import TypeAdapter
 from rastro.shared.domain.value_objects import Csv
 
 
