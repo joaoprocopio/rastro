@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import TypeVar, Generic
+from typing import Generic, TypeVar
 
 T = TypeVar("T", int, str)
 
 
-@dataclass(frozen=True,Generic[T])
+@dataclass(Generic[T], frozen=True)
 class Id:
     value: T
 
