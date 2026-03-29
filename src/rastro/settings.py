@@ -32,7 +32,7 @@ SECRET_KEY = get_env(
 DEBUG = cast_env(
     get_env(
         "RASTRO_DJANGO_DEBUG",
-        default="true",
+        default="1",
     ),
     caster=parse_booleanish,
 )
