@@ -1,23 +1,10 @@
 from dataclasses import dataclass
-from typing import Generic, TypeVar
 
-T = TypeVar("T", int, str)
+from rastro_base.value_objects import ValueObject
 
 
-@dataclass(Generic[T], frozen=True)
-class Id:
-    value: T
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    def __repr__(self) -> str:
-        return f"Id({self.value!r})"
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Id):
-            return self.value == other.value
-        return False
-
-    def __hash__(self) -> int:
-        return hash(self.value)
+@dataclass(frozen=True)
+class Id(ValueObject[int]):
+    def __post_init__(self):
+        if not self.value >= 1:
+            raise ValueError(f"ID must be greater or equal than 1, got {self.value}")
