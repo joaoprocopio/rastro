@@ -41,6 +41,3 @@ class BaseError(Exception):
 
 class InvalidIdError(BaseError):
     code = "INVALID_ID"
-
-
-print(InvalidIdError())
