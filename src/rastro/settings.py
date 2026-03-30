@@ -141,19 +141,3 @@ OTEL_HTTP_ENDPOINT = get_env(
     "RASTRO_DJANGO_OTEL_HTTP_ENDPOINT",
     default="localhost:4318",
 )
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-        },
-    },
-    "loggers": {
-        "django.db.backends": {
-            "level": "DEBUG",
-            "handlers": ["console"],
-        },
-    },
-}
