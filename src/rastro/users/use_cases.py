@@ -1,15 +1,12 @@
-from django.contrib.auth.hashers import check_password, make_password
-
 from rastro.base.use_cases import UseCase
 from rastro.users.dto import SignInInput, SignUpInput, UserOutput
 from rastro.users.entities import User
 from rastro.users.errors import (
     AuthenticationError,
-    EmailAlreadyExistsError,
-    UsernameAlreadyExistsError,
 )
+from rastro.users.mappers import UserToDTOMapper
 from rastro.users.repository import UserRepository
-from rastro.users.value_objects import Password
+from rastro.users.value_objects import Email, Password, Username
 
 
 class SignUpUseCase(UseCase[SignUpInput, UserOutput]):
@@ -17,25 +14,16 @@ class SignUpUseCase(UseCase[SignUpInput, UserOutput]):
         self.repository = repository
 
     def execute(self, input: SignUpInput) -> UserOutput:
-        if self.repository.get_by_email(input.email.value):
-            raise EmailAlreadyExistsError(f"Email already exists: {email.value}")
-
-        if self.repository.get_by_username(username.value):
-            raise UsernameAlreadyExistsError(
-                f"Username already exists: {username.value}"
+        user = self.repository.save(
+            User(
+                id=None,
+                username=Username(input.username),
+                email=Email(input.email),
+                password=Password(input.password),
             )
-
-        password = Password(make_password(password))
-
-        user = User(
-            id=None,
-            username=username,
-            email=email,
-            password=password,
         )
 
-        saved_user = self.repository.save(user)
-        return present_user(saved_user)
+        return UserToDTOMapper.map(user)
 
 
 class SignInUseCase(UseCase[SignInInput, UserOutput]):
@@ -43,16 +31,15 @@ class SignInUseCase(UseCase[SignInInput, UserOutput]):
         self.repository = repository
 
     def execute(self, input: SignInInput) -> UserOutput:
-        query, password = schema_to_entrar_input(input)
-
-        user = self.repository.get_by_email(query)
-        if user is None:
-            user = self.repository.get_by_username(query)
+        if "@" in input.query:
+            user = self.repository.get_by_email(input.query)
+        else:
+            user = self.repository.get_by_username(input.query)
 
         if user is None:
             raise AuthenticationError("Invalid credentials")
 
-        if not check_password(password, user.password.value):
+        if not self.repository.verify_password(user, user.password.value):
             raise AuthenticationError("Invalid credentials")
 
-        return present_user(user)
+        return UserToDTOMapper.map(user)

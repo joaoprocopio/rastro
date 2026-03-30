@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from django.contrib.auth.models import User as DjangoUser
 
 from rastro.users.entities import User
-from rastro.users.mappers import DjangoUserModelToEntityMapper
+from rastro.users.mappers import DjangoUserToEntityMapper
 
 
 class UserRepository(ABC):
@@ -19,48 +19,60 @@ class UserRepository(ABC):
     @abstractmethod
     def save(self, user: User) -> User: ...
 
+    @abstractmethod
+    def verify_password(self, user: User, password: str) -> bool: ...
+
 
 class DjangoUserRepository(UserRepository):
     def get_by_id(self, id: int) -> User | None:
         try:
-            user = DjangoUser.objects.get(pk=id)  # type: ignore[misc]
+            django_user = DjangoUser.objects.get(pk=id)  # type: ignore[misc]
 
-            return DjangoUserModelToEntityMapper.map(user)
+            return DjangoUserToEntityMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
     def get_by_email(self, email: str) -> User | None:
         try:
-            user = DjangoUser.objects.get(email=email)  # type: ignore[misc]
+            django_user = DjangoUser.objects.get(email=email)  # type: ignore[misc]
 
-            return DjangoUserModelToEntityMapper.map(user)
+            return DjangoUserToEntityMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
     def get_by_username(self, username: str) -> User | None:
         try:
-            user = DjangoUser.objects.get(username=username)  # type: ignore[misc]
+            django_user = DjangoUser.objects.get(username=username)  # type: ignore[misc]
 
-            return DjangoUserModelToEntityMapper.map(user)
+            return DjangoUserToEntityMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
     def save(self, user: User) -> User:
         if user.id is None:
-            inner_user = DjangoUser.objects.create_user(  # type: ignore[misc]
+            django_user = DjangoUser.objects.create_user(  # type: ignore[misc]
                 username=user.username.value,
                 email=user.email.value,
                 password=user.password.value,
             )
 
-            return DjangoUserModelToEntityMapper.map(inner_user)
+            return DjangoUserToEntityMapper.map(django_user)
 
-        inner_user = DjangoUser.objects.get(pk=user.id.value)  # type: ignore[misc]
+        django_user = DjangoUser.objects.get(pk=user.id.value)  # type: ignore[misc]
 
-        inner_user.username = user.username.value
-        inner_user.email = user.email.value
-        inner_user.password = user.password.value
+        django_user.username = user.username.value
+        django_user.email = user.email.value
+        django_user.password = user.password.value
 
-        inner_user.save()
+        django_user.save()
+        django_user.check_password
 
-        return DjangoUserModelToEntityMapper.map(inner_user)
+        return DjangoUserToEntityMapper.map(django_user)
+
+    def verify_password(self, user: User, password: str) -> bool:
+        try:
+            django_user = DjangoUser.objects.get(pk=user.id.value)  # type: ignore
+
+            return django_user.check_password(password)
+        except DjangoUser.DoesNotExist:
+            return False

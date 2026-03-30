@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
-T_IN = TypeVar("T_IN")
-T_OUT = TypeVar("T_OUT")
+T_INPUT = TypeVar("T_INPUT")
+T_OUTPUT = TypeVar("T_OUTPUT")
 
 
-class UseCase(ABC, Generic[T_IN, T_OUT]):
+class UseCase(ABC, Generic[T_INPUT, T_OUTPUT]):
     @abstractmethod
-    def execute(self, input: T_IN) -> T_OUT: ...
+    def execute(self, input: T_INPUT) -> T_OUTPUT: ...
