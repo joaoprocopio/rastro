@@ -2,13 +2,13 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class EntrarInput:
+class SignInInput:
     query: str
     password: str
 
 
 @dataclass(frozen=True)
-class CadastrarInput:
+class SignUpInput:
     first_name: str
     last_name: str
     username: str
@@ -17,7 +17,7 @@ class CadastrarInput:
 
 
 @dataclass(frozen=True)
-class ContaOutput:
+class UserOutput:
     id: int
     email: str
     username: str

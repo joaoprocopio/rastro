@@ -1,7 +1,7 @@
 import re
 
 from rastro.base.value_objects import ValueObject
-from rastro.conta.errors import (
+from rastro.users.errors import (
     InvalidEmailError,
     InvalidPasswordError,
     InvalidUsernameError,

@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
 from rastro.base.entities import Entity, Id
-from rastro.conta.value_objects import Email, Name, PasswordHash, Username
+from rastro.users.value_objects import Email, Name, PasswordHash, Username
 
 
 @dataclass
-class Conta(Entity[Id]):
+class User(Entity[Id]):
     username: Username
     email: Email
     password_hash: PasswordHash

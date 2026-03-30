@@ -55,8 +55,7 @@ DJANGO_APPS = [
 ]
 
 LOCAL_APPS = [
-    "rastro.conta",
-    "rastro.tarefas",
+    "rastro.users",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS

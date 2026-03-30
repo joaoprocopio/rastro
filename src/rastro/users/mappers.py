@@ -1,14 +1,14 @@
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User as DjangoUser
 
 from rastro.base.entities import Id
 from rastro.base.mappers import Mapper
-from rastro.conta.entities import Conta
-from rastro.conta.value_objects import Email, Name, PasswordHash, Username
+from rastro.users.entities import User
+from rastro.users.value_objects import Email, Name, PasswordHash, Username
 
 
-class DjangoContaMapper(Mapper[User, Conta]):
+class DjangoUserMapper(Mapper[DjangoUser, User]):
     @staticmethod
-    def to_target(input: Conta) -> User:
+    def to_target(input: User) -> DjangoUser:
         return User(
             id=input.id.value,  # type: ignore
             username=input.username.value,
@@ -19,8 +19,8 @@ class DjangoContaMapper(Mapper[User, Conta]):
         )
 
     @staticmethod
-    def to_source(model: User) -> Conta:
-        return Conta(
+    def to_source(model: DjangoUser) -> User:
+        return User(
             id=Id(model.pk),
             email=Email(model.email),
             first_name=Name(model.first_name),

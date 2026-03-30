@@ -1,22 +1,22 @@
 from django.contrib.auth.hashers import check_password, make_password
 
 from rastro.base.use_cases import UseCase
-from rastro.conta.dto import CadastrarInput, ContaOutput, EntrarInput
-from rastro.conta.entities import Conta
-from rastro.conta.errors import (
+from rastro.users.dto import SignInInput, SignUpInput, UserOutput
+from rastro.users.entities import User
+from rastro.users.errors import (
     AuthenticationError,
     EmailAlreadyExistsError,
     UsernameAlreadyExistsError,
 )
-from rastro.conta.repository import ContaRepository
-from rastro.conta.value_objects import PasswordHash
+from rastro.users.repository import UserRepository
+from rastro.users.value_objects import PasswordHash
 
 
-class CadastrarUseCase(UseCase[CadastrarInput, ContaOutput]):
-    def __init__(self, repository: ContaRepository):
+class SignUpUseCase(UseCase[SignUpInput, UserOutput]):
+    def __init__(self, repository: UserRepository):
         self.repository = repository
 
-    def execute(self, input: CadastrarInput) -> ContaOutput:
+    def execute(self, input: SignUpInput) -> UserOutput:
         if self.repository.get_by_email(input.email.value):
             raise EmailAlreadyExistsError(f"Email already exists: {email.value}")
 
@@ -27,7 +27,7 @@ class CadastrarUseCase(UseCase[CadastrarInput, ContaOutput]):
 
         password_hash = PasswordHash(make_password(password))
 
-        conta = Conta(
+        user = User(
             id=None,
             username=username,
             email=email,
@@ -36,25 +36,25 @@ class CadastrarUseCase(UseCase[CadastrarInput, ContaOutput]):
             last_name=last_name,
         )
 
-        saved_conta = self.repository.save(conta)
-        return present_conta(saved_conta)
+        saved_user = self.repository.save(user)
+        return present_user(saved_user)
 
 
-class EntrarUseCase(UseCase[EntrarInput, ContaOutput]):
-    def __init__(self, repository: ContaRepository):
+class SignInUseCase(UseCase[SignInInput, UserOutput]):
+    def __init__(self, repository: UserRepository):
         self.repository = repository
 
-    def execute(self, input: EntrarInput) -> ContaOutput:
+    def execute(self, input: SignInInput) -> UserOutput:
         query, password = schema_to_entrar_input(input)
 
-        conta = self.repository.get_by_email(query)
-        if conta is None:
-            conta = self.repository.get_by_username(query)
+        user = self.repository.get_by_email(query)
+        if user is None:
+            user = self.repository.get_by_username(query)
 
-        if conta is None:
+        if user is None:
             raise AuthenticationError("Invalid credentials")
 
-        if not check_password(password, conta.password_hash.value):
+        if not check_password(password, user.password_hash.value):
             raise AuthenticationError("Invalid credentials")
 
-        return present_conta(conta)
+        return present_user(user)
