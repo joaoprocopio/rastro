@@ -1,23 +1,22 @@
-# from http import HTTPStatus
+from http import HTTPStatus
 
-# from django.core.handlers.wsgi import WSGIRequest
-# from django.db.utils import IntegrityError
-# from django.http import HttpResponse, JsonResponse
-# from django.views.decorators.csrf import csrf_exempt
-# from django.views.decorators.http import require_GET, require_POST
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse
+from django.views.decorators.http import require_GET
 
 
-# @require_GET
-# def conta(request: WSGIRequest):
-#     if not request.user.is_authenticated:  # type: ignore[union-attr]
-#         return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
+@require_GET  # type: ignore[misc]
+def conta(request: WSGIRequest) -> HttpResponse:
+    return HttpResponse(status=HTTPStatus.IM_A_TEAPOT)
+    # if not request.user.is_authenticated:  # type: ignore[union-attr]
+    #     return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
 
-#     try:
-#         use_case = get_get_user_usecase()
-#         user = use_case.execute(_get_user_id(request))
-#         return JsonResponse(serialize_user(user), status=HTTPStatus.OK)
-#     except UserNotFoundError:
-#         return HttpResponse(status=HTTPStatus.NOT_FOUND)
+    # try:
+    #     use_case = get_get_user_usecase()
+    #     user = use_case.execute(_get_user_id(request))
+    #     return JsonResponse(serialize_user(user), status=HTTPStatus.OK)
+    # except UserNotFoundError:
+    #     return HttpResponse(status=HTTPStatus.NOT_FOUND)
 
 
 # @require_POST
