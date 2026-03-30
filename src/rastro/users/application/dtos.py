@@ -17,14 +17,9 @@ class SignInInput(DTO):
 
 
 @dataclass(frozen=True)
-class GetUserInput(DTO):
-    user_id: int
-
-
-@dataclass(frozen=True)
 class UserOutput(DTO):
     id: int
     email: str
     username: str
+    password: str
     is_active: bool
-    is_verified: bool

@@ -8,7 +8,7 @@ from rastro.users.domain.value_objects import (
     RawPassword,
     Username,
 )
-from rastro.users.infrastructure.mappers import DjangoUserToDomainMapper
+from rastro.users.infrastructure.mappers import DjangoToDomainUserMapper
 
 
 class DjangoUserRepository(UserRepository):
@@ -21,13 +21,13 @@ class DjangoUserRepository(UserRepository):
             password=raw_password.value,
         )
 
-        return DjangoUserToDomainMapper.map(django_user)
+        return DjangoToDomainUserMapper.map(django_user)
 
     def get_by_id(self, id: Id) -> User | None:
         try:
             django_user = DjangoUser.objects.get(pk=id.value)  # type: ignore
 
-            return DjangoUserToDomainMapper.map(django_user)
+            return DjangoToDomainUserMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
@@ -35,7 +35,7 @@ class DjangoUserRepository(UserRepository):
         try:
             django_user = DjangoUser.objects.get(email=email.value)  # type: ignore
 
-            return DjangoUserToDomainMapper.map(django_user)
+            return DjangoToDomainUserMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
@@ -43,6 +43,6 @@ class DjangoUserRepository(UserRepository):
         try:
             django_user = DjangoUser.objects.get(username=username.value)  # type: ignore
 
-            return DjangoUserToDomainMapper.map(django_user)
+            return DjangoToDomainUserMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None

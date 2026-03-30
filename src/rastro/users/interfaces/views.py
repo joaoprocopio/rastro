@@ -4,16 +4,17 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from rastro.base.entity import Id
 from rastro.users.application.dtos import (
-    GetUserInput,
     SignInInput,
     SignUpInput,
 )
 from rastro.users.application.use_cases import (
-    GetUserUseCase,
     SignInUseCase,
     SignUpUseCase,
+)
+from rastro.users.infrastructure.mappers import (
+    DomainToOutputUserMapper,
+    OutputToDomainUserMapper,
 )
 from rastro.users.infrastructure.repository import DjangoUserRepository
 from rastro.users.infrastructure.services import (
@@ -22,24 +23,33 @@ from rastro.users.infrastructure.services import (
 )
 from rastro.users.interfaces.presenters import UserPresenter
 
-repository = DjangoUserRepository()
-session_service = DjangoSessionService()
-password_hashing_service = DjangoPasswordHashingService()
-
-sign_up_use_case = SignUpUseCase(repository)
-sign_in_use_case = SignInUseCase(repository, password_hashing_service)
-get_user_use_case = GetUserUseCase(repository)
-
 
 @require_GET  # type: ignore
 def me(request: HttpRequest) -> HttpResponse:
-    user_id = session_service.access_current_user_id(request)
+    session_service = DjangoSessionService(request)
 
-    if user_id is None:
+    user = session_service.logged_user()
+
+    if user is None:
         return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
 
-    input = GetUserInput(user_id=user_id.value)
-    output = get_user_use_case.execute(input)
+    return JsonResponse(
+        UserPresenter.present(DomainToOutputUserMapper.map(user)), status=HTTPStatus.OK
+    )
+
+
+@require_POST  # type: ignore
+@csrf_exempt  # type: ignore
+def sign_in(request: HttpRequest) -> JsonResponse:
+    repository = DjangoUserRepository()
+    password_hashing_service = DjangoPasswordHashingService()
+    sign_in_use_case = SignInUseCase(repository, password_hashing_service)
+    session_service = DjangoSessionService(request)
+
+    input = SignInInput.parse_json(request.body)
+    output = sign_in_use_case.execute(input)
+
+    session_service.login(OutputToDomainUserMapper.map(output))
 
     return JsonResponse(UserPresenter.present(output), status=HTTPStatus.OK)
 
@@ -47,6 +57,9 @@ def me(request: HttpRequest) -> HttpResponse:
 @require_POST  # type: ignore
 @csrf_exempt  # type: ignore
 def sign_up(request: HttpRequest) -> JsonResponse:
+    repository = DjangoUserRepository()
+    sign_up_use_case = SignUpUseCase(repository)
+
     input = SignUpInput.parse_json(request.body)
     output = sign_up_use_case.execute(input)
 
@@ -54,17 +67,8 @@ def sign_up(request: HttpRequest) -> JsonResponse:
 
 
 @require_POST  # type: ignore
-@csrf_exempt  # type: ignore
-def sign_in(request: HttpRequest) -> JsonResponse:
-    input = SignInInput.parse_json(request.body)
-    output = sign_in_use_case.execute(input)
-
-    session_service.login(request, Id(output.id))
-
-    return JsonResponse(UserPresenter.present(output), status=HTTPStatus.OK)
-
-
 def sign_out(request: HttpRequest) -> HttpResponse:
-    session_service.logout(request)
+    session_service = DjangoSessionService(request)
+    session_service.logout()
 
     return HttpResponse(status=HTTPStatus.NO_CONTENT)

@@ -10,4 +10,3 @@ class User(Entity[Id]):
     email: Email
     hashed_password: HashedPassword
     is_active: bool
-    is_verified: bool
