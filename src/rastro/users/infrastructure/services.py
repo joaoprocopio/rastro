@@ -1,6 +1,7 @@
 from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User as DjangoUser
+from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpRequest
 
 from rastro.base.entity import Id
@@ -49,14 +50,10 @@ class DjangoEmailService(EmailService):
 
 class DjangoTokenService(TokenService):
     def generate_verification_token(self, user: User) -> str:
-        from django.contrib.auth.tokens import default_token_generator
-
         django_user = DjangoUser.objects.get(pk=user.id.value)  # type: ignore[misc]
         return default_token_generator.make_token(django_user)
 
     def generate_password_reset_token(self, user: User) -> str:
-        from django.contrib.auth.tokens import default_token_generator
-
         django_user = DjangoUser.objects.get(pk=user.id.value)  # type: ignore[misc]
         return default_token_generator.make_token(django_user)
 

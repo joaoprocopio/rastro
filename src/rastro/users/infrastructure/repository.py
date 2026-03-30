@@ -8,7 +8,11 @@ from rastro.users.domain.errors import (
     UsernameAlreadyExistsError,
 )
 from rastro.users.domain.repository import UserRepository
-from rastro.users.domain.value_objects import Email, HashedPassword, Username
+from rastro.users.domain.value_objects import (
+    Email,
+    HashedPassword,
+    Username,
+)
 
 
 class DjangoUserRepository(UserRepository):
@@ -22,7 +26,7 @@ class DjangoUserRepository(UserRepository):
                 f"Username {username.value} already exists"
             )
 
-        django_user = DjangoUser.objects.create_user(  # type: ignore[misc]
+        django_user = DjangoUser.objects.create(  # type: ignore[misc]
             username=username.value,
             email=email.value,
             password=hashed_password.value,
