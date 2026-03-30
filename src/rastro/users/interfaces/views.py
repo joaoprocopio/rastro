@@ -67,16 +67,20 @@ def sign_in(request: HttpRequest) -> JsonResponse:
 
 def sign_out(request: HttpRequest) -> HttpResponse:
     session_service.logout(request)
+
     return HttpResponse(status=HTTPStatus.NO_CONTENT)
 
 
 @require_GET  # type: ignore[misc]
-def me(request: HttpRequest) -> JsonResponse:
+def me(request: HttpRequest) -> HttpResponse:
     user_id = session_service.get_current_user_id(request)
+
     if user_id is None:
-        return JsonResponse({}, status=HTTPStatus.UNAUTHORIZED)  # type: ignore[misc]
-    input_dto = GetUserInput(user_id=user_id.value)
-    output: UserOutput = get_user_use_case.execute(input_dto)
+        return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
+
+    input = GetUserInput(user_id=user_id.value)
+    output = get_user_use_case.execute(input)
+
     return JsonResponse(UserPresenter.present(output), status=HTTPStatus.OK)
 
 
@@ -85,6 +89,7 @@ def request_password_reset(request: HttpRequest) -> HttpResponse:
     data = json.loads(request.body)  # type: ignore[misc]
     email: str = data["email"]  # type: ignore[misc]
     request_password_reset_use_case.execute(email)
+
     return HttpResponse(status=HTTPStatus.NO_CONTENT)
 
 

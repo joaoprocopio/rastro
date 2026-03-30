@@ -3,7 +3,7 @@ from dataclasses import dataclass, fields
 from typing import Self
 
 from rastro.base.dto import DTO
-from rastro.base.mixins import FromStr
+from rastro.base.traits import FromStr
 
 
 @dataclass(frozen=True)
@@ -30,31 +30,56 @@ class SignInInput(DTO, FromStr):
 
 
 @dataclass(frozen=True)
-class RequestPasswordResetInput(DTO):
+class RequestPasswordResetInput(DTO, FromStr):
     email: str
+
+    @classmethod
+    def from_str(cls, value: str | bytes | bytearray) -> Self:
+        data = json.loads(value)  # type: ignore[misc]
+        return cls(**{f.name: data[f.name] for f in fields(cls) if f.name in data})  # type: ignore[misc]
 
 
 @dataclass(frozen=True)
-class ResetPasswordInput(DTO):
+class ResetPasswordInput(DTO, FromStr):
     user_id: int
     token: str
     new_password: str
 
+    @classmethod
+    def from_str(cls, value: str | bytes | bytearray) -> Self:
+        data = json.loads(value)  # type: ignore[misc]
+        return cls(**{f.name: data[f.name] for f in fields(cls) if f.name in data})  # type: ignore[misc]
+
 
 @dataclass(frozen=True)
-class RequestEmailVerificationInput(DTO):
+class RequestEmailVerificationInput(DTO, FromStr):
     user_id: int
 
+    @classmethod
+    def from_str(cls, value: str | bytes | bytearray) -> Self:
+        data = json.loads(value)  # type: ignore[misc]
+        return cls(**{f.name: data[f.name] for f in fields(cls) if f.name in data})  # type: ignore[misc]
+
 
 @dataclass(frozen=True)
-class VerifyEmailInput(DTO):
+class VerifyEmailInput(DTO, FromStr):
     user_id: int
     token: str
 
+    @classmethod
+    def from_str(cls, value: str | bytes | bytearray) -> Self:
+        data = json.loads(value)  # type: ignore[misc]
+        return cls(**{f.name: data[f.name] for f in fields(cls) if f.name in data})  # type: ignore[misc]
+
 
 @dataclass(frozen=True)
-class GetUserInput(DTO):
+class GetUserInput(DTO, FromStr):
     user_id: int
+
+    @classmethod
+    def from_str(cls, value: str | bytes | bytearray) -> Self:
+        data = json.loads(value)  # type: ignore[misc]
+        return cls(**{f.name: data[f.name] for f in fields(cls) if f.name in data})  # type: ignore[misc]
 
 
 @dataclass(frozen=True)

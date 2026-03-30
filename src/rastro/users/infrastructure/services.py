@@ -33,10 +33,11 @@ class DjangoSessionService(SessionService):
         logout(request)
 
     def get_current_user_id(self, request: HttpRequest) -> Id | None:
-        if request.user.is_authenticated:
-            pk = request.user.pk
-            if pk is not None:
-                return Id(int(pk))
+        pk = request.user.pk
+
+        if pk is not None:
+            return Id(int(pk))
+
         return None
 
 
