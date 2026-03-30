@@ -1,10 +1,10 @@
 from rastro.base.use_cases import UseCase
-from rastro.users.dto import SignInInput, SignUpInput, UserOutput
+from rastro.users.dtos import SignInInput, SignUpInput, UserOutput
 from rastro.users.entities import User
 from rastro.users.errors import (
     AuthenticationError,
 )
-from rastro.users.mappers import UserToDTOMapper
+from rastro.users.mappers import UserToUserOutputMapper
 from rastro.users.repository import UserRepository
 from rastro.users.value_objects import Email, Password, Username
 
@@ -23,7 +23,7 @@ class SignUpUseCase(UseCase[SignUpInput, UserOutput]):
             )
         )
 
-        return UserToDTOMapper.map(user)
+        return UserToUserOutputMapper.map(user)
 
 
 class SignInUseCase(UseCase[SignInInput, UserOutput]):
@@ -42,4 +42,4 @@ class SignInUseCase(UseCase[SignInInput, UserOutput]):
         if not self.repository.verify_password(user, user.password.value):
             raise AuthenticationError("Invalid credentials")
 
-        return UserToDTOMapper.map(user)
+        return UserToUserOutputMapper.map(user)

@@ -2,34 +2,34 @@ from django.contrib.auth.models import User as DjangoUser
 
 from rastro.base.entities import Id
 from rastro.base.mappers import Mapper
-from rastro.users.dto import UserOutput
+from rastro.users.dtos import UserOutput
 from rastro.users.entities import User
 from rastro.users.value_objects import Email, Password, Username
 
 
-class DjangoUserToDTOMapper(Mapper[DjangoUser, UserOutput]):
+class DjangoUserToUserOutputMapper(Mapper[DjangoUser, UserOutput]):
     @staticmethod
     def map(input: DjangoUser) -> UserOutput:
         return UserOutput(
-            id=input.id,
+            id=input.pk,
             email=input.email,
             password=input.password,
             username=input.username,
         )
 
 
-class DjangoUserToEntityMapper(Mapper[DjangoUser, User]):
+class DjangoUserToUserMapper(Mapper[DjangoUser, User]):
     @staticmethod
     def map(input: DjangoUser) -> User:
         return User(
-            id=Id(input.id),
+            id=Id(input.pk),
             email=Email(input.email),
             password=Password(input.password),
             username=Username(input.username),
         )
 
 
-class UserToDTOMapper(Mapper[User, UserOutput]):
+class UserToUserOutputMapper(Mapper[User, UserOutput]):
     @staticmethod
     def map(input: User) -> UserOutput:
         return UserOutput(

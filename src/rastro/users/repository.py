@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from django.contrib.auth.models import User as DjangoUser
 
 from rastro.users.entities import User
-from rastro.users.mappers import DjangoUserToEntityMapper
+from rastro.users.mappers import DjangoUserToUserMapper
 
 
 class UserRepository(ABC):
@@ -28,7 +28,7 @@ class DjangoUserRepository(UserRepository):
         try:
             django_user = DjangoUser.objects.get(pk=id)  # type: ignore[misc]
 
-            return DjangoUserToEntityMapper.map(django_user)
+            return DjangoUserToUserMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
@@ -36,7 +36,7 @@ class DjangoUserRepository(UserRepository):
         try:
             django_user = DjangoUser.objects.get(email=email)  # type: ignore[misc]
 
-            return DjangoUserToEntityMapper.map(django_user)
+            return DjangoUserToUserMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
@@ -44,7 +44,7 @@ class DjangoUserRepository(UserRepository):
         try:
             django_user = DjangoUser.objects.get(username=username)  # type: ignore[misc]
 
-            return DjangoUserToEntityMapper.map(django_user)
+            return DjangoUserToUserMapper.map(django_user)
         except DjangoUser.DoesNotExist:
             return None
 
@@ -56,7 +56,7 @@ class DjangoUserRepository(UserRepository):
                 password=user.password.value,
             )
 
-            return DjangoUserToEntityMapper.map(django_user)
+            return DjangoUserToUserMapper.map(django_user)
 
         django_user = DjangoUser.objects.get(pk=user.id.value)  # type: ignore[misc]
 
@@ -67,7 +67,7 @@ class DjangoUserRepository(UserRepository):
         django_user.save()
         django_user.check_password
 
-        return DjangoUserToEntityMapper.map(django_user)
+        return DjangoUserToUserMapper.map(django_user)
 
     def verify_password(self, user: User, password: str) -> bool:
         try:
