@@ -1,13 +1,22 @@
+import json
 from dataclasses import dataclass
+from typing import Self
 
 from rastro.base.dto import DTO
+from rastro.base.mixins import FromStr
 
 
 @dataclass(frozen=True)
-class SignUpInput(DTO):
+class SignUpInput(DTO, FromStr):
     username: str
     email: str
     password: str
+
+    @classmethod
+    def from_str(cls, bytes: str | bytes | bytearray) -> Self:
+        data = json.loads(bytes)
+
+        return cls()
 
 
 @dataclass(frozen=True)

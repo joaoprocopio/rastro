@@ -1,5 +1,6 @@
 from abc import ABC
+from dataclasses import dataclass
 
 
-class DTO(ABC):
-    pass
+@dataclass(frozen=True)
+class DTO(ABC): ...

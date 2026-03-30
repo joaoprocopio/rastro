@@ -46,12 +46,8 @@ verify_email_use_case = VerifyEmailUseCase(repository, token_service)
 
 @require_POST  # type: ignore[misc]
 def sign_up(request: HttpRequest) -> JsonResponse:
-    data = json.loads(request.body)  # type: ignore[misc]
-    username: str = data["username"]  # type: ignore[misc]
-    email: str = data["email"]  # type: ignore[misc]
-    password: str = data["password"]  # type: ignore[misc]
-    input_dto = SignUpInput(username=username, email=email, password=password)
-    output: UserOutput = sign_up_use_case.execute(input_dto)
+    input = SignUpInput.from_str(request.body)
+    output = sign_up_use_case.execute(input)
     return JsonResponse(UserPresenter.present(output), status=HTTPStatus.CREATED)
 
 
