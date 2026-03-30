@@ -20,6 +20,6 @@ def current_user(request: WSGIRequest) -> HttpResponse:
         return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
 
     user = DjangoUserMapper.to_source(request.user)
-    user_public = UserPresenter.present(user)
+    user_public = UserPresenter.to_public(user)
 
     return HttpResponse()
