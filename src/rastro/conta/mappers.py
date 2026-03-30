@@ -6,7 +6,7 @@ from rastro.conta.entities import Conta
 from rastro.conta.value_objects import Email, Name, PasswordHash, Username
 
 
-class ContaMapper(Mapper[User, Conta]):
+class DjangoContaMapper(Mapper[User, Conta]):
     @staticmethod
     def to_target(input: Conta) -> User:
         return User(

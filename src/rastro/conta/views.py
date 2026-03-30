@@ -4,6 +4,8 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from django.views.decorators.http import require_GET
 
+from rastro.conta.mappers import DjangoContaMapper
+from rastro.conta.presenters import ContaPresenter
 from rastro.conta.repository import DjangoContaRepository
 from rastro.conta.use_cases import CadastrarUseCase, EntrarUseCase
 
@@ -16,5 +18,8 @@ cadastrar_use_case = CadastrarUseCase(repository)
 def conta(request: WSGIRequest) -> HttpResponse:
     if not request.user.is_authenticated:
         return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
+
+    conta = DjangoContaMapper.to_source(request.user)
+    conta_public = ContaPresenter.present(conta)
 
     return HttpResponse()

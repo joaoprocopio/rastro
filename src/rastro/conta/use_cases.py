@@ -8,23 +8,16 @@ from rastro.conta.errors import (
     EmailAlreadyExistsError,
     UsernameAlreadyExistsError,
 )
-from rastro.conta.mappers import schema_to_cadastrar_values, schema_to_entrar_input
-from rastro.conta.presenters import present_conta
 from rastro.conta.repository import ContaRepository
-from rastro.conta.schema import CadastrarSchema, EntrarSchema
 from rastro.conta.value_objects import PasswordHash
 
 
-class CadastrarUseCase(UseCase[CadastrarSchema, ContaOutput]):
+class CadastrarUseCase(UseCase[CadastrarInput, ContaOutput]):
     def __init__(self, repository: ContaRepository):
         self.repository = repository
 
-    def execute(self, input: CadastrarSchema) -> ContaOutput:
-        first_name, last_name, username, email, password = schema_to_cadastrar_values(
-            input
-        )
-
-        if self.repository.get_by_email(email.value):
+    def execute(self, input: CadastrarInput) -> ContaOutput:
+        if self.repository.get_by_email(input.email.value):
             raise EmailAlreadyExistsError(f"Email already exists: {email.value}")
 
         if self.repository.get_by_username(username.value):
@@ -47,11 +40,11 @@ class CadastrarUseCase(UseCase[CadastrarSchema, ContaOutput]):
         return present_conta(saved_conta)
 
 
-class EntrarUseCase(UseCase[EntrarSchema, ContaOutput]):
+class EntrarUseCase(UseCase[EntrarInput, ContaOutput]):
     def __init__(self, repository: ContaRepository):
         self.repository = repository
 
-    def execute(self, input: EntrarSchema) -> ContaOutput:
+    def execute(self, input: EntrarInput) -> ContaOutput:
         query, password = schema_to_entrar_input(input)
 
         conta = self.repository.get_by_email(query)

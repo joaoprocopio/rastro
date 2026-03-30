@@ -13,3 +13,6 @@ class ValueObject(ABC, Generic[T]):
 
     def __post_init__(self) -> None:
         self.validate()
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}({self.value!r})"
