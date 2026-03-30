@@ -10,7 +10,11 @@ from rastro.users.domain.errors import (
 )
 from rastro.users.domain.repository import UserRepository
 from rastro.users.domain.services import PasswordHashingService
-from rastro.users.domain.value_objects import Email, RawPassword, Username
+from rastro.users.domain.value_objects import (
+    Email,
+    RawPassword,
+    Username,
+)
 from rastro.users.infrastructure.mappers import DomainToOutputUserMapper
 
 
@@ -18,14 +22,18 @@ class SignUpUseCase(UseCase[SignUpInput, UserOutput]):
     def __init__(
         self,
         repository: UserRepository,
+        password_hashing_service: PasswordHashingService,
     ):
         self.repository = repository
+        self.password_hashing_service = password_hashing_service
 
     def execute(self, input: SignUpInput) -> UserOutput:
         user = self.repository.create(
             username=Username(input.username),
             email=Email(input.email),
-            raw_password=RawPassword(input.password),
+            hashed_password=self.password_hashing_service.hash(
+                RawPassword(input.password)
+            ),
         )
 
         return DomainToOutputUserMapper.map(user)

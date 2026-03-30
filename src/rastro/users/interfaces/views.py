@@ -58,7 +58,8 @@ def sign_in(request: HttpRequest) -> JsonResponse:
 @csrf_exempt  # type: ignore
 def sign_up(request: HttpRequest) -> JsonResponse:
     repository = DjangoUserRepository()
-    sign_up_use_case = SignUpUseCase(repository)
+    password_hashing_service = DjangoPasswordHashingService()
+    sign_up_use_case = SignUpUseCase(repository, password_hashing_service)
 
     input = SignUpInput.parse_json(request.body)
     output = sign_up_use_case.execute(input)
@@ -69,6 +70,7 @@ def sign_up(request: HttpRequest) -> JsonResponse:
 @require_POST  # type: ignore
 def sign_out(request: HttpRequest) -> HttpResponse:
     session_service = DjangoSessionService(request)
+
     session_service.logout()
 
     return HttpResponse(status=HTTPStatus.NO_CONTENT)

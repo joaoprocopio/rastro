@@ -5,7 +5,7 @@ from rastro.users.domain.entities import User
 from rastro.users.domain.repository import UserRepository
 from rastro.users.domain.value_objects import (
     Email,
-    RawPassword,
+    HashedPassword,
     Username,
 )
 from rastro.users.infrastructure.mappers import DjangoToDomainUserMapper
@@ -13,13 +13,14 @@ from rastro.users.infrastructure.mappers import DjangoToDomainUserMapper
 
 class DjangoUserRepository(UserRepository):
     def create(
-        self, username: Username, email: Email, raw_password: RawPassword
+        self, username: Username, email: Email, hashed_password: HashedPassword
     ) -> User:
-        django_user = DjangoUser.objects.create_user(  # type: ignore
+        django_user = DjangoUser.objects.create(  # type: ignore
             username=username.value,
             email=email.value,
-            password=raw_password.value,
+            password=hashed_password.value,
         )
+        django_user.save()
 
         return DjangoToDomainUserMapper.map(django_user)
 
