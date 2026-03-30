@@ -16,16 +16,16 @@ from rastro import settings
 
 logger = logging.getLogger(__name__)
 
+resource = Resource(
+    attributes={
+        service_attributes.SERVICE_NAME: settings.SERVICE_NAME,
+        deployment_attributes.DEPLOYMENT_ID: settings.DEPLOYMENT_ID,
+        deployment_attributes.DEPLOYMENT_ENVIRONMENT: settings.DEPLOYMENT_ENVIRONMENT,
+    }
+)
+
 
 def instrument() -> None:
-    resource = Resource(
-        attributes={
-            service_attributes.SERVICE_NAME: settings.SERVICE_NAME,
-            deployment_attributes.DEPLOYMENT_ID: settings.DEPLOYMENT_ID,
-            deployment_attributes.DEPLOYMENT_ENVIRONMENT: settings.DEPLOYMENT_ENVIRONMENT,
-        }
-    )
-
     tracer_provider = TracerProvider(resource=resource)
 
     tracer_exporter = OTLPSpanExporter(
