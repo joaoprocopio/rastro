@@ -5,7 +5,7 @@ from rastro.users.errors import (
     AuthenticationError,
 )
 from rastro.users.mappers import UserToUserOutputMapper
-from rastro.users.repository import UserRepository
+from rastro.users.repositories import UserRepository
 from rastro.users.value_objects import Email, Password, Username
 
 

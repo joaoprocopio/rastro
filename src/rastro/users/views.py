@@ -6,7 +6,7 @@ from django.views.decorators.http import require_GET
 
 from rastro.users.mappers import DjangoUserToUserOutputMapper
 from rastro.users.presenters import UserPresenter
-from rastro.users.repository import DjangoUserRepository
+from rastro.users.repositories import DjangoUserRepository
 from rastro.users.use_cases import SignInUseCase, SignUpUseCase
 
 repository = DjangoUserRepository()
