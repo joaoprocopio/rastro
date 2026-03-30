@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 from rastro.base.entities import Id
-from rastro.conta.value_objects import Email, Name, Password, Username
+from rastro.conta.value_objects import Email, Name, PasswordHash, Username
 
 
 @dataclass(frozen=True)
 class EntrarInput:
     query: Email | Username
-    password: Password
+    password: PasswordHash
 
 
 @dataclass(frozen=True)
@@ -16,7 +16,7 @@ class CadastrarInput:
     last_name: Name
     username: Username
     email: Email
-    password: Password
+    password: PasswordHash
 
 
 @dataclass(frozen=True)
