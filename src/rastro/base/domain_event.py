@@ -1,12 +1,12 @@
 from abc import ABC
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import uuid7
 
 
 @dataclass(frozen=True, kw_only=True)
 class DomainEvent(ABC):
-    event_id: str = field(default_factory=lambda: str(uuid4()))
+    event_id: str = field(default_factory=lambda: str(uuid7()))
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     event_type: str = field(init=False)
 
