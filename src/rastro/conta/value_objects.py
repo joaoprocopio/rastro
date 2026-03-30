@@ -3,7 +3,6 @@ import re
 from rastro.base.value_objects import ValueObject
 from rastro.conta.errors import (
     InvalidEmailError,
-    InvalidNameError,
     InvalidPasswordError,
     InvalidUsernameError,
 )
@@ -34,18 +33,10 @@ class Username(ValueObject[str]):
             )
 
 
-class Name(ValueObject[str]):
-    def validate(self) -> None:
-        if not self.value:
-            raise InvalidNameError("Name cannot be empty")
-        if len(self.value) > 100:
-            raise InvalidNameError("Name cannot exceed 100 characters")
+class Name(ValueObject[str]): ...
 
 
-class PasswordHash(ValueObject[str]):
-    def validate(self) -> None:
-        if not self.value:
-            raise InvalidPasswordError("Password hash cannot be empty")
+class PasswordHash(ValueObject[str]): ...
 
 
 class Password(ValueObject[str]):

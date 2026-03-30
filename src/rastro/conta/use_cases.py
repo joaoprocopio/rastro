@@ -8,53 +8,60 @@ from rastro.conta.errors import (
     EmailAlreadyExistsError,
     UsernameAlreadyExistsError,
 )
+from rastro.conta.mappers import schema_to_cadastrar_values, schema_to_entrar_input
+from rastro.conta.presenters import present_conta
 from rastro.conta.repository import ContaRepository
+from rastro.conta.schema import CadastrarSchema, EntrarSchema
 from rastro.conta.value_objects import PasswordHash
 
 
-class CadastrarUseCase(UseCase[CadastrarInput, ContaOutput]):
+class CadastrarUseCase(UseCase[CadastrarSchema, ContaOutput]):
     def __init__(self, repository: ContaRepository):
         self.repository = repository
 
-    def execute(self, input_dto: CadastrarInput) -> ContaOutput:
-        if self.repository.get_by_email(input_dto.email.value):
-            raise EmailAlreadyExistsError(
-                f"Email already exists: {input_dto.email.value}"
-            )
+    def execute(self, input: CadastrarSchema) -> ContaOutput:
+        first_name, last_name, username, email, password = schema_to_cadastrar_values(
+            input
+        )
 
-        if self.repository.get_by_username(input_dto.username.value):
+        if self.repository.get_by_email(email.value):
+            raise EmailAlreadyExistsError(f"Email already exists: {email.value}")
+
+        if self.repository.get_by_username(username.value):
             raise UsernameAlreadyExistsError(
-                f"Username already exists: {input_dto.username.value}"
+                f"Username already exists: {username.value}"
             )
 
-        password_hash = PasswordHash(make_password(input_dto.password))
+        password_hash = PasswordHash(make_password(password))
 
         conta = Conta(
             id=None,
-            username=input_dto.username,
-            email=input_dto.email,
+            username=username,
+            email=email,
             password_hash=password_hash,
-            first_name=input_dto.first_name,
-            last_name=input_dto.last_name,
+            first_name=first_name,
+            last_name=last_name,
         )
 
         saved_conta = self.repository.save(conta)
-        return ContaOutput.from_entity(saved_conta)
+        return present_conta(saved_conta)
 
 
-class EntrarUseCase(UseCase[EntrarInput, ContaOutput]):
+class EntrarUseCase(UseCase[EntrarSchema, ContaOutput]):
     def __init__(self, repository: ContaRepository):
         self.repository = repository
 
-    def execute(self, input_dto: EntrarInput) -> ContaOutput:
-        conta = self.repository.get_by_email(input_dto.query)
+    def execute(self, input: EntrarSchema) -> ContaOutput:
+        query, password = schema_to_entrar_input(input)
+
+        conta = self.repository.get_by_email(query)
         if conta is None:
-            conta = self.repository.get_by_username(input_dto.query)
+            conta = self.repository.get_by_username(query)
 
         if conta is None:
             raise AuthenticationError("Invalid credentials")
 
-        if not check_password(input_dto.password, conta.password_hash.value):
+        if not check_password(password, conta.password_hash.value):
             raise AuthenticationError("Invalid credentials")
 
-        return ContaOutput.from_entity(conta)
+        return present_conta(conta)
