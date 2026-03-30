@@ -16,6 +16,7 @@ from rastro import settings
 
 logger = logging.getLogger(__name__)
 
+
 resource = Resource(
     attributes={
         service_attributes.SERVICE_NAME: settings.SERVICE_NAME,
@@ -25,7 +26,7 @@ resource = Resource(
 )
 
 
-def instrument() -> None:
+def setup_tracer() -> None:
     tracer_provider = TracerProvider(resource=resource)
 
     tracer_exporter = OTLPSpanExporter(
@@ -37,6 +38,8 @@ def instrument() -> None:
 
     trace.set_tracer_provider(tracer_provider)
 
+
+def instrument_django() -> None:
     def response_hook(
         span: trace.Span, request: WSGIRequest, response: HttpResponse
     ) -> None:
@@ -50,3 +53,8 @@ def instrument() -> None:
     DjangoInstrumentor().instrument(response_hook=response_hook)
 
     logger.info("OpenTelemetry Django initialized with OTLP exporter")
+
+
+def instrument() -> None:
+    setup_tracer()
+    instrument_django()
