@@ -2,28 +2,28 @@ from rastro.base.errors import BaseError
 
 
 class InvalidEmailError(BaseError):
-    code = "INVALID_EMAIL"
+    code = "AUTH_INVALID_EMAIL"
 
 
 class InvalidUsernameError(BaseError):
-    code = "INVALID_USERNAME"
+    code = "AUTH_INVALID_USERNAME"
 
 
 class InvalidNameError(BaseError):
-    code = "INVALID_NAME"
+    code = "AUTH_INVALID_NAME"
 
 
 class InvalidPasswordError(BaseError):
-    code = "INVALID_PASSWORD"
+    code = "AUTH_INVALID_PASSWORD"
 
 
 class EmailAlreadyExistsError(BaseError):
-    code = "EMAIL_ALREADY_EXISTS"
+    code = "AUTH_EMAIL_ALREADY_EXISTS"
 
 
 class UsernameAlreadyExistsError(BaseError):
-    code = "USERNAME_ALREADY_EXISTS"
+    code = "AUTH_USERNAME_ALREADY_EXISTS"
 
 
 class AuthenticationError(BaseError):
-    code = "AUTHENTICATION_FAILED"
+    code = "AUTH_AUTHENTICATION_FAILED"

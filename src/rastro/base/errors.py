@@ -1,10 +1,10 @@
 import re
 from collections.abc import Mapping
 
-ALL_UPPER_SNAKE_CASE = re.compile(r"^[A-Z]+(_[A-Z]+)*$")
-
 
 class BaseError(Exception):
+    UPPER_SNAKE_CASE_PATTERN = re.compile(r"^[A-Z]+(_[A-Z]+)*$")
+
     _registry: set[str] = set()
 
     __slots__ = ("title", "details")
@@ -33,7 +33,7 @@ class BaseError(Exception):
         if code in cls._registry:
             raise ValueError(f"Duplicate error code: {code}")
 
-        if not ALL_UPPER_SNAKE_CASE.match(code):
+        if not cls.UPPER_SNAKE_CASE_PATTERN.match(code):
             raise TypeError(f"Code must be UPPER_SNAKE_CASE: {code}")
 
         cls._registry.add(code)

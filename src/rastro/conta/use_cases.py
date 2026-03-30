@@ -1,17 +1,18 @@
 from django.contrib.auth.hashers import check_password, make_password
 
-from rastro.base.errors import (
+from rastro.base.use_cases import UseCase
+from rastro.conta.dto import CadastrarInput, ContaOutput, EntrarInput
+from rastro.conta.entities import Conta
+from rastro.conta.errors import (
     AuthenticationError,
     EmailAlreadyExistsError,
     UsernameAlreadyExistsError,
 )
-from rastro.conta.dto import CadastrarInput, ContaOutput, EntrarInput
-from rastro.conta.entities import Conta
 from rastro.conta.repository import ContaRepository
 from rastro.conta.value_objects import PasswordHash
 
 
-class CadastrarUseCase:
+class CadastrarUseCase(UseCase[CadastrarInput, ContaOutput]):
     def __init__(self, repository: ContaRepository):
         self.repository = repository
 
@@ -41,7 +42,7 @@ class CadastrarUseCase:
         return ContaOutput.from_entity(saved_conta)
 
 
-class EntrarUseCase:
+class EntrarUseCase(UseCase[EntrarInput, ContaOutput]):
     def __init__(self, repository: ContaRepository):
         self.repository = repository
 
