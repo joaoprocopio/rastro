@@ -2,7 +2,7 @@ from pathlib import Path
 
 import django_stubs_ext
 
-from rastro.env import cast_env, get_env, parse_booleanish, parse_csv
+from rastro.env import get_env, parse_booleanish, parse_csv
 
 django_stubs_ext.monkeypatch()
 
@@ -28,19 +28,16 @@ SECRET_KEY = get_env(
     default="i-nh1u%jl!9-f=-kws-k4&z=0z%49e_%m!7dwf=u(c9-wqh)b^",
 )
 
-DEBUG = cast_env(
-    get_env(
-        "RASTRO_DJANGO_DEBUG",
-        default="1",
-    ),
+DEBUG = get_env(
+    "RASTRO_DJANGO_DEBUG",
+    default="1",
     parser=parse_booleanish,
 )
 
-ALLOWED_HOSTS = cast_env(
-    get_env(
-        "RASTRO_DJANGO_ALLOWED_HOSTS",
-        default="localhost, 127.0.0.1, [::1]",
-    ),
+
+ALLOWED_HOSTS = get_env(
+    "RASTRO_DJANGO_ALLOWED_HOSTS",
+    default="localhost, 127.0.0.1, [::1]",
     parser=parse_csv,
 )
 
