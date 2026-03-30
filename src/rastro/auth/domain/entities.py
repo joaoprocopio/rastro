@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
+from rastro.auth.domain.value_objects import Email, HashedPassword, Username
 from rastro.base.entity import Entity, Id
-from rastro.users.domain.value_objects import Email, HashedPassword, Username
 
 
 @dataclass

@@ -2,13 +2,13 @@ from django.contrib.auth import get_user, login, logout
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import HttpRequest
 
-from rastro.users.domain.entities import User
-from rastro.users.domain.services import (
+from rastro.auth.domain.entities import User
+from rastro.auth.domain.services import (
     PasswordHashingService,
     SessionService,
 )
-from rastro.users.domain.value_objects import HashedPassword, RawPassword
-from rastro.users.infrastructure.mappers import (
+from rastro.auth.domain.value_objects import HashedPassword, RawPassword
+from rastro.auth.infrastructure.mappers import (
     DjangoToDomainUserMapper,
     DomainToDjangoUserMapper,
 )

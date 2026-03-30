@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
+from rastro.auth.domain.entities import User
+from rastro.auth.domain.value_objects import Email, HashedPassword, Username
 from rastro.base.entity import Id
-from rastro.users.domain.entities import User
-from rastro.users.domain.value_objects import Email, HashedPassword, Username
 
 
 class UserRepository(ABC):

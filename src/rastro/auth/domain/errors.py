@@ -2,8 +2,8 @@ from rastro.base.error import BaseError
 
 
 class AuthenticationError(BaseError):
-    code = "USERS_AUTHENTICATION_FAILED"
+    code = "AUTH_AUTHENTICATION_FAILED"
 
 
 class UserNotFoundError(BaseError):
-    code = "USERS_USER_NOT_FOUND"
+    code = "AUTH_USER_NOT_FOUND"

@@ -1,21 +1,21 @@
-from rastro.base.use_case import UseCase
-from rastro.users.application.dtos import (
+from rastro.auth.application.dtos import (
     SignInInput,
     SignUpInput,
     UserOutput,
 )
-from rastro.users.domain.errors import (
+from rastro.auth.domain.errors import (
     AuthenticationError,
     UserNotFoundError,
 )
-from rastro.users.domain.repository import UserRepository
-from rastro.users.domain.services import PasswordHashingService
-from rastro.users.domain.value_objects import (
+from rastro.auth.domain.repository import UserRepository
+from rastro.auth.domain.services import PasswordHashingService
+from rastro.auth.domain.value_objects import (
     Email,
     RawPassword,
     Username,
 )
-from rastro.users.infrastructure.mappers import DomainToOutputUserMapper
+from rastro.auth.infrastructure.mappers import DomainToOutputUserMapper
+from rastro.base.use_case import UseCase
 
 
 class SignUpUseCase(UseCase[SignUpInput, UserOutput]):

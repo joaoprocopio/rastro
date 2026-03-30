@@ -4,24 +4,24 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from rastro.users.application.dtos import (
+from rastro.auth.application.dtos import (
     SignInInput,
     SignUpInput,
 )
-from rastro.users.application.use_cases import (
+from rastro.auth.application.use_cases import (
     SignInUseCase,
     SignUpUseCase,
 )
-from rastro.users.infrastructure.mappers import (
+from rastro.auth.infrastructure.mappers import (
     DomainToOutputUserMapper,
     OutputToDomainUserMapper,
 )
-from rastro.users.infrastructure.repository import DjangoUserRepository
-from rastro.users.infrastructure.services import (
+from rastro.auth.infrastructure.repository import DjangoUserRepository
+from rastro.auth.infrastructure.services import (
     DjangoPasswordHashingService,
     DjangoSessionService,
 )
-from rastro.users.interfaces.presenters import UserPresenter
+from rastro.auth.interfaces.presenters import UserPresenter
 
 
 @require_GET  # type: ignore

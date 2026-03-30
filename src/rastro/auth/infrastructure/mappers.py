@@ -2,11 +2,11 @@ from typing import TYPE_CHECKING
 
 from django.contrib.auth import get_user_model
 
+from rastro.auth.application.dtos import UserOutput
+from rastro.auth.domain.entities import User
+from rastro.auth.domain.value_objects import Email, HashedPassword, Username
 from rastro.base.entity import Id
 from rastro.base.mapper import Mapper
-from rastro.users.application.dtos import UserOutput
-from rastro.users.domain.entities import User
-from rastro.users.domain.value_objects import Email, HashedPassword, Username
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User as DjangoUser

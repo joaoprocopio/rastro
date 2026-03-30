@@ -1,14 +1,14 @@
 from django.contrib.auth import get_user_model
 
-from rastro.base.entity import Id
-from rastro.users.domain.entities import User
-from rastro.users.domain.repository import UserRepository
-from rastro.users.domain.value_objects import (
+from rastro.auth.domain.entities import User
+from rastro.auth.domain.repository import UserRepository
+from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
     Username,
 )
-from rastro.users.infrastructure.mappers import DjangoToDomainUserMapper
+from rastro.auth.infrastructure.mappers import DjangoToDomainUserMapper
+from rastro.base.entity import Id
 
 DjangoUser = get_user_model()
 

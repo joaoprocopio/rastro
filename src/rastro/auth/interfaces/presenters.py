@@ -1,7 +1,7 @@
 from typing import TypedDict
 
+from rastro.auth.application.dtos import UserOutput
 from rastro.base.presenter import Presenter
-from rastro.users.application.dtos import UserOutput
 
 
 class UserPublic(TypedDict):
