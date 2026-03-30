@@ -31,6 +31,17 @@ class DjangoUserRepository(UserRepository):
 
         return DjangoToDomainUserMapper.map(django_user)
 
+    def save(self, user: User) -> None:
+        django_user, _ = DjangoUser.objects.update_or_create(  # type: ignore
+            pk=user.id.value,
+            defaults={
+                "username": user.username.value,
+                "email": user.email.value,
+                "password": user.hashed_password,
+                "is_active": user.is_active,
+            },
+        )
+
     def get_by_id(self, id: Id) -> User | None:
         try:
             django_user = DjangoUser.objects.get(pk=id.value)  # type: ignore

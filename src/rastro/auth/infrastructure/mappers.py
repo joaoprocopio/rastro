@@ -21,7 +21,7 @@ class DjangoToDomainUserMapper(Mapper[DjangoUser, User]):
             id=Id(input.pk),
             username=Username(input.username),
             email=Email(input.email),
-            hashed_password=HashedPassword(input.password),
+            _hashed_password=HashedPassword(input.password),
             is_active=input.is_active,
         )
 
@@ -33,7 +33,7 @@ class DomainToDjangoUserMapper(Mapper[User, DjangoUser]):
             id=input.id.value,
             username=input.username.value,
             email=input.email.value,
-            password=input.hashed_password.value,
+            password=input.hashed_password,
             is_active=input.is_active,
         )
 
@@ -45,7 +45,7 @@ class OutputToDomainUserMapper(Mapper[UserOutput, User]):
             id=Id(input.id),
             username=Username(input.username),
             email=Email(input.email),
-            hashed_password=HashedPassword(input.password),
+            _hashed_password=HashedPassword(input.password),
             is_active=input.is_active,
         )
 
@@ -57,6 +57,6 @@ class DomainToOutputUserMapper(Mapper[User, UserOutput]):
             id=input.id.value,
             email=input.email.value,
             username=input.username.value,
-            password=input.hashed_password.value,
+            password=input.hashed_password,
             is_active=input.is_active,
         )

@@ -12,6 +12,9 @@ class UserRepository(ABC):
     ) -> User: ...
 
     @abstractmethod
+    def save(self, user: User) -> None: ...
+
+    @abstractmethod
     def get_by_id(self, id: Id) -> User | None: ...
 
     @abstractmethod

@@ -2,14 +2,22 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Generic, TypeVar, cast
 
+from rastro.base.aggregate import Aggregate
 from rastro_base.error import InvalidIdError
 from rastro_base.value_object import ValueObject
+
+
+class Id(ValueObject[int]):
+    def validate(self) -> None:
+        if self.value < 1:
+            raise InvalidIdError()
+
 
 ID = TypeVar("ID")
 
 
 @dataclass
-class Entity(ABC, Generic[ID]):
+class Entity(Aggregate, Generic[ID], ABC):
     id: ID
 
     def __eq__(self, other: object) -> bool:
@@ -21,9 +29,3 @@ class Entity(ABC, Generic[ID]):
 
     def __hash__(self) -> int:
         return hash(self.id)
-
-
-class Id(ValueObject[int]):
-    def validate(self) -> None:
-        if self.value < 1:
-            raise InvalidIdError()
