@@ -3,7 +3,7 @@ from django.contrib.auth.models import User as DjangoUser
 from rastro.base.entity import Id
 from rastro.base.mapper import Mapper
 from rastro.users.application.dtos import UserOutput
-from rastro.users.domain.aggregates import User
+from rastro.users.domain.entities import User
 from rastro.users.domain.value_objects import Email, HashedPassword, Username
 
 

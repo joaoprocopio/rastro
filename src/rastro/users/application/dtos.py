@@ -17,29 +17,6 @@ class SignInInput(DTO):
 
 
 @dataclass(frozen=True)
-class RequestPasswordResetInput(DTO):
-    email: str
-
-
-@dataclass(frozen=True)
-class ResetPasswordInput(DTO):
-    user_id: int
-    token: str
-    new_password: str
-
-
-@dataclass(frozen=True)
-class RequestEmailVerificationInput(DTO):
-    user_id: int
-
-
-@dataclass(frozen=True)
-class VerifyEmailInput(DTO):
-    user_id: int
-    token: str
-
-
-@dataclass(frozen=True)
 class GetUserInput(DTO):
     user_id: int
 
