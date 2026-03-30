@@ -13,7 +13,7 @@ class UserPublic(TypedDict):
 
 class UserPresenter(Presenter[UserOutput, UserPublic]):
     @staticmethod
-    def to_public(private: UserOutput) -> UserPublic:
+    def present(private: UserOutput) -> UserPublic:
         return UserPublic(
             email=private.email,
             username=private.username,

@@ -1,15 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
-T_SOURCE = TypeVar("T_SOURCE")
-T_TARGET = TypeVar("T_TARGET")
+T_INPUT = TypeVar("T_INPUT")
+T_OUTPUT = TypeVar("T_OUTPUT")
 
 
-class Mapper(ABC, Generic[T_SOURCE, T_TARGET]):
+class Mapper(ABC, Generic[T_INPUT, T_OUTPUT]):
     @staticmethod
     @abstractmethod
-    def to_source(source: T_SOURCE) -> T_TARGET: ...
-
-    @staticmethod
-    @abstractmethod
-    def to_target(target: T_TARGET) -> T_SOURCE: ...
+    def map(input: T_INPUT) -> T_OUTPUT: ...
