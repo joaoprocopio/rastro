@@ -1,3 +1,4 @@
+from rastro.users.domain.aggregates import User
 from rastro.users.domain.errors import (
     AuthenticationError,
     EmailAlreadyExistsError,
@@ -9,8 +10,8 @@ from rastro.users.domain.errors import (
     UserNotFoundError,
 )
 from rastro.users.domain.events import (
-    UserEmailVerified,
     UserEmailVerificationRequested,
+    UserEmailVerified,
     UserLoggedIn,
     UserLoggedOut,
     UserPasswordResetCompleted,
@@ -24,7 +25,6 @@ from rastro.users.domain.services import (
     PasswordHashingService,
     TokenService,
 )
-from rastro.users.domain.user import User
 from rastro.users.domain.value_objects import Email, HashedPassword, Password, Username
 
 __all__ = [

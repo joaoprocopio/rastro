@@ -2,12 +2,12 @@ from django.contrib.auth.models import User as DjangoUser
 from django.contrib.auth.tokens import default_token_generator
 
 from rastro.base import Id
+from rastro.users.domain.aggregates import User
 from rastro.users.domain.errors import (
     EmailAlreadyExistsError,
     UsernameAlreadyExistsError,
 )
 from rastro.users.domain.repository import UserRepository
-from rastro.users.domain.user import User
 from rastro.users.domain.value_objects import Email, HashedPassword, Username
 
 

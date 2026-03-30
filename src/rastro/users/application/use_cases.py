@@ -7,6 +7,7 @@ from rastro.users.application.dtos import (
     UserOutput,
     VerifyEmailInput,
 )
+from rastro.users.domain.aggregates import User
 from rastro.users.domain.errors import (
     AuthenticationError,
     EmailAlreadyExistsError,
@@ -27,7 +28,6 @@ from rastro.users.domain.services import (
     PasswordHashingService,
     TokenService,
 )
-from rastro.users.domain.user import User
 from rastro.users.domain.value_objects import Email, Password, Username
 
 
@@ -90,7 +90,6 @@ class SignInUseCase(UseCase[SignInInput, UserOutput]):
         password_hashing_service: PasswordHashingService,
     ):
         self._repository = repository
-        self._authentication_service = authentication_service
         self._password_hashing_service = password_hashing_service
 
     def execute(self, input: SignInInput) -> UserOutput:

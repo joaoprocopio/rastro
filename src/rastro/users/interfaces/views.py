@@ -30,7 +30,7 @@ repository = DjangoUserRepository()
 password_hashing_service = DjangoPasswordHashingService()
 
 sign_up_use_case = SignUpUseCase(repository, password_hashing_service)
-sign_in_use_case = SignInUseCase(repository, None, password_hashing_service)
+sign_in_use_case = SignInUseCase(repository, password_hashing_service)
 get_user_use_case = GetUserUseCase(repository)
 reset_password_use_case = ResetPasswordUseCase(
     repository, None, password_hashing_service

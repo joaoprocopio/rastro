@@ -1,15 +1,15 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import login, logout
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User as DjangoUser
 from django.http import HttpRequest
 
+from rastro.users.domain.aggregates import User
 from rastro.users.domain.services import (
     AuthenticationService,
     EmailService,
     PasswordHashingService,
     TokenService,
 )
-from rastro.users.domain.user import User
 from rastro.users.domain.value_objects import HashedPassword, Password
 
 

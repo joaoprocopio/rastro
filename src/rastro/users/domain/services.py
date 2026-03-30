@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from rastro.base import DomainService
-from rastro.users.domain.user import User
+from rastro.users.domain.aggregates import User
 from rastro.users.domain.value_objects import HashedPassword, Password
 
 

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from rastro.users.domain.user import User
+from rastro.users.domain.aggregates import User
 from rastro.users.domain.value_objects import Email, Username
 
 
