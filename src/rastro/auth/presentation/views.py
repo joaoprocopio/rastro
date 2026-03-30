@@ -41,7 +41,7 @@ def me(request: HttpRequest) -> HttpResponse:
 
 @require_POST  # type: ignore
 @csrf_exempt  # type: ignore
-def sign_in(request: HttpRequest) -> JsonResponse:
+def sign_in(request: HttpRequest) -> HttpResponse:
     repository = DjangoUserRepository()
     password_hashing_service = DjangoPasswordHashingService()
     sign_in_use_case = SignInUseCase(repository, password_hashing_service)
@@ -57,7 +57,7 @@ def sign_in(request: HttpRequest) -> JsonResponse:
 
 @require_POST  # type: ignore
 @csrf_exempt  # type: ignore
-def sign_up(request: HttpRequest) -> JsonResponse:
+def sign_up(request: HttpRequest) -> HttpResponse:
     repository = DjangoUserRepository()
     password_hashing_service = DjangoPasswordHashingService()
     sign_up_use_case = SignUpUseCase(repository, password_hashing_service)
