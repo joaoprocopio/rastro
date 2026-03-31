@@ -1,4 +1,35 @@
 services:
+  rastro:
+    build:
+      context: .
+      dockerfile: dockerfile
+    command: "python manage.py migrate && python manage.py collectstatic --no-input && gunicorn -w 8 rastro.wsgi --bind 0.0.0.0:8000"
+    environment:
+      RASTRO_DJANGO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
+      RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT: "prod"
+
+      RASTRO_DJANGO_OTEL_GRPC_ENDPOINT: "otel:4317"
+      RASTRO_DJANGO_OTEL_HTTP_ENDPOINT: "otel:4318"
+
+      RASTRO_DJANGO_SECRET_KEY: ")ck)g$@h$$#(9sn2+bvuvi69@$s+iffe=3qjbg+=ck-!3(-gu!"
+      RASTRO_DJANGO_DEBUG: "0"
+
+      RASTRO_DJANGO_POSTGRES_DB: "postgres"
+      RASTRO_DJANGO_POSTGRES_USER: "postgres"
+      RASTRO_DJANGO_POSTGRES_PASSWORD: "postgres"
+      RASTRO_DJANGO_POSTGRES_HOST: "postgres"
+      RASTRO_DJANGO_POSTGRES_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - type: volume
+        source: django_static
+        target: /app/static
+    ports:
+      - published: 8000
+        target: 8000
+
   postgres:
     image: "postgres:18.3"
     environment:
@@ -97,3 +128,4 @@ volumes:
   postgres_data:
   grafana_data:
   clickhouse_data:
+  django_static:

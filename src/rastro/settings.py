@@ -37,7 +37,7 @@ DEBUG = get_env(
 
 ALLOWED_HOSTS = get_env(
     "RASTRO_DJANGO_ALLOWED_HOSTS",
-    default="localhost, 127.0.0.1, [::1]",
+    default="localhost, 127.0.0.1, 0.0.0.0, [::1]",
     parser=parse_csv,
 )
 
