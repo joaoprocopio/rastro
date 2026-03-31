@@ -1,0 +1,561 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  count() / ${__interval_s} AS request_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) / count() * 100 AS error_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Error Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  quantile(0.50)(Duration / 1000000) AS p50\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "p50 Latency",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 1000 }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  quantile(0.95)(Duration / 1000000) AS p95\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "p95 Latency",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "2xx" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "green", "mode": "fixed" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "4xx" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "yellow", "mode": "fixed" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "5xx" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "red", "mode": "fixed" }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 200 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 300) / ${__interval_s} AS \"2xx\",\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 500) / ${__interval_s} AS \"4xx\",\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 500) / ${__interval_s} AS \"5xx\"\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate by Status Code",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  quantile(0.50)(Duration / 1000000) AS p50,\n  quantile(0.90)(Duration / 1000000) AS p90,\n  quantile(0.95)(Duration / 1000000) AS p95,\n  quantile(0.99)(Duration / 1000000) AS p99\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Latency Percentiles Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": [],
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 7,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value"]
+        },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  concat(toString(SpanAttributes['http.status_code']), ' - ',\n    CASE\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 200 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 300 THEN 'OK'\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 300 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 400 THEN 'Redirect'\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 400 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 500 THEN 'Client Error'\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 500 THEN 'Server Error'\n      ELSE 'Unknown'\n    END\n  ) AS status,\n  sum(Duration / 1000000) AS total_duration\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY status\nORDER BY total_duration DESC",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Response Time by Status Code",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "rastro-clickhouse-datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "avg_duration_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "mode": "basic", "type": "gauge" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 200 },
+                    { "color": "red", "value": 500 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "error_rate" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "mode": "basic", "type": "gauge" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 1 },
+                    { "color": "red", "value": 5 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "request_count" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "rastro-clickhouse-datasource"
+          },
+          "query": "SELECT\n  ServiceName AS service,\n  count() AS request_count,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) / count() * 100 AS error_rate,\n  avg(Duration / 1000000) AS avg_duration_ms,\n  quantile(0.95)(Duration / 1000000) AS p95_duration_ms\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY service\nORDER BY request_count DESC",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Service Summary",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["rastro", "overview", "health"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "All", "value": "All" },
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "rastro-clickhouse-datasource"
+        },
+        "definition": "SELECT DISTINCT ServiceName FROM otel_traces",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [],
+        "query": "SELECT DISTINCT ServiceName FROM otel_traces",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "All", "value": "All" },
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "rastro-clickhouse-datasource"
+        },
+        "definition": "SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_traces",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": "SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_traces",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Service Health Overview",
+  "uid": "service-health-overview",
+  "version": 1,
+  "weekStart": ""
+}
