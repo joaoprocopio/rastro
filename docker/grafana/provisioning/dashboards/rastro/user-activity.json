@@ -1,0 +1,565 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  countDistinct(SpanAttributes['user.id']) AS distinct_users\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND SpanAttributes['user.id'] != ''\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Users",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  countIf(SpanAttributes['user.id'] != '') / count() * 100 AS auth_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Authenticated Traffic %",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  countIf(SpanAttributes['user.id'] = '' OR SpanAttributes['user.id'] IS NULL) AS anonymous_requests\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Anonymous Requests",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400 AND SpanAttributes['user.id'] != '') /\n  NULLIF(countIf(SpanAttributes['user.id'] != ''), 0) * 100 AS user_error_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "User Error Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 5 },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  countIf(SpanAttributes['user.id'] != '') AS authenticated,\n  countIf(SpanAttributes['user.id'] = '' OR SpanAttributes['user.id'] IS NULL) AS anonymous\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Authenticated vs Anonymous Requests Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "avg_duration_ms" },
+            "properties": [{ "id": "unit", "value": "ms" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "error_count" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 10 },
+                    { "color": "red", "value": 50 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 13 },
+      "id": 6,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "request_count" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanAttributes['user.id'] AS user_id,\n  SpanAttributes['user.email'] AS user_email,\n  count() AS request_count,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) AS error_count,\n  round(avg(Duration / 1000000), 2) AS avg_duration_ms\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND SpanAttributes['user.id'] != ''\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY user_id, user_email\nORDER BY request_count DESC\nLIMIT 20",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top Active Users",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "error_rate" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "mode": "basic", "type": "gauge" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 5 },
+                    { "color": "red", "value": 20 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 25 },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "error_rate" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanAttributes['user.id'] AS user_id,\n  SpanAttributes['user.email'] AS user_email,\n  count() AS request_count,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) AS error_count,\n  round(countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) / count() * 100, 2) AS error_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND SpanAttributes['user.id'] != ''\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY user_id, user_email\nHAVING error_count > 0\nORDER BY error_rate DESC\nLIMIT 20",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Users with Highest Error Rates",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 35 },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  quantile(0.50)(Duration / 1000000) AS p50,\n  quantile(0.95)(Duration / 1000000) AS p95\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND SpanAttributes['user.id'] != ''\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Latency for Authenticated Users",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 35 },
+      "id": 9,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value", "percent"]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanName AS endpoint,\n  count() AS request_count\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND SpanAttributes['user.id'] != ''\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY endpoint\nORDER BY request_count DESC\nLIMIT 10",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top Endpoints for Authenticated Users",
+      "type": "piechart"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["rastro", "users", "activity"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "All", "value": "All" },
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "${DS_CLICKHOUSE}"
+        },
+        "definition": "SELECT DISTINCT ServiceName FROM otel_traces",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [],
+        "query": "SELECT DISTINCT ServiceName FROM otel_traces",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "All", "value": "All" },
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "${DS_CLICKHOUSE}"
+        },
+        "definition": "SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_traces",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": "SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_traces",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "User Activity - Provisioned",
+  "uid": "user-activity",
+  "version": 1,
+  "weekStart": ""
+}

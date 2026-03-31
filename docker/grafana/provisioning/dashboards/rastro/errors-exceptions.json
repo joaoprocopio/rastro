@@ -1,7 +1,5 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": { "list": [] },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -16,19 +14,17 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": { "mode": "thresholds" },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 100 },
-              { "color": "red", "value": 500 }
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
             ]
           },
-          "unit": "reqps"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -53,12 +49,12 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  count() / ${__interval_s} AS request_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "query": "SELECT\n  countIf(SeverityText = 'ERROR') AS error_count\nFROM otel_logs\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "Request Rate",
+      "title": "Total Errors (Logs)",
       "type": "stat"
     },
     {
@@ -68,19 +64,17 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": { "mode": "thresholds" },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 20 }
             ]
           },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -105,12 +99,12 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) / count() * 100 AS error_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "query": "SELECT\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) AS error_count\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "Error Rate",
+      "title": "HTTP Errors (4xx/5xx)",
       "type": "stat"
     },
     {
@@ -120,19 +114,16 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": { "mode": "thresholds" },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 200 },
-              { "color": "red", "value": 500 }
+              { "color": "red", "value": 1 }
             ]
           },
-          "unit": "ms"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -157,12 +148,12 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  quantile(0.50)(Duration / 1000000) AS p50\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "query": "SELECT\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 500) AS server_error_count\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "p50 Latency",
+      "title": "Server Errors (5xx)",
       "type": "stat"
     },
     {
@@ -172,19 +163,17 @@
       },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": { "mode": "thresholds" },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 500 },
-              { "color": "red", "value": 1000 }
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
             ]
           },
-          "unit": "ms"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -209,12 +198,12 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  quantile(0.95)(Duration / 1000000) AS p95\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
+          "query": "SELECT\n  countIf(SeverityText = 'WARN') AS warning_count\nFROM otel_logs\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "p95 Latency",
+      "title": "Warnings",
       "type": "stat"
     },
     {
@@ -249,29 +238,11 @@
             "mode": "absolute",
             "steps": [{ "color": "green", "value": null }]
           },
-          "unit": "reqps"
+          "unit": "short"
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "2xx" },
-            "properties": [
-              {
-                "id": "color",
-                "value": { "fixedColor": "green", "mode": "fixed" }
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "4xx" },
-            "properties": [
-              {
-                "id": "color",
-                "value": { "fixedColor": "yellow", "mode": "fixed" }
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "5xx" },
+            "matcher": { "id": "byName", "options": "error_rate" },
             "properties": [
               {
                 "id": "color",
@@ -285,7 +256,7 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": ["lastNotNull"],
+          "calcs": ["lastNotNull", "mean"],
           "displayMode": "table",
           "placement": "right",
           "showLegend": true
@@ -298,12 +269,12 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 200 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 300) / ${__interval_s} AS \"2xx\",\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 500) / ${__interval_s} AS \"4xx\",\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 500) / ${__interval_s} AS \"5xx\"\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  count() AS total_requests,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) AS error_count,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) / count() * 100 AS error_rate\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "Request Rate by Status Code",
+      "title": "Error Rate Over Time",
       "type": "timeseries"
     },
     {
@@ -320,8 +291,8 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": { "legend": false, "tooltip": false, "viz": false },
             "lineInterpolation": "smooth",
@@ -330,7 +301,7 @@
             "scaleDistribution": { "type": "linear" },
             "showPoints": "never",
             "spanNulls": true,
-            "stacking": { "group": "A", "mode": "none" },
+            "stacking": { "group": "A", "mode": "normal" },
             "thresholdsStyle": { "mode": "off" }
           },
           "mappings": [],
@@ -338,17 +309,45 @@
             "mode": "absolute",
             "steps": [{ "color": "green", "value": null }]
           },
-          "unit": "ms"
+          "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "ERROR" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "red", "mode": "fixed" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "WARNING" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "yellow", "mode": "fixed" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "INFO" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "green", "mode": "fixed" }
+              }
+            ]
+          }
+        ]
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
       "id": 6,
       "options": {
         "legend": {
-          "calcs": ["mean", "max"],
+          "calcs": ["sum"],
           "displayMode": "table",
-          "placement": "bottom",
+          "placement": "right",
           "showLegend": true
         },
         "tooltip": { "mode": "multi", "sort": "desc" }
@@ -359,56 +358,13 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  quantile(0.50)(Duration / 1000000) AS p50,\n  quantile(0.90)(Duration / 1000000) AS p90,\n  quantile(0.95)(Duration / 1000000) AS p95,\n  quantile(0.99)(Duration / 1000000) AS p99\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  countIf(SeverityText = 'ERROR') AS ERROR,\n  countIf(SeverityText = 'WARN') AS WARNING,\n  countIf(SeverityText = 'INFO') AS INFO\nFROM otel_logs\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time\nORDER BY time",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "Latency Percentiles Over Time",
+      "title": "Log Volume by Severity",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "${DS_CLICKHOUSE}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
-          },
-          "mappings": [],
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "id": 7,
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": ["value"]
-        },
-        "pieType": "pie",
-        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "${DS_CLICKHOUSE}"
-          },
-          "query": "SELECT\n  concat(toString(SpanAttributes['http.status_code']), ' - ',\n    CASE\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 200 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 300 THEN 'OK'\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 300 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 400 THEN 'Redirect'\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 400 AND toUInt64OrZero(SpanAttributes['http.status_code']) < 500 THEN 'Client Error'\n      WHEN toUInt64OrZero(SpanAttributes['http.status_code']) >= 500 THEN 'Server Error'\n      ELSE 'Unknown'\n    END\n  ) AS status,\n  sum(Duration / 1000000) AS total_duration\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY status\nORDER BY total_duration DESC",
-          "rawQuery": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Response Time by Status Code",
-      "type": "piechart"
     },
     {
       "datasource": {
@@ -431,12 +387,11 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "avg_duration_ms" },
+            "matcher": { "id": "byName", "options": "error_count" },
             "properties": [
-              { "id": "unit", "value": "ms" },
               {
                 "id": "custom.cellOptions",
-                "value": { "mode": "basic", "type": "gauge" }
+                "value": { "type": "color-background" }
               },
               {
                 "id": "thresholds",
@@ -444,29 +399,8 @@
                   "mode": "absolute",
                   "steps": [
                     { "color": "green", "value": null },
-                    { "color": "yellow", "value": 200 },
-                    { "color": "red", "value": 500 }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "error_rate" },
-            "properties": [
-              { "id": "unit", "value": "percent" },
-              {
-                "id": "custom.cellOptions",
-                "value": { "mode": "basic", "type": "gauge" }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    { "color": "green", "value": null },
-                    { "color": "yellow", "value": 1 },
-                    { "color": "red", "value": 5 }
+                    { "color": "yellow", "value": 5 },
+                    { "color": "red", "value": 20 }
                   ]
                 }
               }
@@ -474,7 +408,77 @@
           }
         ]
       },
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 22 },
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 22 },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "error_count" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanAttributes['http.status_code'] AS status_code,\n  SpanName AS endpoint,\n  count() AS error_count,\n  round(avg(Duration / 1000000), 2) AS avg_duration_ms\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND toUInt64OrZero(SpanAttributes['http.status_code']) >= 400\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY status_code, endpoint\nORDER BY error_count DESC\nLIMIT 20",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top Error Endpoints (HTTP)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "occurrences" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 5 },
+                    { "color": "red", "value": 20 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 22 },
       "id": 8,
       "options": {
         "cellHeight": "sm",
@@ -485,7 +489,7 @@
           "show": false
         },
         "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "request_count" }]
+        "sortBy": [{ "desc": true, "displayName": "occurrences" }]
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -494,19 +498,117 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "${DS_CLICKHOUSE}"
           },
-          "query": "SELECT\n  ServiceName AS service,\n  count() AS request_count,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) / count() * 100 AS error_rate,\n  avg(Duration / 1000000) AS avg_duration_ms,\n  quantile(0.95)(Duration / 1000000) AS p95_duration_ms\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY service\nORDER BY request_count DESC",
+          "query": "SELECT\n  SeverityText AS level,\n  Body AS message,\n  count() AS occurrences,\n  min(Timestamp) AS first_seen,\n  max(Timestamp) AS last_seen\nFROM otel_logs\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND SeverityText = 'ERROR'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY level, message\nORDER BY occurrences DESC\nLIMIT 20",
           "rawQuery": true,
           "refId": "A"
         }
       ],
-      "title": "Service Summary",
+      "title": "Top Log Errors",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 34 },
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  Timestamp,\n  SeverityText AS level,\n  Body AS message,\n  TraceId,\n  SpanAttributes['user.id'] AS user_id,\n  SpanAttributes['user.email'] AS user_email\nFROM otel_logs\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND SeverityText = 'ERROR'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nORDER BY Timestamp DESC\nLIMIT 50",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Errors (Logs)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 46 },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  Timestamp,\n  SpanAttributes['http.status_code'] AS status_code,\n  SpanName AS endpoint,\n  round(Duration / 1000000, 2) AS duration_ms,\n  SpanAttributes['user.id'] AS user_id,\n  TraceId\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND toUInt64OrZero(SpanAttributes['http.status_code']) >= 400\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nORDER BY Timestamp DESC\nLIMIT 50",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Recent HTTP Errors (Traces)",
       "type": "table"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["rastro", "overview", "health"],
+  "tags": ["rastro", "errors", "exceptions"],
   "templating": {
     "list": [
       {
@@ -554,8 +656,8 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "Service Health Overview - Provisioned",
-  "uid": "service-health-overview",
+  "title": "Errors & Exceptions - Provisioned",
+  "uid": "errors-exceptions",
   "version": 1,
   "weekStart": ""
 }

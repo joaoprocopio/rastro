@@ -1,0 +1,464 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  SpanName AS endpoint,\n  quantile(0.95)(Duration / 1000000) AS p95\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time, endpoint\nORDER BY time",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Latency p95 by Endpoint Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "sum"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL $__interval SECOND) AS time,\n  SpanName AS endpoint,\n  count() / ${__interval_s} AS throughput\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__from:date:seconds}s\n  AND Timestamp < now() - INTERVAL ${__to:date:seconds}s\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY time, endpoint\nORDER BY time",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Throughput by Endpoint Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "avg_duration_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "mode": "basic", "type": "gauge" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 200 },
+                    { "color": "red", "value": 500 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "error_count" },
+            "properties": [
+              { "id": "unit", "value": "short" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "type": "color-background" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 10 },
+                    { "color": "red", "value": 50 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 20 },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "request_count" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanName AS endpoint,\n  count() AS request_count,\n  countIf(toUInt64OrZero(SpanAttributes['http.status_code']) >= 400) AS error_count,\n  round(avg(Duration / 1000000), 2) AS avg_duration_ms,\n  round(quantile(0.50)(Duration / 1000000), 2) AS p50_ms,\n  round(quantile(0.95)(Duration / 1000000), 2) AS p95_ms,\n  round(quantile(0.99)(Duration / 1000000), 2) AS p99_ms\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY endpoint\nORDER BY request_count DESC\nLIMIT 20",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top 20 Endpoints by Request Count",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "avg_duration_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "mode": "basic", "type": "gauge" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "yellow", "value": 500 },
+                    { "color": "green", "value": 200 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p95_ms" },
+            "properties": [
+              { "id": "unit", "value": "ms" },
+              {
+                "id": "custom.cellOptions",
+                "value": { "mode": "basic", "type": "gauge" }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "yellow", "value": 1000 },
+                    { "color": "green", "value": 500 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 32 },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "p95_ms" }]
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanName AS endpoint,\n  count() AS request_count,\n  round(avg(Duration / 1000000), 2) AS avg_duration_ms,\n  round(quantile(0.50)(Duration / 1000000), 2) AS p50_ms,\n  round(quantile(0.95)(Duration / 1000000), 2) AS p95_ms,\n  round(quantile(0.99)(Duration / 1000000), 2) AS p99_ms\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY endpoint\nORDER BY p95_ms DESC\nLIMIT 10",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Slowest Endpoints by p95 Latency",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value", "percent"]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanAttributes['http.status_code'] AS status_code,\n  count() AS count\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY status_code\nORDER BY count DESC",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Response Status Code Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
+      "id": 6,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "values": ["value", "percent"]
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "query": "SELECT\n  SpanName AS endpoint,\n  count() AS request_count\nFROM otel_traces\nWHERE Timestamp > now() - INTERVAL ${__interval_s} SECOND\n  AND ParentSpanId = ''\n  AND SpanKind = 'server'\n  AND ($service = 'All' OR ServiceName = $service)\n  AND ($environment = 'All' OR ResourceAttributes['deployment.environment'] = $environment)\nGROUP BY endpoint\nORDER BY request_count DESC\nLIMIT 10",
+          "rawQuery": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top HTTP Endpoints",
+      "type": "piechart"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["rastro", "api", "performance"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "All", "value": "All" },
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "${DS_CLICKHOUSE}"
+        },
+        "definition": "SELECT DISTINCT ServiceName FROM otel_traces",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [],
+        "query": "SELECT DISTINCT ServiceName FROM otel_traces",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "All", "value": "All" },
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "${DS_CLICKHOUSE}"
+        },
+        "definition": "SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_traces",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": "SELECT DISTINCT ResourceAttributes['deployment.environment'] FROM otel_traces",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "HTTP/API Performance - Provisioned",
+  "uid": "http-api-performance",
+  "version": 1,
+  "weekStart": ""
+}
