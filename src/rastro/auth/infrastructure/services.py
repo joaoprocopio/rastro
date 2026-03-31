@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.contrib import auth
 from django.contrib.auth.hashers import check_password, make_password
 from django.http import HttpRequest
@@ -24,7 +26,7 @@ class DjangoSessionService(SessionService):
     def logout(self) -> None:
         auth.logout(self.request)
 
-    def logged_user(self) -> User | None:
+    def logged_user(self) -> Optional[User]:
         user = auth.get_user(self.request)
 
         if user.pk is None:

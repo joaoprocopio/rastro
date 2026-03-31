@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from django.contrib.auth import get_user_model
 
@@ -31,7 +31,7 @@ class DjangoUserRepository(UserRepository):
 
         return DjangoToDomainUserMapper.map(django_user)
 
-    def get_by_id(self, id: Id) -> User | None:
+    def get_by_id(self, id: Id) -> Optional[User]:
         try:
             django_user = DjangoUser.objects.get(pk=id.value)  # type: ignore
 
@@ -39,7 +39,7 @@ class DjangoUserRepository(UserRepository):
         except DjangoUser.DoesNotExist:
             return None
 
-    def get_by_email(self, email: Email) -> User | None:
+    def get_by_email(self, email: Email) -> Optional[User]:
         try:
             django_user = DjangoUser.objects.get(email=email.value)  # type: ignore
 
@@ -47,7 +47,7 @@ class DjangoUserRepository(UserRepository):
         except DjangoUser.DoesNotExist:
             return None
 
-    def get_by_username(self, username: Username) -> User | None:
+    def get_by_username(self, username: Username) -> Optional[User]:
         try:
             django_user = DjangoUser.objects.get(username=username.value)  # type: ignore
 

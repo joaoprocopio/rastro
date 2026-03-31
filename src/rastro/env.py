@@ -1,5 +1,5 @@
 import os
-from typing import Callable, TypeVar, overload
+from typing import Callable, Optional, TypeVar, overload
 
 T = TypeVar("T")
 
@@ -10,7 +10,7 @@ def get_env(
     *,
     default: None = None,
     parser: None = None,
-) -> str | None: ...
+) -> Optional[str]: ...
 
 
 @overload
@@ -28,7 +28,7 @@ def get_env(
     *,
     default: None = None,
     parser: Callable[[str], T],
-) -> T | None: ...
+) -> Optional[T]: ...
 
 
 @overload
@@ -43,9 +43,9 @@ def get_env(
 def get_env(
     key: str,
     *,
-    default: str | None = None,
-    parser: Callable[[str], T] | None = None,
-) -> str | T | None:
+    default: Optional[str] = None,
+    parser: Optional[Callable[[str], T]] = None,
+) -> Optional[str | T]:
     value = os.environ.get(key)
 
     if value is None:

@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Optional
 
 from rastro.auth.domain.entities import User
 from rastro.auth.domain.value_objects import HashedPassword, RawPassword
@@ -23,4 +24,4 @@ class SessionService(Service):
     def logout(self) -> None: ...
 
     @abstractmethod
-    def logged_user(self) -> User | None: ...
+    def logged_user(self) -> Optional[User]: ...

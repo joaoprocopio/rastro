@@ -3,9 +3,12 @@ from typing import cast
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
-from opentelemetry import trace
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.django import DjangoInstrumentor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -39,6 +42,18 @@ def setup_tracer() -> None:
     trace.set_tracer_provider(tracer_provider)
 
 
+def setup_metrics() -> None:
+    metric_exporter = OTLPMetricExporter(
+        endpoint=settings.OTEL_GRPC_ENDPOINT,
+        insecure=True,
+    )
+
+    metric_readers = [PeriodicExportingMetricReader(metric_exporter)]
+    meter_provider = MeterProvider(resource=resource, metric_readers=metric_readers)
+
+    metrics.set_meter_provider(meter_provider)
+
+
 def instrument_django() -> None:
     def response_hook(
         span: trace.Span, request: WSGIRequest, response: HttpResponse
@@ -57,4 +72,5 @@ def instrument_django() -> None:
 
 def instrument() -> None:
     setup_tracer()
+    setup_metrics()
     instrument_django()

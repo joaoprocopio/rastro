@@ -18,8 +18,6 @@ exporters:
     endpoint: "${RASTRO_OTEL_CLICKHOUSE_ENDPOINT}"
     username: "${RASTRO_OTEL_CLICKHOUSE_USERNAME}"
     password: "${RASTRO_OTEL_CLICKHOUSE_PASSWORD}"
-  debug:
-    verbosity: "detailed"
 
 service:
   extensions:
@@ -33,14 +31,12 @@ service:
         - "batch"
       exporters:
         - "clickhouse"
-        - "debug"
 
-    # metrics:
-    #   receivers:
-    #     - "otlp"
-    #   exporters:
-    #     - "clickhouse"
-    #     - "debug"
+    metrics:
+      receivers:
+        - "otlp"
+      exporters:
+        - "clickhouse"
 
     # logs:
     #   receivers:
