@@ -3,10 +3,14 @@ from typing import cast
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
-from opentelemetry import metrics, trace
+from opentelemetry import _logs, metrics, trace
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.django import DjangoInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
@@ -20,7 +24,7 @@ from rastro import settings
 logger = logging.getLogger(__name__)
 
 
-resource = Resource(
+_resource = Resource(
     attributes={
         service_attributes.SERVICE_NAME: settings.SERVICE_NAME,
         deployment_attributes.DEPLOYMENT_ID: settings.DEPLOYMENT_ID,
@@ -29,8 +33,8 @@ resource = Resource(
 )
 
 
-def setup_tracer() -> None:
-    tracer_provider = TracerProvider(resource=resource)
+def _setup_tracer() -> None:
+    tracer_provider = TracerProvider(resource=_resource)
 
     tracer_exporter = OTLPSpanExporter(
         endpoint=settings.OTEL_GRPC_ENDPOINT,
@@ -42,23 +46,35 @@ def setup_tracer() -> None:
     trace.set_tracer_provider(tracer_provider)
 
 
-def setup_metrics() -> None:
+def _setup_metrics() -> None:
     metric_exporter = OTLPMetricExporter(
         endpoint=settings.OTEL_GRPC_ENDPOINT,
         insecure=True,
     )
 
     metric_readers = [PeriodicExportingMetricReader(metric_exporter)]
-    meter_provider = MeterProvider(resource=resource, metric_readers=metric_readers)
+    meter_provider = MeterProvider(resource=_resource, metric_readers=metric_readers)
 
     metrics.set_meter_provider(meter_provider)
 
 
-def setup_logs() -> None:
-    pass
+def _setup_logs() -> None:
+    log_exporter = OTLPLogExporter(
+        endpoint=settings.OTEL_GRPC_ENDPOINT,
+        insecure=True,
+    )
+    log_processor = BatchLogRecordProcessor(log_exporter)
+    logger_provider = LoggerProvider(resource=_resource)
+    logger_provider.add_log_record_processor(log_processor)
+
+    _logs.set_logger_provider(logger_provider)
 
 
-def instrument_django() -> None:
+def _instrument_logging() -> None:
+    LoggingInstrumentor().instrument()
+
+
+def _instrument_django() -> None:
     def response_hook(
         span: trace.Span, request: WSGIRequest, response: HttpResponse
     ) -> None:
@@ -75,8 +91,9 @@ def instrument_django() -> None:
 
 
 def instrument() -> None:
-    setup_tracer()
-    setup_metrics()
-    setup_logs()
+    _setup_tracer()
+    _setup_metrics()
+    _setup_logs()
 
-    instrument_django()
+    _instrument_logging()
+    _instrument_django()
