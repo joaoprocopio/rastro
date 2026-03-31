@@ -54,6 +54,10 @@ def setup_metrics() -> None:
     metrics.set_meter_provider(meter_provider)
 
 
+def setup_logs() -> None:
+    pass
+
+
 def instrument_django() -> None:
     def response_hook(
         span: trace.Span, request: WSGIRequest, response: HttpResponse
@@ -73,4 +77,6 @@ def instrument_django() -> None:
 def instrument() -> None:
     setup_tracer()
     setup_metrics()
+    setup_logs()
+
     instrument_django()

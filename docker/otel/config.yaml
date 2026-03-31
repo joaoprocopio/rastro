@@ -38,9 +38,8 @@ service:
       exporters:
         - "clickhouse"
 
-    # logs:
-    #   receivers:
-    #     - "otlp"
-    #   exporters:
-    #     - "clickhouse"
-    #     - "debug"
+    logs:
+      receivers:
+        - "otlp"
+      exporters:
+        - "clickhouse"
