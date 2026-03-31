@@ -78,12 +78,17 @@ def _instrument_django() -> None:
     def response_hook(
         span: trace.Span, request: WSGIRequest, response: HttpResponse
     ) -> None:
-        if request.user.id is not None and request.user.is_authenticated:
-            span.set_attribute("user.id", request.user.pk)
-            span.set_attribute(
-                "user.email",
-                cast(str, getattr(request.user, request.user.get_email_field_name())),
-            )
+        user = getattr(request, "user", None)
+        if (
+            user is not None
+            and hasattr(user, "is_authenticated")
+            and user.is_authenticated
+        ):x
+            span.set_attribute("user.id", str(user.pk))
+            email_field = getattr(user, "get_email_field_name", lambda: "email")()
+            email = getattr(user, email_field, None)
+            if email:
+                span.set_attribute("user.email", str(email))
 
     DjangoInstrumentor().instrument(response_hook=response_hook)
 
