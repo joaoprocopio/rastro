@@ -27,6 +27,7 @@ dev = [
 
 [tool.mypy]
 strict = true
+exclude = '(^|/)migrations/'
 plugins = ["mypy_django_plugin.main"]
 disallow_any_unimported = true   # error on Any from missing stubs
 disallow_any_expr = true         # no Any anywhere in expressions (very aggressive)
@@ -38,12 +39,6 @@ strict_optional = true           # None is not compatible with any type
 warn_no_return = true            # error if not all paths return a value
 show_error_codes = true          # show error codes for easier ignore comments
 
-[[tool.mypy.overrides]]
-module = [
-    "django.*",
-    "psycopg2.*",
-]
-ignore_errors = true
 
 [tool.django-stubs]
 django_settings_module = "rastro.settings"
