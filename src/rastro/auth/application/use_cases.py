@@ -28,12 +28,13 @@ class SignUpUseCase(UseCase[SignUpInput, UserOutput]):
         self.password_hashing_service = password_hashing_service
 
     def execute(self, input: SignUpInput) -> UserOutput:
+        raw_password = RawPassword(input.password).validate()
+        hashed_password = self.password_hashing_service.hash(raw_password)
+
         user = self.repository.create(
-            username=Username(input.username),
-            email=Email(input.email),
-            hashed_password=self.password_hashing_service.hash(
-                RawPassword(input.password)
-            ),
+            username=Username(input.username).validate().normalize(),
+            email=Email(input.email).validate().normalize(),
+            hashed_password=hashed_password,
         )
 
         return DomainToOutputUserMapper.map(user)
