@@ -1,17 +1,9 @@
-from dataclasses import dataclass
-from typing import Self
-
-from rastro_base.error import InvalidIdError
-from rastro_base.value_object import ValueObject
-from rastro_shared_kernel.mixins import Validate
+from pydantic import RootModel
 
 
-@dataclass(frozen=True)
-class Id(ValueObject, Validate):
-    value: int
+class Id(RootModel[int]):
+    pass
 
-    def validate(self) -> Self:
-        if self.value < 1:
-            raise InvalidIdError()
 
-        return self
+print(Id(1))
+print(Id.model_validate_json("nul"))

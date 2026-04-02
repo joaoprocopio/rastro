@@ -28,7 +28,7 @@ dev = [
 [tool.mypy]
 strict = true
 exclude = '(^|/)migrations/'
-plugins = ["mypy_django_plugin.main"]
+plugins = ["mypy_django_plugin.main", "pydantic.mypy"]
 disallow_any_unimported = true   # error on Any from missing stubs
 disallow_any_expr = true         # no Any anywhere in expressions (very aggressive)
 disallow_any_decorated = true    # error if decorator makes return type Any
