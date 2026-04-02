@@ -1,26 +1,25 @@
-from dataclasses import dataclass
-
-from rastro_base.dto import DTO
-from rastro_shared_kernel.mixins import FromJson
+from pydantic import BaseModel
 
 
-@dataclass(frozen=True)
-class SignUpInput(DTO, FromJson):
+class SignUpInput(BaseModel):
     username: str
     email: str
     password: str
 
 
-@dataclass(frozen=True)
-class SignInInput(DTO, FromJson):
+class SignInInput(BaseModel):
     query: str
     password: str
 
 
-@dataclass(frozen=True)
-class UserOutput(DTO):
+class UserOutput(BaseModel):
     id: int
     email: str
     username: str
     password: str
     is_active: bool
+
+
+class UserPublic(BaseModel):
+    email: str
+    username: str
