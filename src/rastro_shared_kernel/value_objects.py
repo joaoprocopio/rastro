@@ -1,9 +1,4 @@
-from pydantic import RootModel
+from pydantic.root_model import RootModel
 
 
-class Id(RootModel[int]):
-    pass
-
-
-print(Id(1))
-print(Id.model_validate_json("nul"))
+class Id(RootModel[int]): ...
