@@ -2,27 +2,27 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from model_bakery import baker
 
-from rastro.conta.models import Conta
+from rastro.iam.models import IdentityModel
 
 
 @pytest.fixture
-def conta(db: None) -> Conta:
+def identity(db: None) -> IdentityModel:
     name = "user"
     email = f"{name}@example.com"
     password = "password"
 
     try:
-        conta = Conta.objects.get(email=email)
-    except Conta.DoesNotExist:
-        conta = baker.make(
-            Conta,
+        identity = IdentityModel.objects.get(email=email)
+    except IdentityModel.DoesNotExist:
+        identity = baker.make(
+            IdentityModel,
             display_name=name,
             email=email,
         )
-        conta.set_password(password)
-        conta.save()
+        identity.set_password(password)
+        identity.save()
 
-    return conta
+    return identity
 
 
 @pytest.fixture

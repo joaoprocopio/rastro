@@ -1,9 +1,9 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from rastro.conta.presentation import urls as conta_urls
+from rastro.iam.presentation import urls as iam_urls
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/v1/conta/", include(conta_urls)),
+    path("api/v1/iam/", include(iam_urls)),
 ]

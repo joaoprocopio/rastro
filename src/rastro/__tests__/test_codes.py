@@ -6,8 +6,8 @@ from rastro.codes import ErrorCode
 
 
 def test_codes_are_str_valued() -> None:
-    assert ErrorCode.AUTH_CONTA_NAO_ENCONTRADA == "AUTH_CONTA_NAO_ENCONTRADA"
-    assert isinstance(ErrorCode.AUTH_CONTA_NAO_ENCONTRADA, str)
+    assert ErrorCode.IAM_INCORRECT_CREDENTIALS == "IAM_INCORRECT_CREDENTIALS"
+    assert isinstance(ErrorCode.IAM_INCORRECT_CREDENTIALS, str)
 
 
 def test_every_value_matches_its_name() -> None:

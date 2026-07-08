@@ -50,18 +50,18 @@ def test_problem_detail_spreads_extensions_at_top_level() -> None:
         status=HTTPStatus.NOT_FOUND,
         title="Sample error",
         detail="not here",
-        extensions={"resource": "conta", "id": 7},
+        extensions={"resource": "account", "id": 7},
     )
 
     dumped = problem.model_dump()
 
-    assert dumped["resource"] == "conta"
+    assert dumped["resource"] == "account"
     assert dumped["id"] == 7
     assert "extensions" not in dumped
 
 
 def test_problem_detail_mapper_maps_base_error() -> None:
-    error = _SampleError(detail="conta not found", extensions={"id": 7})
+    error = _SampleError(detail="account not found", extensions={"id": 7})
 
     problem = ProblemMapper.map(error)
 
@@ -69,7 +69,7 @@ def test_problem_detail_mapper_maps_base_error() -> None:
         "code": "SAMPLE_ERROR",
         "status": 404,
         "title": "Sample error",
-        "detail": "conta not found",
+        "detail": "account not found",
         "id": 7,
     }
 
@@ -91,7 +91,7 @@ def test_validation_error_mapper_maps_to_422() -> None:
 
     dumped = problem.model_dump()
 
-    assert dumped["code"] == "VALIDATION_ERROR"
+    assert dumped["code"] == "BASE_VALIDATION_ERROR"
     assert dumped["status"] == 422
     assert "errors" in dumped
 

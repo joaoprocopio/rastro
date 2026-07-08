@@ -1,8 +1,8 @@
 from datetime import datetime
 from typing import Optional
 
-from rastro.conta.domain.services import PasswordHashingService, PasswordVerification
-from rastro.conta.domain.value_objects import (
+from rastro.iam.domain.services import PasswordHashingService, PasswordVerification
+from rastro.iam.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
@@ -12,7 +12,7 @@ from rastro_base.aggregate import AggregateRoot
 from rastro_shared_kernel.value_objects import Id
 
 
-class Conta(AggregateRoot):
+class IdentityAggregate(AggregateRoot):
     id: Id
     email: Email
     password: HashedPassword
@@ -23,7 +23,7 @@ class Conta(AggregateRoot):
     is_staff: bool
     is_superuser: bool
 
-    def set_password(
+    def update_password(
         self,
         raw_password: RawPassword,
         password_hashing_service: PasswordHashingService,
@@ -38,6 +38,6 @@ class Conta(AggregateRoot):
         verification = password_hashing_service.verify(raw_password, self.password)
 
         if verification.is_correct and verification.must_upgrade:
-            self.set_password(raw_password, password_hashing_service)
+            self.update_password(raw_password, password_hashing_service)
 
         return verification

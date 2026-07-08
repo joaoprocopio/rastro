@@ -17,12 +17,12 @@ note gaps or misuses as follow-up issues where found.
   whether the current mappers already play this role.
 - [ ] **Conformist** — the relationship where a downstream context simply adopts the upstream
   model. Note where this applies (if anywhere) so it's an explicit choice, not an accident.
-- [ ] **Aggregate** — consistency boundary with a single root. Review `conta/domain/aggregates.py`:
+- [ ] **Aggregate** — consistency boundary with a single root. Review `iam/domain/aggregates.py`:
   is the invariant enforcement inside the root, and are value objects held correctly?
 - [ ] **Domain event** — something meaningful that happened in the domain. Currently absent;
-  decide whether the `conta` flows (e.g. account entry) should raise them.
+  decide whether the `iam` flows (e.g. identity registration) should raise them.
 - [ ] **Specification pattern** — encapsulated, composable business rules. Evaluate whether any
-  current validation (email/password constraints in `conta/domain/value_objects.py`) would be
+  current validation (email/password constraints in `iam/domain/value_objects.py`) would be
   clearer as specifications.
 
 ## Notes

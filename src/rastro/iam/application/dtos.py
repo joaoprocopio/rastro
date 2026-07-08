@@ -1,31 +1,29 @@
 from datetime import datetime
 from typing import Optional
 
-from rastro.conta.domain.value_objects import (
+from rastro.iam.domain.value_objects import (
     DisplayName,
     Email,
-    HashedPassword,
     RawPassword,
 )
 from rastro_base.dto import DTO
 from rastro_shared_kernel.value_objects import Id
 
 
-class CadastrarInput(DTO):
+class RegisterIdentityInputDTO(DTO):
     display_name: DisplayName
     email: Email
     password: RawPassword
 
 
-class EntrarInput(DTO):
+class AuthenticateInputDTO(DTO):
     email: Email
     password: RawPassword
 
 
-class ContaOutput(DTO):
+class IdentityOutputDTO(DTO):
     id: Id
     email: Email
-    password: HashedPassword
     display_name: DisplayName
     date_joined: datetime
     last_login: Optional[datetime]
@@ -34,6 +32,6 @@ class ContaOutput(DTO):
     is_superuser: bool
 
 
-class ContaPublic(DTO):
+class IdentityPublicDTO(DTO):
     display_name: DisplayName
     email: Email

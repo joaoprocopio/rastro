@@ -16,7 +16,7 @@ from django.db.models.base import Model
 from django.utils import timezone
 
 
-class ContaManager(BaseUserManager["Conta"]):
+class IdentityManager(BaseUserManager["IdentityModel"]):
     use_in_migrations = True
 
     def _create_user_object(
@@ -25,7 +25,7 @@ class ContaManager(BaseUserManager["Conta"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> Conta:
+    ) -> IdentityModel:
         email = self.normalize_email(email)
         user = self.model(display_name=display_name, email=email, **extra_fields)
         user.password = make_password(password)
@@ -37,7 +37,7 @@ class ContaManager(BaseUserManager["Conta"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> Conta:
+    ) -> IdentityModel:
         user = self._create_user_object(display_name, email, password, **extra_fields)
         user.save(using=self._db)
         return user
@@ -48,7 +48,7 @@ class ContaManager(BaseUserManager["Conta"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> Conta:
+    ) -> IdentityModel:
         extra_fields.setdefault("is_staff", False)
         extra_fields.setdefault("is_superuser", False)
         return self._create_user(display_name, email, password, **extra_fields)
@@ -61,7 +61,7 @@ class ContaManager(BaseUserManager["Conta"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> Conta:
+    ) -> IdentityModel:
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
 
@@ -81,7 +81,7 @@ class ContaManager(BaseUserManager["Conta"]):
         include_superusers: bool = True,
         backend: Any = None,
         obj: Model | None = None,
-    ) -> QuerySet[Conta]:
+    ) -> QuerySet[IdentityModel]:
         if backend is None:
             backends = auth.get_backends()
             if len(backends) == 1:
@@ -100,7 +100,7 @@ class ContaManager(BaseUserManager["Conta"]):
 
         if hasattr(backend, "with_perm"):
             return cast(
-                QuerySet[Conta],
+                QuerySet[IdentityModel],
                 backend.with_perm(
                     perm,
                     is_active=is_active,
@@ -113,14 +113,14 @@ class ContaManager(BaseUserManager["Conta"]):
 
 
 # https://docs.djangoproject.com/en/6.0/topics/auth/customizing/
-class Conta(AbstractBaseUser, PermissionsMixin):
+class IdentityModel(AbstractBaseUser, PermissionsMixin):
     display_name = models.CharField(max_length=320)
     email = models.EmailField(unique=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_joined = models.DateTimeField(default=timezone.now)
 
-    objects = ContaManager()
+    objects = IdentityManager()
 
     USERNAME_FIELD = "email"
     EMAIL_FIELD = "email"

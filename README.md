@@ -25,18 +25,18 @@ An experimental Django service used to explore two things at once:
 
 Code lives under `src/`, split into three top-level packages:
 
-- **`rastro`** — the Django project and the `conta` (account) bounded context, organized in DDD
-  layers:
+- **`rastro`** — the Django project and the `iam` (Identity & Access Management) bounded
+  context, organized in DDD layers:
   - `domain/` — aggregates, value objects, domain services, repository interfaces, errors
   - `application/` — use cases and their input/output DTOs
   - `infrastructure/` — repository/service implementations and DI composition (factories)
   - `presentation/` — Django views and URL routing
 - **`rastro_base`** — reusable framework primitives: `Entity`, `Aggregate`, `RootValueObject`,
-  DTO/`RootModel` bases, `Mapper`, `UseCase`, and RFC 7807 error → `ProblemDetail` handling.
+  DTO/`RootModel` bases, `Mapper`, `UseCase`, and RFC 7807 error → `Problem` handling.
 - **`rastro_shared_kernel`** — cross-cutting helpers shared across contexts (typed `get_env`,
   parsers, shared value objects).
 
-Errors raise as typed `BaseError`s and are serialized globally into RFC 7807 `ProblemDetail`
+Errors raise as typed `BaseError`s and are serialized globally into RFC 7807 `Problem`
 JSON responses.
 
 ## Running the full stack
@@ -75,15 +75,16 @@ database settings, and the `RASTRO_DJANGO_OTEL_*` collector endpoints.
 
 ## API
 
-The `conta` context is mounted under `/api/v1/conta/`:
+The `iam` context is mounted under `/api/v1/iam/`, resource-oriented around an `identities`
+collection and a `session` singleton:
 
-| Method surface | Path                      | Purpose            |
-| -------------- | ------------------------- | ------------------ |
-| —              | `/api/v1/conta/`          | Current account    |
-| —              | `/api/v1/conta/csrftoken` | Issue a CSRF token |
-| —              | `/api/v1/conta/cadastrar` | Register           |
-| —              | `/api/v1/conta/entrar`    | Log in             |
-| —              | `/api/v1/conta/sair`      | Log out            |
+| Method | Path                        | Purpose                              |
+| ------ | --------------------------- | ------------------------------------ |
+| POST   | `/api/v1/iam/identities`    | Register a new identity (auto sign-in) |
+| POST   | `/api/v1/iam/session`       | Authenticate (start a session)       |
+| GET    | `/api/v1/iam/session`       | Resolve the current identity         |
+| DELETE | `/api/v1/iam/session`       | End the current session              |
+| GET    | `/api/v1/iam/csrftoken`     | Issue a CSRF token                   |
 
 Django admin is served at `/admin/`.
 

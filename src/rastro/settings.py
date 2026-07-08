@@ -59,7 +59,7 @@ DJANGO_APPS = [
 ]
 
 LOCAL_APPS = [
-    "rastro.conta",
+    "rastro.iam",
 ]
 
 THIRD_PARTY_APPS = [
@@ -137,7 +137,7 @@ CSRF_COOKIE_HTTPONLY = True
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.Argon2PasswordHasher"]
 AUTH_PASSWORD_VALIDATORS = []  # type: ignore
-AUTH_USER_MODEL = "conta.Conta"
+AUTH_USER_MODEL = "iam.IdentityModel"
 
 CSRF_COOKIE_DOMAIN = get_env(
     "RASTRO_DJANGO_CSRF_COOKIE_DOMAIN",

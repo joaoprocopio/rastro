@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from rastro_base.service import Service
 
-if TYPE_CHECKING:  # previne imports circulares
-    from rastro.conta.domain.aggregates import Conta
-    from rastro.conta.domain.value_objects import HashedPassword, RawPassword
+if TYPE_CHECKING:  # prevents circular imports
+    from rastro.iam.domain.aggregates import IdentityAggregate
+    from rastro.iam.domain.value_objects import HashedPassword, RawPassword
 
 
 class PasswordVerification(NamedTuple):
@@ -25,10 +25,10 @@ class PasswordHashingService(Service):
 
 class SessionService(Service):
     @abstractmethod
-    def login(self, conta: Conta) -> None: ...
+    def start(self, identity: IdentityAggregate) -> None: ...
 
     @abstractmethod
-    def logout(self) -> None: ...
+    def end(self) -> None: ...
 
     @abstractmethod
-    def logged_conta(self) -> Optional[Conta]: ...
+    def current_identity(self) -> Optional[IdentityAggregate]: ...

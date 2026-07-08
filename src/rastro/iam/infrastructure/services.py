@@ -4,33 +4,33 @@ from django.contrib import auth
 from django.contrib.auth.hashers import make_password, verify_password
 from django.http import HttpRequest
 
-from rastro.conta.domain.aggregates import Conta
-from rastro.conta.domain.services import (
+from rastro.iam.domain.aggregates import IdentityAggregate
+from rastro.iam.domain.services import (
     PasswordHashingService,
     PasswordVerification,
     SessionService,
 )
-from rastro.conta.domain.value_objects import HashedPassword, RawPassword
-from rastro.conta.shared.mappers import DehydrateContaMapper, HydrateContaMapper
+from rastro.iam.domain.value_objects import HashedPassword, RawPassword
+from rastro.iam.shared.mappers import DehydrateIdentityMapper, HydrateIdentityMapper
 
 
 class DjangoSessionService(SessionService):
     def __init__(self, request: HttpRequest) -> None:
         self.request = request
 
-    def login(self, conta: Conta) -> None:
-        auth.login(self.request, DehydrateContaMapper.map(conta))
+    def start(self, identity: IdentityAggregate) -> None:
+        auth.login(self.request, DehydrateIdentityMapper.map(identity))
 
-    def logout(self) -> None:
+    def end(self) -> None:
         auth.logout(self.request)
 
-    def logged_conta(self) -> Optional[Conta]:
+    def current_identity(self) -> Optional[IdentityAggregate]:
         user = auth.get_user(self.request)
 
         if user.pk is None:
             return None
 
-        return HydrateContaMapper.map(user)
+        return HydrateIdentityMapper.map(user)
 
 
 class DjangoPasswordHashingService(PasswordHashingService):

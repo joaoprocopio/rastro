@@ -13,10 +13,10 @@ Two tracks of open work remain, tracked as issues under `issues/`:
 Project refactors already completed:
 
 - Base errors `raise` and are handled globally; trivially JSON-serializable (code, title, details).
-- Cleaner approach for mappers (`rastro_base/mapper.py`, `conta/shared/mappers.py`).
+- Cleaner approach for mappers (`rastro_base/mapper.py`, `iam/shared/mappers.py`).
 - `str_strip_whitespace` lives on the base pydantic model (`rastro_base/pydantic.py`); inherited models rely on it.
-- Proper dependency injection with factories for use cases (`conta/infrastructure/composition.py`).
+- Proper dependency injection with factories for use cases (`iam/infrastructure/composition.py`).
 - Remaining endpoints converted into use cases.
 
 Tests already written: `rastro_base::error`, `rastro_base::problem`, `shared_kernel::env`,
-`shared_kernel::utils`, `conta::shared::mappers`, `rastro::codes`, `rastro::middleware`.
+`shared_kernel::utils`, `iam::shared::mappers`, `rastro::codes`, `rastro::middleware`.

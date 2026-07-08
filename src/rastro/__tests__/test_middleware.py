@@ -10,10 +10,10 @@ from rastro_base.error import BaseError
 from rastro_base.pydantic import BaseModel
 
 
-class _ContaNaoEncontradaError(BaseError):
-    code = "TEST_MW_CONTA_NAO_ENCONTRADA"
+class _AccountNotFoundError(BaseError):
+    code = "TEST_MW_ACCOUNT_NOT_FOUND"
     status = HTTPStatus.NOT_FOUND
-    title = "Conta não encontrada"
+    title = "Account not found"
 
 
 def _middleware() -> ExceptionHandlerMiddleware:
@@ -22,8 +22,8 @@ def _middleware() -> ExceptionHandlerMiddleware:
 
 def test_base_error_becomes_problem_json() -> None:
     request = RequestFactory().get("/")
-    error = _ContaNaoEncontradaError(
-        detail="Nenhuma conta encontrada.", extensions={"email": "a@b.com"}
+    error = _AccountNotFoundError(
+        detail="No account found.", extensions={"email": "a@b.com"}
     )
 
     response = _middleware().process_exception(request, error)
@@ -32,10 +32,10 @@ def test_base_error_becomes_problem_json() -> None:
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response["Content-Type"] == "application/problem+json"
     assert json.loads(response.content) == {
-        "code": "TEST_MW_CONTA_NAO_ENCONTRADA",
+        "code": "TEST_MW_ACCOUNT_NOT_FOUND",
         "status": 404,
-        "title": "Conta não encontrada",
-        "detail": "Nenhuma conta encontrada.",
+        "title": "Account not found",
+        "detail": "No account found.",
         "email": "a@b.com",
     }
 
@@ -54,7 +54,7 @@ def test_validation_error_becomes_problem_json() -> None:
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response["Content-Type"] == "application/problem+json"
     body = json.loads(response.content)
-    assert body["code"] == "VALIDATION_ERROR"
+    assert body["code"] == "BASE_VALIDATION_ERROR"
     assert "errors" in body
 
 
