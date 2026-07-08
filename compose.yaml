@@ -1,0 +1,131 @@
+services:
+  django:
+    build:
+      context: .
+      dockerfile: dockerfile
+    command: sh -c "python manage.py migrate && python manage.py collectstatic --no-input && gunicorn -w 8 rastro.wsgi --bind 0.0.0.0:8000"
+    environment:
+      RASTRO_DJANGO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
+      RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT: "prod"
+
+      RASTRO_DJANGO_OTEL_GRPC_ENDPOINT: "otel:4317"
+      RASTRO_DJANGO_OTEL_HTTP_ENDPOINT: "otel:4318"
+
+      RASTRO_DJANGO_SECRET_KEY: "019d4579758e762eb65db7ba3d7ceb81"
+      RASTRO_DJANGO_DEBUG: "0"
+
+      RASTRO_DJANGO_POSTGRES_DB: "postgres"
+      RASTRO_DJANGO_POSTGRES_USER: "postgres"
+      RASTRO_DJANGO_POSTGRES_PASSWORD: "postgres"
+      RASTRO_DJANGO_POSTGRES_HOST: "postgres"
+      RASTRO_DJANGO_POSTGRES_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - type: volume
+        source: django_static
+        target: /app/src/static
+    ports:
+      - published: 8000
+        target: 8000
+
+  postgres:
+    image: "postgres:latest"
+    environment:
+      POSTGRES_DB: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [
+          "CMD-SHELL",
+          "pg_isready -d ${POSTGRES_DB:-postgres} -U
+          ${POSTGRES_USER:-postgres}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - type: volume
+        source: postgres_data
+        target: /var/lib/postgresql
+
+  clickhouse:
+    image: "clickhouse/clickhouse-server:26.2"
+    environment:
+      CLICKHOUSE_DB: "clickhouse"
+      CLICKHOUSE_USER: "clickhouse"
+      CLICKHOUSE_PASSWORD: "clickhouse"
+    ports:
+      - name: Native
+        published: 9000
+        target: 9000
+      - name: HTTP
+        published: 8123
+        target: 8123
+    healthcheck:
+      test: [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8123/ping ||
+          exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - type: volume
+        source: clickhouse_data
+        target: /var/lib/clickhouse
+
+  otel:
+    image: "otel/opentelemetry-collector-contrib:0.148.0"
+    environment:
+      RASTRO_OTEL_CLICKHOUSE_ENDPOINT: "tcp://clickhouse:9000"
+      RASTRO_OTEL_CLICKHOUSE_USERNAME: "clickhouse"
+      RASTRO_OTEL_CLICKHOUSE_PASSWORD: "clickhouse"
+    ports:
+      - name: Healthcheck
+        published: 13133
+        target: 13133
+      - name: HTTP
+        published: 4318
+        target: 4318
+      - name: gRPC
+        published: 4317
+        target: 4317
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - "./docker/otel/config.yaml:/etc/otelcol-contrib/config.yaml"
+
+  grafana:
+    image: "grafana/grafana:main"
+    environment:
+      GF_INSTALL_PLUGINS: "grafana-clickhouse-datasource"
+      RASTRO_GF_CLICKHOUSE_HOST: "clickhouse"
+      RASTRO_GF_CLICKHOUSE_PORT: "9000"
+      RASTRO_GF_CLICKHOUSE_PROTOCOL: "native"
+      RASTRO_GF_CLICKHOUSE_USER: "clickhouse"
+      RASTRO_GF_CLICKHOUSE_PASSWORD: "clickhouse"
+    ports:
+      - name: UI
+        published: 7141
+        target: 3000
+    volumes:
+      # TODO: bind local dashboards and data sources
+      - type: volume
+        source: grafana_data
+        target: /var/lib/grafana
+      - type: bind
+        source: ./docker/grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+
+volumes:
+  postgres_data:
+  grafana_data:
+  clickhouse_data:
+  django_static:

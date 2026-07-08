@@ -1,0 +1,49 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318"
+      grpc:
+        endpoint: "0.0.0.0:4317"
+
+processors:
+  batch:
+
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+exporters:
+  clickhouse:
+    endpoint: "${RASTRO_OTEL_CLICKHOUSE_ENDPOINT}"
+    username: "${RASTRO_OTEL_CLICKHOUSE_USERNAME}"
+    password: "${RASTRO_OTEL_CLICKHOUSE_PASSWORD}"
+
+service:
+  extensions:
+    - "health_check"
+
+  pipelines:
+    traces:
+      receivers:
+        - "otlp"
+      processors:
+        - "batch"
+      exporters:
+        - "clickhouse"
+
+    metrics:
+      receivers:
+        - "otlp"
+      processors:
+        - "batch"
+      exporters:
+        - "clickhouse"
+
+    logs:
+      receivers:
+        - "otlp"
+      processors:
+        - "batch"
+      exporters:
+        - "clickhouse"
