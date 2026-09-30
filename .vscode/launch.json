@@ -5,13 +5,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python Debugger: Django",
+      "name": "Python Debugger: FastAPI",
       "type": "debugpy",
       "request": "launch",
-      "args": ["runserver", "--noreload"],
-      "django": true,
-      "autoStartBrowser": false,
-      "program": "${workspaceFolder}/manage.py"
+      "module": "uvicorn",
+      "args": ["rastro.main:app"]
     },
     {
       "name": "Python Debugger: Pytest",

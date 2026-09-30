@@ -1,126 +1,75 @@
-from __future__ import annotations
+from datetime import datetime
+from typing import Annotated
 
-from typing import Any, cast
+import sqlalchemy as sa
+from pydantic import Field, SecretStr, StringConstraints
+from sqlalchemy.orm import Mapped, mapped_column
 
-from django.contrib import auth
-from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import (
-    AbstractBaseUser,
-    BaseUserManager,
-    Permission,
-    PermissionsMixin,
-)
-from django.db import models
-from django.db.models import QuerySet
-from django.db.models.base import Model
-from django.utils import timezone
+from rastro.database.core import Base
+from rastro.models import RastroBase
 
+# https://emailregex.com/
+EMAIL_PATTERN = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+# RFC 5321 limits a forward path to 256 octets, and the two angle brackets
+# leave 254 for the address.
+EMAIL_MAX_LENGTH = 254
+DISPLAY_NAME_MAX_LENGTH = 320
 
-class IdentityManager(BaseUserManager["IdentityModel"]):
-    use_in_migrations = True
-
-    def _create_user_object(
-        self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
-    ) -> IdentityModel:
-        email = self.normalize_email(email)
-        user = self.model(display_name=display_name, email=email, **extra_fields)
-        user.password = make_password(password)
-        return user
-
-    def _create_user(
-        self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
-    ) -> IdentityModel:
-        user = self._create_user_object(display_name, email, password, **extra_fields)
-        user.save(using=self._db)
-        return user
-
-    def create_user(
-        self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
-    ) -> IdentityModel:
-        extra_fields.setdefault("is_staff", False)
-        extra_fields.setdefault("is_superuser", False)
-        return self._create_user(display_name, email, password, **extra_fields)
-
-    setattr(create_user, "alters_data", True)
-
-    def create_superuser(
-        self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
-    ) -> IdentityModel:
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
-
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superuser must have is_superuser=True.")
-
-        return self._create_user(display_name, email, password, **extra_fields)
-
-    setattr(create_superuser, "alters_data", True)
-
-    def with_perm(
-        self,
-        perm: str | Permission,
-        is_active: bool = True,
-        include_superusers: bool = True,
-        backend: Any = None,
-        obj: Model | None = None,
-    ) -> QuerySet[IdentityModel]:
-        if backend is None:
-            backends = auth.get_backends()
-            if len(backends) == 1:
-                backend = backends[0]
-            else:
-                raise ValueError(
-                    "You have multiple authentication backends configured and "
-                    "therefore must provide the `backend` argument."
-                )
-        elif not isinstance(backend, str):
-            raise TypeError(
-                "backend must be a dotted import path string (got %r)." % backend
-            )
-        else:
-            backend = auth.load_backend(backend)
-
-        if hasattr(backend, "with_perm"):
-            return cast(
-                QuerySet[IdentityModel],
-                backend.with_perm(
-                    perm,
-                    is_active=is_active,
-                    include_superusers=include_superusers,
-                    obj=obj,
-                ),
-            )
-
-        return self.none()
+Email = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        to_lower=True,
+        max_length=EMAIL_MAX_LENGTH,
+        pattern=EMAIL_PATTERN,
+    ),
+]
+DisplayName = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, max_length=DISPLAY_NAME_MAX_LENGTH),
+]
+# `SecretStr` keeps the password out of `repr()` and logs. The password keeps its
+# leading and trailing whitespace, so it matches what the person typed. The
+# upper bound follows OWASP: long enough for a passphrase, short enough that
+# hashing it cannot tie up a worker.
+Password = Annotated[SecretStr, Field(min_length=8, max_length=128)]
 
 
-# https://docs.djangoproject.com/en/6.0/topics/auth/customizing/
-class IdentityModel(AbstractBaseUser, PermissionsMixin):
-    display_name = models.CharField(max_length=320)
-    email = models.EmailField(unique=True)
-    is_staff = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
-    date_joined = models.DateTimeField(default=timezone.now)
+class Identity(Base):
+    """The authenticated principal: who signs in, and with which credentials."""
 
-    objects = IdentityManager()
+    __tablename__ = "iam_identity"
 
-    USERNAME_FIELD = "email"
-    EMAIL_FIELD = "email"
+    id: Mapped[int] = mapped_column(
+        sa.BigInteger, sa.Identity(always=True), primary_key=True, init=False
+    )
+    email: Mapped[str] = mapped_column(sa.String(EMAIL_MAX_LENGTH), unique=True)
+    password_hash: Mapped[str] = mapped_column(sa.Text, repr=False)
+    display_name: Mapped[str] = mapped_column(sa.String(DISPLAY_NAME_MAX_LENGTH))
+    date_joined: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now(), init=False
+    )
+    last_login: Mapped[datetime | None] = mapped_column(
+        sa.DateTime(timezone=True), default=None
+    )
+    is_active: Mapped[bool] = mapped_column(
+        sa.Boolean, server_default=sa.true(), default=True
+    )
+
+
+class IdentityRegister(RastroBase):
+    display_name: DisplayName
+    email: Email
+    password: Password
+
+
+class IdentityAuthenticate(RastroBase):
+    email: Email
+    password: Password
+
+
+class IdentityRead(RastroBase):
+    """The public projection of an `Identity`, the only one that leaves the API."""
+
+    display_name: str
+    email: str

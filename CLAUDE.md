@@ -1,6 +1,6 @@
 # rastro
 
-Experimental Django project for OpenTelemetry + Grafana instrumentation, structured with DDD.
+Experimental FastAPI project for OpenTelemetry + Grafana instrumentation, laid out after Netflix Dispatch: one package per feature, each with `models.py`, `service.py`, and `views.py`.
 
 ## Agent skills
 
