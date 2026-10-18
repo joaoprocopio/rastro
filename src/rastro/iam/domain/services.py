@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from rastro_base.service import Service
 
@@ -16,9 +16,3 @@ class PasswordHashingService(Service):
 class SessionService(Service):
     @abstractmethod
     def start(self, identity: IdentityAggregate) -> None: ...
-
-    @abstractmethod
-    def end(self) -> None: ...
-
-    @abstractmethod
-    def current_identity(self) -> Optional[IdentityAggregate]: ...
