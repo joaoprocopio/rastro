@@ -1,6 +1,5 @@
 import uuid
 
-from django.contrib.auth import get_user
 from django.http import HttpRequest, HttpResponse
 from opentelemetry import _logs, metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
@@ -16,7 +15,10 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.semconv._incubating.attributes import deployment_attributes
+from opentelemetry.semconv._incubating.attributes import (
+    deployment_attributes,
+    enduser_attributes,
+)
 from opentelemetry.semconv.attributes import service_attributes
 
 from rastro.settings import telemetry as telemetry_settings
@@ -31,8 +33,10 @@ _resource = Resource(
     }
 )
 
+_instrumented = False
 
-def _setup_tracer() -> None:
+
+def _setup_tracer() -> TracerProvider:
     tracer_provider = TracerProvider(resource=_resource)
 
     tracer_exporter = OTLPSpanExporter(
@@ -43,6 +47,8 @@ def _setup_tracer() -> None:
     tracer_provider.add_span_processor(tracer_processor)
 
     trace.set_tracer_provider(tracer_provider)
+
+    return tracer_provider
 
 
 def _setup_metrics() -> None:
@@ -69,25 +75,21 @@ def _setup_logs() -> None:
     _logs.set_logger_provider(logger_provider)
 
 
-def _instrument_django() -> None:
-    def response_hook(
-        span: trace.Span, request: HttpRequest, response: HttpResponse
-    ) -> None:
-        user = get_user(request)
+def _record_identity(
+    span: trace.Span, request: HttpRequest, response: HttpResponse
+) -> None:
+    # The span carries the Identity's id and never its email, so no personal data reaches ClickHouse.
+    user = getattr(request, "user", None)
 
-        if (
-            user is not None
-            and hasattr(user, "is_authenticated")
-            and user.is_authenticated
-        ):
-            span.set_attribute("user.id", str(user.pk))
+    if user is not None and user.is_authenticated:
+        span.set_attribute(enduser_attributes.ENDUSER_ID, str(user.pk))
 
-            email: str | None = getattr(user, user.get_email_field_name())
 
-            if email is not None:
-                span.set_attribute("user.email", str(email))
-
-    DjangoInstrumentor().instrument(response_hook=response_hook)
+def instrument_django(*, tracer_provider: TracerProvider) -> None:
+    DjangoInstrumentor().instrument(
+        tracer_provider=tracer_provider,
+        response_hook=_record_identity,
+    )
 
 
 def _instrument_logging() -> None:
@@ -95,14 +97,23 @@ def _instrument_logging() -> None:
 
 
 def _instrument_psycopg2() -> None:
-    Psycopg2Instrumentor().instrument(capture_parameters=True)
+    # SQL parameters include password hashes, so the spans keep only the statement.
+    Psycopg2Instrumentor().instrument(capture_parameters=False)
 
 
 def instrument() -> None:
-    _setup_tracer()
+    # manage.py runserver imports rastro.wsgi, so one process can reach here twice.
+    global _instrumented
+
+    if _instrumented:
+        return
+
+    _instrumented = True
+
+    tracer_provider = _setup_tracer()
     _setup_metrics()
     _setup_logs()
 
     _instrument_logging()
     _instrument_psycopg2()
-    _instrument_django()
+    instrument_django(tracer_provider=tracer_provider)
