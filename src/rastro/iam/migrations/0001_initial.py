@@ -2,7 +2,6 @@
 
 import django.db.models.functions.text
 import rastro.iam.fields
-import rastro.iam.models
 from django.db import migrations, models
 
 
@@ -83,8 +82,5 @@ class Migration(migrations.Migration):
                     ),
                 ],
             },
-            managers=[
-                ("objects", rastro.iam.models.IdentityManager()),
-            ],
         ),
     ]

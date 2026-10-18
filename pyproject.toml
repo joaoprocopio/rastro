@@ -82,6 +82,8 @@ layers = [
     "models",
     "values",
 ]
+# The manager in models is an edge: it calls a service with the hasher from deps.
+ignore_imports = ["rastro.iam.models -> rastro.iam.services"]
 
 [[tool.importlinter.contracts]]
 name = "only apis import schemas"
@@ -96,6 +98,7 @@ name = "services and selectors import no pydantic"
 type = "forbidden"
 source_modules = ["rastro.iam.services"]
 forbidden_modules = ["pydantic", "pydantic_core"]
+# Every values module reaches pydantic through rastro.common.values, its adapter.
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -103,6 +106,8 @@ name = "services and selectors never import adapters"
 type = "forbidden"
 source_modules = ["rastro.iam.services"]
 forbidden_modules = ["rastro.iam.adapters"]
+# The manager in models imports deps, and services import models.
+ignore_imports = ["rastro.iam.models -> rastro.iam.deps"]
 
 [[tool.importlinter.contracts]]
 name = "only deps imports adapters"

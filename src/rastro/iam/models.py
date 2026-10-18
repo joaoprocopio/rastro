@@ -1,122 +1,64 @@
 from __future__ import annotations
 
-from typing import Any, cast
-
-from django.contrib import auth
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
-    Permission,
     PermissionsMixin,
 )
+from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import QuerySet
-from django.db.models.base import Model
 from django.db.models.functions import Lower
 
 from rastro.common.models import BaseModel
+from rastro.common.values import InvalidValueError, StrValueObject
 from rastro.iam.fields import DisplayNameField, EmailField
-from rastro.iam.values import DisplayName, Email
+from rastro.iam.values import DisplayName, Email, RawPassword
+
+
+def _parse[V: StrValueObject](value_object: type[V], value: str | V) -> V:
+    if not isinstance(value, str):
+        return value
+    try:
+        return value_object(value)
+    except InvalidValueError as error:
+        raise ValidationError(str(error), code=error.code) from error
 
 
 class IdentityManager(BaseUserManager["Identity"]):
-    use_in_migrations = True
-
-    def _create_user_object(
-        self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
-    ) -> Identity:
-        user = self.model(
-            display_name=DisplayName(display_name),
-            email=Email(email),
-            **extra_fields,
-        )
-        user.password = make_password(password)
-        return user
-
-    def _create_user(
-        self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
-    ) -> Identity:
-        user = self._create_user_object(display_name, email, password, **extra_fields)
-        user.save(using=self._db)
-        return user
-
     def create_user(
         self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
+        *,
+        email: str | Email,
+        display_name: str | DisplayName,
+        password: str | None,
     ) -> Identity:
-        extra_fields.setdefault("is_staff", False)
-        extra_fields.setdefault("is_superuser", False)
-        return self._create_user(display_name, email, password, **extra_fields)
+        # The manager imports the service at call time: the service imports this module.
+        from rastro.iam import deps, services
 
-    setattr(create_user, "alters_data", True)
+        services.identity_register(
+            email=_parse(Email, email),
+            display_name=_parse(DisplayName, display_name),
+            password=_parse(RawPassword, password or ""),
+            password_hasher=deps.PASSWORD_HASHER,
+        )
+        return self.get(email=email)
 
     def create_superuser(
         self,
-        display_name: str,
-        email: str,
-        password: str,
-        **extra_fields: Any,
+        *,
+        email: str | Email,
+        display_name: str | DisplayName,
+        password: str | None,
     ) -> Identity:
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
+        from rastro.iam import deps, services
 
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superuser must have is_superuser=True.")
-
-        return self._create_user(display_name, email, password, **extra_fields)
-
-    setattr(create_superuser, "alters_data", True)
-
-    def with_perm(
-        self,
-        perm: str | Permission,
-        is_active: bool = True,
-        include_superusers: bool = True,
-        backend: Any = None,
-        obj: Model | None = None,
-    ) -> QuerySet[Identity]:
-        if backend is None:
-            backends = auth.get_backends()
-            if len(backends) == 1:
-                backend = backends[0]
-            else:
-                raise ValueError(
-                    "You have multiple authentication backends configured and "
-                    "therefore must provide the `backend` argument."
-                )
-        elif not isinstance(backend, str):
-            raise TypeError(
-                "backend must be a dotted import path string (got %r)." % backend
-            )
-        else:
-            backend = auth.load_backend(backend)
-
-        if hasattr(backend, "with_perm"):
-            return cast(
-                QuerySet[Identity],
-                backend.with_perm(
-                    perm,
-                    is_active=is_active,
-                    include_superusers=include_superusers,
-                    obj=obj,
-                ),
-            )
-
-        return self.none()
+        services.identity_register_superuser(
+            email=_parse(Email, email),
+            display_name=_parse(DisplayName, display_name),
+            password=_parse(RawPassword, password or ""),
+            password_hasher=deps.PASSWORD_HASHER,
+        )
+        return self.get(email=email)
 
 
 class Identity(BaseModel, AbstractBaseUser, PermissionsMixin):

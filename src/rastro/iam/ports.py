@@ -3,7 +3,7 @@ from typing import Protocol
 from django.http import HttpRequest
 
 from rastro.iam.models import Identity
-from rastro.iam.values import Email, RawPassword
+from rastro.iam.values import Email, HashedPassword, RawPassword
 
 
 class Authenticator(Protocol):
@@ -18,3 +18,7 @@ class SessionStore(Protocol):
     def end(self, *, request: HttpRequest) -> None: ...
 
     def current(self, *, request: HttpRequest) -> Identity | None: ...
+
+
+class PasswordHasher(Protocol):
+    def __call__(self, *, password: RawPassword) -> HashedPassword: ...
