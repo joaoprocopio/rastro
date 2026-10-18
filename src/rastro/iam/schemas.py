@@ -1,6 +1,6 @@
 import pydantic
 
-from rastro.iam.values import Email, RawPassword
+from rastro.iam.values import DisplayName, Email, RawPassword
 
 
 class SessionStartInput(pydantic.BaseModel):
@@ -8,3 +8,8 @@ class SessionStartInput(pydantic.BaseModel):
 
     email: Email
     password: RawPassword
+
+
+class SessionCurrentOutput(pydantic.BaseModel):
+    email: Email
+    display_name: DisplayName
