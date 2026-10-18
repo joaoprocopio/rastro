@@ -58,7 +58,7 @@ def _identity_create(
         Identity.objects.create(
             email=email,
             display_name=display_name,
-            password=password_hasher(password=password).value,
+            password=password_hasher(password=password).root,
             is_staff=is_staff,
             is_superuser=is_superuser,
         )

@@ -45,7 +45,7 @@ def test_authenticated_request_records_the_identity_id_and_not_the_email(
 
     attributes = dict(_request_span(exporter).attributes or {})
     assert attributes["enduser.id"] == str(identity.pk)
-    assert identity.email.value not in attributes.values()
+    assert identity.email.root not in attributes.values()
 
 
 def test_anonymous_request_records_no_enduser_id(

@@ -8,7 +8,7 @@ from django.contrib.auth.models import (
 from django.db import models
 from django.db.models.functions import Lower
 
-from rastro.common.fields import StrValueObjectField, parse_value_object
+from rastro.common.fields import ValueObjectField, django_validation_errors
 from rastro.common.models import BaseModel
 from rastro.iam.values import (
     DISPLAY_NAME_MAX_LENGTH,
@@ -19,11 +19,11 @@ from rastro.iam.values import (
 )
 
 
-class EmailValueField(StrValueObjectField[Email]):
+class EmailValueField(ValueObjectField[Email]):
     value_object = Email
 
 
-class DisplayNameValueField(StrValueObjectField[DisplayName]):
+class DisplayNameValueField(ValueObjectField[DisplayName]):
     value_object = DisplayName
 
 
@@ -38,13 +38,17 @@ class IdentityManager(BaseUserManager["Identity"]):
         # The manager imports the service at call time: the service imports this module.
         from rastro.iam import deps, services
 
+        with django_validation_errors():
+            parsed_email = Email.model_validate(email)
+            parsed_display_name = DisplayName.model_validate(display_name)
+            parsed_password = RawPassword.model_validate(password or "")
         services.identity_register(
-            email=parse_value_object(Email, email),
-            display_name=parse_value_object(DisplayName, display_name),
-            password=parse_value_object(RawPassword, password or ""),
+            email=parsed_email,
+            display_name=parsed_display_name,
+            password=parsed_password,
             password_hasher=deps.PASSWORD_HASHER,
         )
-        return self.get(email=email)
+        return self.get(email=parsed_email)
 
     def create_superuser(
         self,
@@ -55,13 +59,17 @@ class IdentityManager(BaseUserManager["Identity"]):
     ) -> Identity:
         from rastro.iam import deps, services
 
+        with django_validation_errors():
+            parsed_email = Email.model_validate(email)
+            parsed_display_name = DisplayName.model_validate(display_name)
+            parsed_password = RawPassword.model_validate(password or "")
         services.identity_register_superuser(
-            email=parse_value_object(Email, email),
-            display_name=parse_value_object(DisplayName, display_name),
-            password=parse_value_object(RawPassword, password or ""),
+            email=parsed_email,
+            display_name=parsed_display_name,
+            password=parsed_password,
             password_hasher=deps.PASSWORD_HASHER,
         )
-        return self.get(email=email)
+        return self.get(email=parsed_email)
 
 
 class Identity(BaseModel, AbstractBaseUser, PermissionsMixin):
@@ -86,4 +94,4 @@ class Identity(BaseModel, AbstractBaseUser, PermissionsMixin):
         ]
 
     def __str__(self) -> str:
-        return self.email.value
+        return self.email.root

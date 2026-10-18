@@ -75,30 +75,56 @@ def test_an_unknown_field_is_a_validation_failure(client: Client) -> None:
     ]
 
 
-def test_an_invalid_value_object_carries_its_own_code(client: Client) -> None:
+@pytest.mark.parametrize(
+    ("color", "item"),
+    [
+        ("Green", {"pointer": "#/color", "type": "/problems/request.invalid_format"}),
+        (
+            "re",
+            {
+                "pointer": "#/color",
+                "type": "/problems/request.too_short",
+                "min_length": 3,
+            },
+        ),
+        (
+            "magenta",
+            {
+                "pointer": "#/color",
+                "type": "/problems/request.too_long",
+                "max_length": 6,
+            },
+        ),
+    ],
+)
+def test_a_value_object_rule_names_the_rule_and_its_limit(
+    client: Client, color: str, item: dict[str, object]
+) -> None:
     response = client.post(
         reverse("sample:paint_apply"),
-        {"color": "green", "coats": 2},
+        {"color": color, "coats": 2},
         content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert response.json()["errors"] == [
-        {"pointer": "#/color", "type": "/problems/sample.invalid_color"},
-    ]
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [item],
+    }
 
 
 def test_every_field_error_appears_in_one_response(client: Client) -> None:
     response = client.post(
         reverse("sample:paint_apply"),
-        {"color": "green", "brush": 1},
+        {"color": "Green", "brush": 1},
         content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["errors"] == [
         {"pointer": "#/brush", "type": "/problems/request.unknown_field"},
-        {"pointer": "#/color", "type": "/problems/sample.invalid_color"},
+        {"pointer": "#/color", "type": "/problems/request.invalid_format"},
         {"pointer": "#/coats", "type": "/problems/request.field_required"},
     ]
 

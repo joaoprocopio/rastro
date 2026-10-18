@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import ClassVar
 
-from rastro.common.values import InvalidValueError
-
 
 def _name(cls: type) -> str:
     return f"{cls.__module__}.{cls.__qualname__}"
@@ -37,8 +35,7 @@ class BaseError(Exception):
 @dataclass(frozen=True)
 class ValidationItem:
     pointer: str
-    # A value object still raises InvalidValueError, which carries a code of its own.
-    error: BaseError | InvalidValueError
+    error: BaseError
 
 
 class ValidationFailedError(BaseError):
@@ -74,10 +71,18 @@ class TooShortError(BaseError):
     code = "request.too_short"
     status = HTTPStatus.UNPROCESSABLE_ENTITY
 
+    def __init__(self, min_length: int) -> None:
+        super().__init__()
+        self.min_length = min_length
+
 
 class TooLongError(BaseError):
     code = "request.too_long"
     status = HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def __init__(self, max_length: int) -> None:
+        super().__init__()
+        self.max_length = max_length
 
 
 class InvalidFormatError(BaseError):

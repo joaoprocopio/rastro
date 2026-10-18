@@ -99,7 +99,7 @@ name = "services and selectors import no pydantic"
 type = "forbidden"
 source_modules = ["rastro.iam.services", "rastro.iam.selectors"]
 forbidden_modules = ["pydantic", "pydantic_core"]
-# Every values module reaches pydantic through rastro.common.values, its adapter.
+# Services import values, which import pydantic to declare their rules.
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -119,11 +119,7 @@ ignore_imports = ["rastro.iam.deps -> rastro.iam.adapters"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "values import no framework"
+name = "values import no django"
 type = "forbidden"
 source_modules = ["rastro.*.values"]
-forbidden_modules = ["django", "pydantic", "pydantic_core"]
-ignore_imports = [
-    "rastro.common.values -> pydantic",
-    "rastro.common.values -> pydantic_core",
-]
+forbidden_modules = ["django"]

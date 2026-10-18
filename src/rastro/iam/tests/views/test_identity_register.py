@@ -41,7 +41,7 @@ def test_registration_starts_no_session(client: Client, db: None) -> None:
 def test_an_email_in_use_is_a_conflict(client: Client, identity: Identity) -> None:
     response = client.post(
         reverse("iam:identity_register"),
-        {**VALID_PAYLOAD, "email": identity.email.value},
+        {**VALID_PAYLOAD, "email": identity.email.root},
         content_type="application/json",
     )
 
@@ -50,12 +50,12 @@ def test_an_email_in_use_is_a_conflict(client: Client, identity: Identity) -> No
     assert response.json() == {"type": "/problems/iam.email_in_use", "status": 409}
 
 
-def test_an_invalid_field_points_at_the_field_with_the_value_object_code(
+def test_each_invalid_field_names_the_rule_that_failed(
     client: Client, db: None
 ) -> None:
     response = client.post(
         reverse("iam:identity_register"),
-        {"email": "nope", "display_name": "x" * 321, "password": "short"},
+        {"email": "nope", "display_name": "Ada", "password": "short"},
         content_type="application/json",
     )
 
@@ -65,17 +65,18 @@ def test_an_invalid_field_points_at_the_field_with_the_value_object_code(
         "type": "/problems/request.validation_failed",
         "status": 422,
         "errors": [
-            {"pointer": "#/email", "type": "/problems/iam.invalid_email"},
+            {"pointer": "#/email", "type": "/problems/request.invalid_format"},
             {
-                "pointer": "#/display_name",
-                "type": "/problems/iam.invalid_display_name",
+                "pointer": "#/password",
+                "type": "/problems/request.too_short",
+                "min_length": 8,
             },
-            {"pointer": "#/password", "type": "/problems/iam.invalid_password"},
         ],
     }
+    assert not Identity.objects.exists()
 
 
-def test_an_email_longer_than_254_characters_is_a_validation_error(
+def test_an_email_longer_than_254_characters_is_too_long(
     client: Client, db: None
 ) -> None:
     local_part = "a" * (296 - len("@example.com"))
@@ -90,7 +91,70 @@ def test_an_email_longer_than_254_characters_is_a_validation_error(
     assert response.json() == {
         "type": "/problems/request.validation_failed",
         "status": 422,
-        "errors": [{"pointer": "#/email", "type": "/problems/iam.invalid_email"}],
+        "errors": [
+            {
+                "pointer": "#/email",
+                "type": "/problems/request.too_long",
+                "max_length": 254,
+            }
+        ],
+    }
+
+
+def test_a_display_name_longer_than_320_characters_is_too_long(
+    client: Client, db: None
+) -> None:
+    response = client.post(
+        reverse("iam:identity_register"),
+        {**VALID_PAYLOAD, "display_name": "x" * 321},
+        content_type="application/json",
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [
+            {
+                "pointer": "#/display_name",
+                "type": "/problems/request.too_long",
+                "max_length": 320,
+            }
+        ],
+    }
+
+
+def test_a_missing_field_a_wrong_type_and_an_unknown_field_keep_their_types(
+    client: Client, db: None
+) -> None:
+    response = client.post(
+        reverse("iam:identity_register"),
+        {"email": 1, "password": "supersecret", "role": "admin"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [
+            {"pointer": "#/role", "type": "/problems/request.unknown_field"},
+            {"pointer": "#/email", "type": "/problems/request.invalid_type"},
+            {"pointer": "#/display_name", "type": "/problems/request.field_required"},
+        ],
+    }
+
+
+def test_malformed_json_keeps_its_type(client: Client, db: None) -> None:
+    response = client.post(
+        reverse("iam:identity_register"), "{not valid", content_type="application/json"
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#", "type": "/problems/request.invalid_json"}],
     }
 
 

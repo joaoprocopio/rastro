@@ -1,40 +1,55 @@
-import re
 import unicodedata
-from dataclasses import dataclass
+from typing import Annotated
 
-from rastro.common.values import InvalidValueError, StrValueObject
+from pydantic import BeforeValidator, StringConstraints
 
-EMAIL_PATTERN = re.compile(r"^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$")
+from rastro.common.values import ValueObject
+
+EMAIL_PATTERN = r"^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$"
 EMAIL_MAX_LENGTH = 254
 DISPLAY_NAME_MAX_LENGTH = 320
 RAW_PASSWORD_MIN_LENGTH = 8
 
 
-@dataclass(frozen=True, slots=True)
-class Email(StrValueObject):
-    def __post_init__(self) -> None:
-        value = unicodedata.normalize("NFKC", self.value.strip()).lower()
-        if len(value) > EMAIL_MAX_LENGTH or EMAIL_PATTERN.match(value) is None:
-            raise InvalidValueError("iam.invalid_email")
-        object.__setattr__(self, "value", value)
+def _nfkc(value: object) -> object:
+    return unicodedata.normalize("NFKC", value) if isinstance(value, str) else value
 
 
-@dataclass(frozen=True, slots=True)
-class DisplayName(StrValueObject):
-    def __post_init__(self) -> None:
-        value = self.value.strip()
-        if len(value) > DISPLAY_NAME_MAX_LENGTH:
-            raise InvalidValueError("iam.invalid_display_name")
-        object.__setattr__(self, "value", value)
+class Email(
+    ValueObject[
+        Annotated[
+            str,
+            BeforeValidator(_nfkc),
+            StringConstraints(
+                strip_whitespace=True,
+                to_lower=True,
+                max_length=EMAIL_MAX_LENGTH,
+                pattern=EMAIL_PATTERN,
+            ),
+        ]
+    ]
+):
+    pass
 
 
-@dataclass(frozen=True, slots=True)
-class RawPassword(StrValueObject):
-    def __post_init__(self) -> None:
-        if len(self.value) < RAW_PASSWORD_MIN_LENGTH:
-            raise InvalidValueError("iam.invalid_password")
+class DisplayName(
+    ValueObject[
+        Annotated[
+            str,
+            StringConstraints(
+                strip_whitespace=True, max_length=DISPLAY_NAME_MAX_LENGTH
+            ),
+        ]
+    ]
+):
+    pass
 
 
-@dataclass(frozen=True, slots=True)
-class HashedPassword(StrValueObject):
+class RawPassword(
+    ValueObject[Annotated[str, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]]
+):
+    pass
+
+
+class HashedPassword(ValueObject[str]):
     pass

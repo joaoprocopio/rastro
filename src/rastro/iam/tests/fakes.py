@@ -23,4 +23,4 @@ class FakeSessionStore:
 
 
 def fake_hash(*, password: RawPassword) -> HashedPassword:
-    return HashedPassword(f"fake${password.value}")
+    return HashedPassword(f"fake${password.root}")

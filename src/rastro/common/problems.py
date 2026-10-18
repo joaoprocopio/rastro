@@ -9,24 +9,19 @@ from pydantic_core import ErrorDetails
 from rastro.common.errors import (
     BaseError,
     FieldRequiredError,
+    InvalidFormatError,
     InvalidJsonError,
     InvalidTypeError,
     MethodNotAllowedError,
     NotFoundError,
+    TooLongError,
+    TooShortError,
     UnknownFieldError,
     ValidationFailedError,
     ValidationItem,
 )
-from rastro.common.values import InvalidValueError
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
-
-# Any other Pydantic error type, for example string_type or int_parsing, is a wrong type.
-_FIELD_ERROR_BY_PYDANTIC_TYPE: dict[str, type[BaseError]] = {
-    "missing": FieldRequiredError,
-    "json_invalid": InvalidJsonError,
-    "extra_forbidden": UnknownFieldError,
-}
 
 
 def _json_pointer(loc: tuple[int | str, ...]) -> str:
@@ -34,11 +29,24 @@ def _json_pointer(loc: tuple[int | str, ...]) -> str:
     return "#" + "".join(f"/{part}" for part in parts)
 
 
-def _field_error(error: ErrorDetails) -> BaseError | InvalidValueError:
-    cause = error.get("ctx", {}).get("error")
-    if isinstance(cause, InvalidValueError):
-        return cause
-    return _FIELD_ERROR_BY_PYDANTIC_TYPE.get(error["type"], InvalidTypeError)()
+def _field_error(error: ErrorDetails) -> BaseError:
+    ctx = error.get("ctx", {})
+    match error["type"]:
+        case "missing":
+            return FieldRequiredError()
+        case "json_invalid":
+            return InvalidJsonError()
+        case "extra_forbidden":
+            return UnknownFieldError()
+        # A length rule that runs after a BeforeValidator drops the string_ prefix.
+        case "string_too_short" | "too_short":
+            return TooShortError(min_length=ctx["min_length"])
+        case "string_too_long" | "too_long":
+            return TooLongError(max_length=ctx["max_length"])
+        case "string_pattern_mismatch":
+            return InvalidFormatError()
+        case _:
+            return InvalidTypeError()
 
 
 def to_error(exception: Exception) -> BaseError | None:
@@ -69,6 +77,18 @@ def _problem_type(code: str) -> str:
 class ProblemItem(pydantic.BaseModel):
     pointer: str
     type: str
+    min_length: int | None = None
+    max_length: int | None = None
+
+    @classmethod
+    def from_item(cls, item: ValidationItem) -> ProblemItem:
+        problem_item = cls(pointer=item.pointer, type=_problem_type(item.error.code))
+        match item.error:
+            case TooShortError():
+                problem_item.min_length = item.error.min_length
+            case TooLongError():
+                problem_item.max_length = item.error.max_length
+        return problem_item
 
 
 class Problem(pydantic.BaseModel):
@@ -83,12 +103,7 @@ class Problem(pydantic.BaseModel):
         problem = cls(type=_problem_type(error.code), status=error.status)
         match error:
             case ValidationFailedError():
-                problem.errors = [
-                    ProblemItem(
-                        pointer=item.pointer, type=_problem_type(item.error.code)
-                    )
-                    for item in error.items
-                ]
+                problem.errors = [ProblemItem.from_item(item) for item in error.items]
             case MethodNotAllowedError():
                 problem.allow = error.allow
         return problem

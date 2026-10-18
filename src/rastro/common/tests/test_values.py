@@ -2,7 +2,6 @@ import pydantic
 import pytest
 
 from rastro.common.tests.sample.values import Color
-from rastro.common.values import InvalidValueError
 
 
 class Paint(pydantic.BaseModel):
@@ -13,7 +12,7 @@ def test_parses_a_json_string_into_the_value_object() -> None:
     paint = Paint.model_validate_json('{"color": "red"}')
 
     assert paint.color == Color("red")
-    assert paint.color.value == "red"
+    assert paint.color.root == "red"
 
 
 def test_serializes_back_to_a_plain_string() -> None:
@@ -23,28 +22,20 @@ def test_serializes_back_to_a_plain_string() -> None:
     assert paint.model_dump_json() == '{"color":"blue"}'
 
 
-def test_reports_an_invalid_value_as_a_field_error_with_its_code() -> None:
-    with pytest.raises(pydantic.ValidationError) as excinfo:
-        Paint.model_validate_json('{"color": "green"}')
+def test_accepts_a_built_value_object() -> None:
+    color = Color("red")
 
-    [error] = excinfo.value.errors()
-    assert error["loc"] == ("color",)
-    assert error["type"] == "value_error"
-    assert error["ctx"]["error"].code == "sample.invalid_color"
+    assert Paint(color=color).color == color
 
 
-def test_rejects_a_non_string_as_a_type_error_before_the_value_object_runs() -> None:
-    with pytest.raises(pydantic.ValidationError) as excinfo:
-        Paint.model_validate_json('{"color": 1}')
-
-    [error] = excinfo.value.errors()
-    assert error["loc"] == ("color",)
-    assert error["type"] == "string_type"
+def test_rejects_a_value_that_breaks_its_rule() -> None:
+    with pytest.raises(pydantic.ValidationError):
+        Color("Green")
 
 
-def test_the_code_is_readable_outside_pydantic() -> None:
-    with pytest.raises(InvalidValueError) as excinfo:
-        Color("green")
+def test_is_frozen_and_hashable() -> None:
+    color = Color("red")
 
-    assert excinfo.value.code == "sample.invalid_color"
-    assert isinstance(excinfo.value, ValueError)
+    with pytest.raises(pydantic.ValidationError):
+        color.root = "blue"  # type: ignore[misc]
+    assert {color, Color("red")} == {Color("red")}

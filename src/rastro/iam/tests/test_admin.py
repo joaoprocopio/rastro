@@ -18,7 +18,7 @@ def test_the_admin_rejects_an_invalid_email_on_the_email_field(
 
     assert response.status_code == HTTPStatus.OK
     [error] = response.context["adminform"].form.errors.as_data()["email"]
-    assert error.code == "iam.invalid_email"
+    assert error.code == "request.invalid_format"
     assert not Identity.objects.filter(display_name="Ana").exists()
 
 
@@ -53,7 +53,7 @@ def test_the_admin_rejects_a_short_password_on_the_password_field(
 
     assert response.status_code == HTTPStatus.OK
     [error] = response.context["adminform"].form.errors.as_data()["password"]
-    assert error.code == "iam.invalid_password"
+    assert error.code == "request.too_short"
     assert not Identity.objects.filter(display_name="Ana").exists()
 
 

@@ -24,18 +24,31 @@ Three levels split the work:
 
 These rules follow from the split:
 
-- rastro code never calls `full_clean()`, `clean_fields()`, `validate_unique()`, or `validate_constraints()`, and models define no `clean()`. The admin still calls `full_clean()` through its ModelForm, so a model field converts `InvalidValueError` to Django's `ValidationError` for the admin to show.
+- rastro code never calls `full_clean()`, `clean_fields()`, `validate_unique()`, or `validate_constraints()`, and models define no `clean()`. The admin still calls `full_clean()` through its ModelForm, so the fields in `rastro.common.fields` turn a failed value object into Django's `ValidationError` for the admin to show.
 - A `CheckConstraint` violation means that an edge let invalid data through. It is a bug, so it responds with `500`.
 - A `unique` violation is a business rule. The service checks for the conflict, catches the `IntegrityError` that a concurrent write can still cause, and raises a named `BaseError` subclass for both cases.
 - Every edge validates, the database included. A value that the database returns and that fails its value object raises an error. No code path skips validation for a source that it trusts.
 
 ## Write value objects
 
-A value object is a `@dataclass(frozen=True, slots=True)` in `<app>/values.py`. Its `__post_init__` normalizes and validates the value and raises `InvalidValueError`, a `ValueError` subclass with a stable `code`. A value object that wraps one string subclasses `StrValueObject` from `rastro.common.values`, and the code reads the value through `.value`.
+A value object is a frozen Pydantic `RootModel` in `<app>/values.py` that subclasses `ValueObject` from `rastro.common.values`, and code reads its value through `.root`. Each value object declares its rules with `Annotated` and `StringConstraints`, so one line holds one rule:
+
+```python
+class DisplayName(
+    ValueObject[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=320)]
+    ]
+):
+    pass
+```
+
+A rule that `StringConstraints` cannot express, for example NFKC normalization, is a `BeforeValidator` that only transforms the value and never raises, so every rejection keeps the code of the rule that failed. Put the `BeforeValidator` before `StringConstraints` in `Annotated`. In the other order, Pydantic checks `pattern` before it applies `to_lower`, so `Email` would reject `Ana@x.com`.
+
+An edge parses a raw value with `<ValueObject>.model_validate(value)`, which accepts a raw string or a built value object, and a schema field typed with a value object parses its JSON with no adapter code. Each value object is its own class, so mypy rejects a raw `str` or another value object in a service argument.
 
 An enum is a `StrEnum` in `<app>/values.py`. Django's `TextChoices` stays out of the core.
 
-A `values.py` module imports only the standard library and `rastro.common.values`, never Django or Pydantic. Adapters connect value objects to the frameworks: `StrValueObject` teaches Pydantic to parse and serialize them, and the fields in `rastro.common.fields` (for example, `StrEnumField`) and in each app's `models.py` convert them to and from database values.
+A `values.py` module imports only the standard library, `pydantic`, and `rastro.common.values`, never Django. The fields in `rastro.common.fields` connect value objects to Django. `ValueObjectField` converts a model field to and from database values, and `ValueObjectFormField` parses a form input, for example the password of the admin add form. Both raise Django's `ValidationError` with the code of each field error, so the admin shows the error on its field. A model manager that Django calls parses inside `django_validation_errors()` from the same module, so `createsuperuser` prints the code. A value that the database returns and that fails its value object raises `pydantic.ValidationError`.
 
 ## The frontend never validates
 
@@ -141,11 +154,11 @@ A code has the form `<prefix>.<name>`. The prefix is the app label for the error
 
 `BaseError` checks each subclass when Python creates it. It raises `TypeError` when the subclass declares no `code` or no `status`, and when another class already declares the same code, and the message names both classes. A repeated code therefore fails at import time. An architecture test imports every app's `errors` module, so the check runs for every app, and it checks the `<prefix>.<name>` form.
 
-An error that holds data takes it in its constructor. `ValidationFailedError` holds one `ValidationItem` per failed field, and `MethodNotAllowedError` holds the method that the URL allows.
+An error that holds data takes it in its constructor. `ValidationFailedError` holds one `ValidationItem` per failed field, with its JSON Pointer and its field error. `TooShortError` holds `min_length`, `TooLongError` holds `max_length`, and `MethodNotAllowedError` holds the method that the URL allows.
 
 ### Translate errors in the problems module
 
-The problems module, `rastro.common.problems`, is the only translation layer in rastro. No other module reads a Pydantic error type or builds a problem body. It holds three names:
+The problems module, `rastro.common.problems`, is the only translation layer in rastro. No other module builds a problem body or reads a Pydantic error type, except `rastro.common.fields`, which catches `pydantic.ValidationError` to pass it through `to_error`. The problems module holds three names:
 
 - `to_error(exception)` returns a `BaseError` unchanged, turns a `pydantic.ValidationError` into a `ValidationFailedError`, turns an `Http404` into a `NotFoundError`, and returns `None` for any other exception.
 - `Problem.from_error(error)` builds the body of a `BaseError`.
@@ -158,27 +171,36 @@ Every other module calls these names in place of a translation of its own:
 - `csrf_failure_view` answers `CsrfFailedError`.
 - `not_found_view` passes its exception through `to_error`, so a `404` from the URL resolver and an `Http404` from a view answer the same problem.
 - `server_error_view` answers `InternalServerError`. An unhandled exception reaches it, a `CheckConstraint` violation included.
+- `ValueObjectField`, `ValueObjectFormField`, and `django_validation_errors()` pass a failed value object through `to_error` and raise Django's `ValidationError` with the code of each item.
 
 ### Report a validation failure per field
 
-A validation error responds with `422`, the type `/problems/request.validation_failed`, and an `errors` extension with one item per field. Each item has a JSON Pointer to the field and a problem type:
+A validation error responds with `422`, the type `/problems/request.validation_failed`, and an `errors` extension with one item per field. Each item has a JSON Pointer to the field and the problem type of the rule that failed, never of the value object, so a frontend can tell "too long" from "wrong format" on the same field. A length item also carries its limit, so the frontend can show "at least 8 characters" with no copy of the rule:
 
 ```json
 {
   "type": "/problems/request.validation_failed",
   "status": 422,
   "errors": [
-    {"pointer": "#/email", "type": "/problems/iam.invalid_email"},
-    {"pointer": "#/password", "type": "/problems/request.field_required"}
+    {"pointer": "#/email", "type": "/problems/request.invalid_format"},
+    {"pointer": "#/password", "type": "/problems/request.too_short", "min_length": 8}
   ]
 }
 ```
 
-A value object error uses the code of its `InvalidValueError`. The problems module translates the errors that Pydantic raises before any value object runs to rastro errors, so the contract never exposes Pydantic's vocabulary: a missing field becomes `FieldRequiredError`, a wrong type becomes `InvalidTypeError`, malformed JSON becomes `InvalidJsonError`, and an unknown field becomes `UnknownFieldError`.
+The problems module translates each Pydantic error type to a rastro error, so the contract never exposes Pydantic's vocabulary:
+
+- `missing` becomes `FieldRequiredError`.
+- `json_invalid` becomes `InvalidJsonError`.
+- `extra_forbidden` becomes `UnknownFieldError`.
+- `string_too_short` and `too_short` become `TooShortError`, and the item carries `min_length`.
+- `string_too_long` and `too_long` become `TooLongError`, and the item carries `max_length`. Pydantic reports `too_long` when the length rule runs after a `BeforeValidator`, as in `Email`.
+- `string_pattern_mismatch` becomes `InvalidFormatError`. The item omits the pattern, so no client copies the regular expression.
+- Any other type becomes `InvalidTypeError`.
 
 ## Test by layer
 
-Value object tests are pure and use no database. Service and selector tests cover the business rules, use the test database, and pass a fake for each port, so no test uses `mock.patch`. A service test asserts the error class with `pytest.raises`. View tests cover the HTTP contract: status codes, bodies, headers, and cookies. A view test compares the literal JSON of each problem, because the literal is the contract that a client reads.
+Value object tests are pure and use no database. They check the normalization of each value object and that a bad value raises `pydantic.ValidationError`, and the view tests own the code of each rejection. Service and selector tests cover the business rules, use the test database, and pass a fake for each port, so no test uses `mock.patch`. A service test asserts the error class with `pytest.raises`. View tests cover the HTTP contract: status codes, bodies, headers, and cookies. A view test compares the literal JSON of each problem, because the literal is the contract that a client reads.
 
 Before you write a test, look in the app's `tests/conftest.py` for a fixture that builds the state the test needs, and ask for it by name. When a second test needs the same state, add a fixture to that `conftest.py`, and keep the test file free of setup helpers. A fixture that more than one app uses lives in the root `conftest.py`. A test that needs a variation of the shared state, for example a second Identity, calls the factory_boy factory from `tests/factories.py` in the test, so the fixture set stays small.
 
@@ -190,9 +212,9 @@ A test builds each URL with `reverse()` and posts JSON with the Django test clie
 
 Tools check these rules, and every change passes them before it merges, so a violation fails the check instead of waiting for a review:
 
-- **import-linter** checks the layers: `views` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `views` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` imports neither Django nor Pydantic. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
+- **import-linter** checks the layers: `views` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `views` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` never imports Django. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
 - **ruff** bans `django.dispatch.receiver` and `django.views.decorators.csrf.csrf_exempt` through `TID251`, because signals hold no business logic and no view is exempt from CSRF.
-- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library and `rastro.common.values`, because import-linter has no allow list for the standard library. They also walk the root URLconf: every URL whose view lives in `rastro` has a name inside an app namespace, and every view, the error handlers and the CSRF failure view included, is a `<entity>_<action>_view` function in a `views` module. Every `*Output` schema sets `from_attributes`, and no `views` module calls an `*Output` class, so a view builds its Output only with `model_validate`.
+- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library, `pydantic`, and `rastro.common.values`, because import-linter has no allow list for the standard library. Only `rastro.common.problems` and `rastro.common.fields` import `pydantic.ValidationError` or `pydantic_core`, because import-linter cannot name a member or a submodule of an external package. Test modules are exempt from this check, so a value object test can expect `pydantic.ValidationError`. They also walk the root URLconf: every URL whose view lives in `rastro` has a name inside an app namespace, and every view, the error handlers and the CSRF failure view included, is a `<entity>_<action>_view` function in a `views` module. Every `*Output` schema sets `from_attributes`, and no `views` module calls an `*Output` class, so a view builds its Output only with `model_validate`.
 
 ## Configure settings
 

@@ -22,7 +22,7 @@ def test_correct_credentials_start_a_session(
 ) -> None:
     response = client.post(
         reverse("iam:session_start"),
-        {"email": identity.email.value, "password": "password"},
+        {"email": identity.email.root, "password": "password"},
         content_type="application/json",
     )
 
@@ -36,7 +36,7 @@ def test_a_wrong_password_and_an_unknown_email_answer_the_same_problem(
 ) -> None:
     wrong_password = client.post(
         reverse("iam:session_start"),
-        {"email": identity.email.value, "password": "wrongpassword"},
+        {"email": identity.email.root, "password": "wrongpassword"},
         content_type="application/json",
     )
     unknown_email = client.post(
@@ -66,7 +66,7 @@ def test_an_inactive_identity_answers_the_same_problem(
 
     response = client.post(
         reverse("iam:session_start"),
-        {"email": identity.email.value, "password": "password"},
+        {"email": identity.email.root, "password": "password"},
         content_type="application/json",
     )
 
@@ -111,7 +111,7 @@ def test_a_session_start_upgrades_an_outdated_hash(
 
     response = client.post(
         reverse("iam:session_start"),
-        {"email": identity.email.value, "password": "password"},
+        {"email": identity.email.root, "password": "password"},
         content_type="application/json",
     )
 
@@ -126,7 +126,7 @@ def test_a_session_start_records_last_login(client: Client, identity: Identity) 
 
     client.post(
         reverse("iam:session_start"),
-        {"email": identity.email.value, "password": "password"},
+        {"email": identity.email.root, "password": "password"},
         content_type="application/json",
     )
 
@@ -137,7 +137,7 @@ def test_a_session_start_records_last_login(client: Client, identity: Identity) 
 def test_a_session_start_while_a_session_exists_succeeds(
     client: Client, identity: Identity
 ) -> None:
-    credentials = {"email": identity.email.value, "password": "password"}
+    credentials = {"email": identity.email.root, "password": "password"}
     first = client.post(
         reverse("iam:session_start"), credentials, content_type="application/json"
     )
