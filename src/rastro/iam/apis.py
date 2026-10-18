@@ -14,11 +14,11 @@ from rastro.iam.schemas import (
 
 @require_POST
 def identity_register_api(request: HttpRequest) -> HttpResponse:
-    input = parse_body(request, IdentityRegisterInput)
+    body = parse_body(request, IdentityRegisterInput)
     services.identity_register(
-        email=input.email,
-        display_name=input.display_name,
-        password=input.password,
+        email=body.email,
+        display_name=body.display_name,
+        password=body.password,
         password_hasher=deps.PASSWORD_HASHER,
     )
     return respond(status=HTTPStatus.CREATED)
@@ -26,11 +26,11 @@ def identity_register_api(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def session_start_api(request: HttpRequest) -> HttpResponse:
-    input = parse_body(request, SessionStartInput)
+    body = parse_body(request, SessionStartInput)
     services.session_start(
         request=request,
-        email=input.email,
-        password=input.password,
+        email=body.email,
+        password=body.password,
         authenticator=deps.AUTHENTICATE,
         session_store=deps.SESSION_STORE,
     )
