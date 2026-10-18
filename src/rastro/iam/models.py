@@ -12,7 +12,13 @@ from django.db.models.functions import Lower
 from rastro.common.models import BaseModel
 from rastro.common.values import InvalidValueError, StrValueObject
 from rastro.iam.fields import DisplayNameField, EmailField
-from rastro.iam.values import DisplayName, Email, RawPassword
+from rastro.iam.values import (
+    DISPLAY_NAME_MAX_LENGTH,
+    EMAIL_MAX_LENGTH,
+    DisplayName,
+    Email,
+    RawPassword,
+)
 
 
 def _parse[V: StrValueObject](value_object: type[V], value: str | V) -> V:
@@ -62,8 +68,8 @@ class IdentityManager(BaseUserManager["Identity"]):
 
 
 class Identity(BaseModel, AbstractBaseUser, PermissionsMixin):
-    email = EmailField(max_length=254)
-    display_name = DisplayNameField(max_length=320)
+    email = EmailField(max_length=EMAIL_MAX_LENGTH)
+    display_name = DisplayNameField(max_length=DISPLAY_NAME_MAX_LENGTH)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 

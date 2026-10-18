@@ -86,6 +86,23 @@ def test_an_invalid_field_points_at_the_field_with_the_value_object_code(
     }
 
 
+def test_an_email_longer_than_254_characters_is_a_validation_error(
+    client: Client, db: None
+) -> None:
+    local_part = "a" * (296 - len("@example.com"))
+
+    response = _register(
+        client, {**VALID_PAYLOAD, "email": f"{local_part}@example.com"}
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#/email", "type": "/problems/iam.invalid_email"}],
+    }
+
+
 def test_the_email_is_stripped_and_lowercased(client: Client, db: None) -> None:
     _register(client, {**VALID_PAYLOAD, "email": " Ana@X.com "})
 
