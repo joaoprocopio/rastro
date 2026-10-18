@@ -1,4 +1,4 @@
-from rastro_shared_kernel.env import get_env
+from rastro.common.env import get_env
 
 SERVICE_NAMESPACE = get_env(
     "RASTRO_SERVICE_NAMESPACE",

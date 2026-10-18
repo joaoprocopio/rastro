@@ -1,4 +1,4 @@
-from rastro_shared_kernel.env import get_env, parse_csv
+from rastro.common.env import get_env, parse_csv
 
 CSRF_COOKIE_DOMAIN = get_env(
     "RASTRO_CSRF_COOKIE_DOMAIN",

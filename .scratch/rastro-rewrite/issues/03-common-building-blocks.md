@@ -12,13 +12,27 @@ The building blocks are:
 
 **Blocked by:** 01 (Settings package and the RASTRO_ prefix)
 
-**Status:** ready-for-agent
+**Status:** in-review
 
-- [ ] Pure tests, with no database, show that a `StrValueObject` subclass parses from a JSON string inside a Pydantic model, serializes back to a plain string, and turns an `InvalidValueError` into a Pydantic field error whose context still holds the code.
-- [ ] A test shows that a non-string input fails as a type error before the value object runs.
-- [ ] A test shows that `StrEnumField` returns the enum member on read, rejects an unknown value, and produces a migration that names the enum.
-- [ ] `BaseModel` sets `created_at` on creation and updates `updated_at` on save.
-- [ ] The settings import the environment helpers from `rastro.common`, and the moved tests pass there.
-- [ ] `rastro_shared_kernel` keeps only what the old `iam` code still imports. Everything that moved is deleted from it.
-- [ ] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] Pure tests, with no database, show that a `StrValueObject` subclass parses from a JSON string inside a Pydantic model, serializes back to a plain string, and turns an `InvalidValueError` into a Pydantic field error whose context still holds the code.
+- [x] A test shows that a non-string input fails as a type error before the value object runs.
+- [x] A test shows that `StrEnumField` returns the enum member on read, rejects an unknown value, and produces a migration that names the enum.
+- [x] `BaseModel` sets `created_at` on creation and updates `updated_at` on save.
+- [x] The settings import the environment helpers from `rastro.common`, and the moved tests pass there.
+- [x] `rastro_shared_kernel` keeps only what the old `iam` code still imports. Everything that moved is deleted from it.
+- [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
+
+## Comments
+
+Branch `ticket-03`, worktree `/home/jao/workspace/joaoprocopio/rastro-wt/ticket-03`. I verified each box through the gate or by hand:
+
+- `rastro.common` has one module per role: `values.py` (`StrValueObject`, `InvalidValueError`), `fields.py` (`StrEnumField`, `str_enum_to_choices`), `models.py` (`BaseModel`), and `env.py` (`get_env`, `parse_csv`, `parse_booleanish`). `str_enum_to_choices` lives next to the field that uses it, so `env.py` imports no Django.
+- `src/rastro/common/tests/test_values.py` runs with no database. A `Color` subclass parses from `{"color": "red"}`, dumps back to `{"color": "red"}`, and an invalid value becomes a `value_error` at `("color",)` whose `ctx["error"].code` is the code of the `InvalidValueError`. A JSON number fails with `string_type` before the value object runs.
+- `src/rastro/common/tests/test_fields.py` reads a `Post` back from the database and gets `Status.PUBLISHED`, rejects `"archived"` on write, on `from_db_value`, and on `to_python` (as a `ValidationError` with code `invalid_choice`), and `MigrationWriter.serialize(field)` names `rastro.common.tests.sample.models.Status` with `kwargs == {"enum": Status}`.
+- `src/rastro/common/tests/test_models.py` shows `created_at` set on creation and `updated_at` greater after a second `save()`.
+- The sample model lives in the test-only app `rastro.common.tests.sample`, which only `rastro.settings.test` installs. mypy resolves `Post.status` as `Status`.
+- The settings import from `rastro.common.env`. `grep rastro_shared_kernel.env src/` finds nothing. The moved tests pass under `src/rastro/common/tests/test_env.py`.
+- `rastro_shared_kernel` keeps `__init__.py` and `value_objects.py` (`Id`), which the old `iam` domain, repositories, DTOs, and mappers still import. `env.py`, `utils.py`, and `__tests__/` are gone.
+- The gate is green: `ruff check`, `ruff format --check`, `mypy` (66 files), and `pytest` (61 tests) with `RASTRO_POSTGRES_DB=ticket_03`.
+- The brief forbids `docker compose up` in a worktree, so I ran `docker compose build django` and served the image with `docker run --network host` against the `ticket_03` database on port 8003: `migrate` applied every migration, `GET /admin/login/` answered `200`, and `GET /api/v1/iam/session` answered `401`. The merger runs the full stack on the integration branch.
