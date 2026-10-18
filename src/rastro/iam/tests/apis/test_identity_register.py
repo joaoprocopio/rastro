@@ -20,9 +20,7 @@ VALID_PAYLOAD = {
 }
 
 
-def _register(
-    client: Client, payload: dict[str, object]
-) -> "_MonkeyPatchedWSGIResponse":
+def _register(client: Client, payload: dict[str, str]) -> "_MonkeyPatchedWSGIResponse":
     return client.post(
         IDENTITY_REGISTER_URL,
         data=json.dumps(payload),

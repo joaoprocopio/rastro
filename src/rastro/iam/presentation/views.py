@@ -6,17 +6,14 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from rastro.iam.application.dtos import RegisterIdentityInputDTO
 from rastro.iam.errors import NotAuthenticatedError
 from rastro.iam.application.use_cases import (
     EndSessionUseCase,
     GetCurrentIdentityUseCase,
-    RegisterIdentityUseCase,
 )
 from rastro.iam.infrastructure.composition import (
     django_end_session_use_case_factory,
     django_get_current_identity_use_case_factory,
-    django_register_identity_use_case_factory,
 )
 from rastro.iam.shared.mappers import PresentIdentityMapper
 
@@ -25,22 +22,6 @@ from rastro.iam.shared.mappers import PresentIdentityMapper
 class CsrfTokenView(View):
     def get(self, _: HttpRequest) -> HttpResponse:
         return HttpResponse(status=HTTPStatus.OK)
-
-
-class IdentitiesView(View):
-    register_identity_use_case_factory: Callable[
-        [HttpRequest], RegisterIdentityUseCase
-    ] = staticmethod(django_register_identity_use_case_factory)
-
-    def post(self, request: HttpRequest) -> HttpResponse:
-        register_identity_use_case = self.register_identity_use_case_factory(request)
-        input = RegisterIdentityInputDTO.model_validate_json(request.body)
-        output = register_identity_use_case.execute(input)
-
-        return JsonResponse(
-            PresentIdentityMapper.map(output).model_dump(),
-            status=HTTPStatus.CREATED,
-        )
 
 
 class SessionView(View):

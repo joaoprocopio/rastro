@@ -5,12 +5,6 @@ from rastro_base.service import Service
 
 if TYPE_CHECKING:  # prevents circular imports
     from rastro.iam.domain.aggregates import IdentityAggregate
-    from rastro.iam.values import HashedPassword, RawPassword
-
-
-class PasswordHashingService(Service):
-    @abstractmethod
-    def hash(self, raw_password: RawPassword) -> HashedPassword: ...
 
 
 class SessionService(Service):
