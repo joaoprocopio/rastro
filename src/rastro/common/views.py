@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from functools import wraps
-from http import HTTPStatus
+from http import HTTPMethod, HTTPStatus
 from typing import Concatenate, ParamSpec, TypeVar
 
 import pydantic
@@ -12,7 +12,12 @@ from rastro.common.errors import (
     MethodNotAllowedError,
     NotFoundError,
 )
-from rastro.common.problems import Problem, problem_response, to_error
+from rastro.common.problems import (
+    Problem,
+    problem_response,
+    to_error,
+    validation_failed_errors,
+)
 
 Schema = TypeVar("Schema", bound=pydantic.BaseModel)
 P = ParamSpec("P")
@@ -20,7 +25,8 @@ View = Callable[Concatenate[HttpRequest, P], HttpResponse]
 
 
 def parse_body(request: HttpRequest, schema: type[Schema]) -> Schema:
-    return schema.model_validate_json(request.body)
+    with validation_failed_errors():
+        return schema.model_validate_json(request.body)
 
 
 def respond(
@@ -33,7 +39,7 @@ def respond(
     )
 
 
-def _require_method(method: str, view: View[P]) -> View[P]:
+def _require_method(method: HTTPMethod, view: View[P]) -> View[P]:
     @wraps(view)
     def guarded(
         request: HttpRequest, /, *args: P.args, **kwargs: P.kwargs
@@ -46,11 +52,11 @@ def _require_method(method: str, view: View[P]) -> View[P]:
 
 
 def require_POST(view: View[P]) -> View[P]:
-    return _require_method("POST", view)
+    return _require_method(HTTPMethod.POST, view)
 
 
 def require_GET(view: View[P]) -> View[P]:
-    return _require_method("GET", view)
+    return _require_method(HTTPMethod.GET, view)
 
 
 def csrf_failure_view(request: HttpRequest, reason: str = "") -> HttpResponse:
