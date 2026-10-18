@@ -28,7 +28,9 @@ def _refuse(
     return None
 
 
-def test_incorrect_credentials_raise_and_start_no_session(rf: RequestFactory) -> None:
+def test_incorrect_credentials_raise_and_start_no_session(
+    rf: RequestFactory, db: None
+) -> None:
     session_store = FakeSessionStore()
 
     with pytest.raises(IncorrectCredentialsError):

@@ -4,5 +4,8 @@ from rastro.iam import apis
 
 urlpatterns = [
     path("identities/register", apis.identity_register_api),
+    path("session", apis.session_current_api),
     path("session/start", apis.session_start_api),
+    path("session/end", apis.session_end_api),
+    path("csrf", apis.csrf_get_api),
 ]

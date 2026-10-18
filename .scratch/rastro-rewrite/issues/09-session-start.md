@@ -21,7 +21,7 @@ The old Session start view, its use case, and the old password hashing service a
 - [x] A test shows that an unknown email runs the password hasher, so that its timing matches a wrong password.
 - [x] A Session start for an Identity with an outdated hash upgrades the stored hash.
 - [x] `last_login` of the Identity changes after a Session start.
-- [x] A service test with a fake authenticator that returns `None` raises `IncorrectCredentialsError` without using the database.
+- [x] A service test with a fake authenticator that returns `None` raises `IncorrectCredentialsError`. The test uses a fake authenticator against the test database.
 - [x] Starting a Session again while one exists answers `204`.
 - [x] The old Session start endpoint, its use case, and the old password hashing service are deleted, and import-linter contracts cover the new modules.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
