@@ -1,6 +1,6 @@
 # 01: Settings package and the RASTRO_ prefix
 
-**What to build:** Split the single settings module into a settings package and rename every environment variable to the `RASTRO_` prefix, so that each setting has one obvious home and a missing variable can never run production in debug mode. The app behaves the same for a person who uses it. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Split the single settings module into a settings package and rename every environment variable to the `RASTRO_` prefix, so that each setting has one obvious home and a missing variable can never run production in debug mode. The app behaves the same for a person who uses it. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The package has a base module with every setting, a test module that overrides values for the test run (including a fast password hasher), a telemetry module, and a sessions module. No setting exists only in production. Environment variables, read with `get_env`, switch features on and off.
 

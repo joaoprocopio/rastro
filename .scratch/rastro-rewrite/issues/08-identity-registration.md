@@ -1,6 +1,6 @@
 # 08: Identity registration
 
-**What to build:** Replace the old registration endpoint with `POST /api/v1/iam/identities/register`, so that a person registers an Identity, gets `201` with no body, and starts a Session as a separate step. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Replace the old registration endpoint with `POST /api/v1/iam/identities/register`, so that a person registers an Identity, gets `201` with no body, and starts a Session as a separate step. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The API is a view function named `identity_register_api`. It parses the body with the `IdentityRegisterInput` schema, which uses the value object types, and it calls `identity_register` with the implementations from `deps`. The old registration view, its use case, its DTOs, and the old URL are deleted in this ticket.
 

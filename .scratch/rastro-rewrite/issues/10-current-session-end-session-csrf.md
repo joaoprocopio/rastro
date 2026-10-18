@@ -1,6 +1,6 @@
 # 10: Current Session, end of Session, and the CSRF cookie
 
-**What to build:** Replace the remaining old endpoints, so that a frontend can read the current Session, end it, and get its CSRF cookie through the new contract. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Replace the remaining old endpoints, so that a frontend can read the current Session, end it, and get its CSRF cookie through the new contract. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The operations are:
 

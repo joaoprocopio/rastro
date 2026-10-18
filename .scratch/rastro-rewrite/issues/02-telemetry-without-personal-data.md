@@ -1,6 +1,6 @@
 # 02: Telemetry without personal data
 
-**What to build:** Stop sending personal data to ClickHouse and instrument every way of running rastro, so that an operator who watches Grafana sees complete telemetry that holds no email address and no password hash. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Stop sending personal data to ClickHouse and instrument every way of running rastro, so that an operator who watches Grafana sees complete telemetry that holds no email address and no password hash. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 Today the Django request span records the Identity's email, the psycopg2 instrumentation records SQL parameters (which include password hashes), and only the WSGI entry point calls the telemetry setup.
 

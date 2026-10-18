@@ -1,6 +1,6 @@
 # 06: Tooling that checks the architecture
 
-**What to build:** Add the tools that check the rules in `CODING_STANDARDS.md`, so that an agent or a maintainer learns about a layer violation from a failing check and not from a review. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Add the tools that check the rules in `CODING_STANDARDS.md`, so that an agent or a maintainer learns about a layer violation from a failing check and not from a review. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The tools are:
 
@@ -22,6 +22,6 @@ The tools are:
 - [ ] A deliberate import of Django into a values module makes `lint-imports` fail. The test or the check that proves this is not left in the code.
 - [ ] The architecture tests pass while no services or selectors module exists, and fail on a sample service that breaks each rule above. The samples live in the tests, not in an app.
 - [ ] The architecture tests fail on a call to `full_clean()` or one of its siblings, and on a model that defines `clean()`.
-- [ ] The README or `CODING_STANDARDS.md` lists `lint-imports` as part of the check gate.
+- [ ] The Checks section of `README.md` lists `lint-imports`.
 - [ ] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
 - [ ] `docker compose up --build` starts the stack and Django serves requests.

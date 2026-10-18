@@ -1,6 +1,6 @@
 # 03: Building blocks in rastro.common
 
-**What to build:** Create the `rastro.common` package with the building blocks that every app reuses, and move the environment helpers into it, so that later tickets build value objects and models on one shared base. This is a prefactor: no behaviour changes for a person who uses rastro. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Create the `rastro.common` package with the building blocks that every app reuses, and move the environment helpers into it, so that later tickets build value objects and models on one shared base. This is a prefactor: no behaviour changes for a person who uses rastro. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The building blocks are:
 

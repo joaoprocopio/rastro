@@ -1,6 +1,6 @@
 # 05: The Identity model and the iam value objects
 
-**What to build:** Replace `IdentityModel` with the `Identity` model and give `iam` its value objects, so that an Identity has one representation and each validation rule has one implementation. The existing endpoints keep working: the old DDD code is adapted to the new model in this ticket and deleted by later tickets. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Replace `IdentityModel` with the `Identity` model and give `iam` its value objects, so that an Identity has one representation and each validation rule has one implementation. The existing endpoints keep working: the old DDD code is adapted to the new model in this ticket and deleted by later tickets. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The value objects follow the spec's "Value objects in iam" section: `Email` (spaces stripped, Unicode NFKC, whole address lowercased, rastro's own format check), `DisplayName` (spaces stripped, at most 320 characters), `RawPassword` (spaces kept, at least 8 characters), and `HashedPassword`. The values module imports nothing outside the standard library and the value object module of `rastro.common`.
 

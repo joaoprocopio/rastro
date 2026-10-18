@@ -96,7 +96,7 @@ The HTTP contract changes on purpose. Commands answer with no body, queries answ
 53. As a maintainer, I want `DEBUG` to default to off and `SECRET_KEY` to be required when `DEBUG` is off, so that a missing variable never runs production in debug mode.
 54. As a maintainer, I want each setting defined once, so that no later line silently overrides an earlier one.
 55. As a maintainer, I want the old DDD packages and base classes removed, so that nobody copies a pattern that rastro no longer uses.
-56. As a maintainer, I want the README and `CLAUDE.md` to describe the new architecture, so that a new reader learns the current pattern.
+56. As a maintainer, I want `CODING_STANDARDS.md` to describe the new architecture and the README to list every check, so that a new reader learns the current pattern and runs the same checks.
 
 ### Developer who copies the pattern
 
@@ -268,8 +268,7 @@ All URLs live under `/api/v1/iam/`. A command uses `POST` on a URL that names th
 ### Documentation
 
 - `CODING_STANDARDS.md` already holds the rules, and each ticket keeps it true. Its opening sentence about code that predates the rewrite is removed in the last ticket.
-- The README describes the new architecture and the check gate. It replaces the DDD description.
-- The project `CLAUDE.md` drops "structured with DDD" and describes the new pattern in one line.
+- The Checks section of the README lists every check of the gate. `CODING_STANDARDS.md` describes the architecture, so the README holds none.
 - `GLOSSARY.md` stays the source of the domain terms, and ADR 0001 records the central decision.
 
 ### Order of the rewrite

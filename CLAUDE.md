@@ -1,21 +1,31 @@
-# rastro
+## Language
 
-Experimental Django project for OpenTelemetry + Grafana instrumentation, structured with DDD.
+Write everything in English: docs, comments, and code.
 
 ## Coding standards
 
-Before you write or review code, read `CODING_STANDARDS.md`. It holds the architecture rules that every change follows.
+Before you write or review code, read `CODING_STANDARDS.md`.
+
+## Comments and docs
+
+Answer your questions from the source code, and add docs only for what no line of code can say. Agents read docs and code alike as text, so time spent maintaining docs is wasted.
+
+Write a comment, docstring or new Markdown file only when no code search answers the question. Keep a comment or docstring to one line, and put a longer why in an ADR.
+
+## Checks
+
+Before you call a change done, run the checks in `README.md`.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues and PRDs live as local markdown under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+Local Markdown in `.scratch/`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+The five default labels. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single-context: one `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.

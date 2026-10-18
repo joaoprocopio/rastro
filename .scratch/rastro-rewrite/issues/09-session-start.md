@@ -1,6 +1,6 @@
 # 09: Session start
 
-**What to build:** Replace the old login endpoint with `POST /api/v1/iam/session/start`, so that a person starts a Session with their Credentials and gets `204`. Nobody can tell from the answer or from its timing whether an email has an Identity. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Replace the old login endpoint with `POST /api/v1/iam/session/start`, so that a person starts a Session with their Credentials and gets `204`. Nobody can tell from the answer or from its timing whether an email has an Identity. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 This ticket builds:
 

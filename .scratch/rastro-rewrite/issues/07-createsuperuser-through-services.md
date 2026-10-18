@@ -1,6 +1,6 @@
 # 07: createsuperuser through services
 
-**What to build:** Make `createsuperuser` create an administrator through the same services and rules as registration, so that an administrator follows the same email and password rules as everyone else. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Make `createsuperuser` create an administrator through the same services and rules as registration, so that an administrator follows the same email and password rules as everyone else. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 This ticket builds the first services, ports, adapters, and deps of `iam`:
 

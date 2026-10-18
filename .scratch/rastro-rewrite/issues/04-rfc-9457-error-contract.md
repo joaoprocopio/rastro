@@ -1,6 +1,6 @@
 # 04: The RFC 9457 error contract
 
-**What to build:** Replace the whole error pipeline, so that every error response from rastro, on the existing endpoints too, is an RFC 9457 problem details object with only `type` and `status`. A frontend or an API consumer can then map each problem type to its own message and never parses an HTML error page. Read the spec (`.scratch/rastro-rewrite/PRD.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
+**What to build:** Replace the whole error pipeline, so that every error response from rastro, on the existing endpoints too, is an RFC 9457 problem details object with only `type` and `status`. A frontend or an API consumer can then map each problem type to its own message and never parses an HTML error page. Read the spec (`.scratch/rastro-rewrite/spec.md`), `CODING_STANDARDS.md`, `GLOSSARY.md`, and ADR 0001 before you start.
 
 The spec's "Problem details" section holds the exact contract, including the JSON shape of a validation failure and the table that translates Pydantic errors to the `request.` codes.
 
