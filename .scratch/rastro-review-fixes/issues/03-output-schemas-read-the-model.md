@@ -6,7 +6,7 @@ An Output schema sets `from_attributes=True`, and its view builds it with `<Outp
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `SessionCurrentOutput` reads an Identity with `from_attributes`, and the current Session view builds it with `model_validate`.
 - [x] `GET` on the current Session still answers `200` with exactly `email` and `display_name`.
@@ -29,3 +29,7 @@ Verified on branch `ticket/03-output-schemas`. `SessionCurrentOutput` sets `from
 
 - **Gap**: the review found that the sample app in `src/rastro/common/tests/sample/` declared its schemas in `views.py` and built `PaintOutput` field by field without `from_attributes`, so the example that a reader copies broke the view rules. **Chosen**: the schemas move to `sample/schemas.py` as `PaintApplyInput` and `PaintApplyOutput`, the Output sets `from_attributes=True`, and `paint_apply_view` builds it with `PaintApplyOutput.model_validate(body)`. **Rejected**: a note that exempts the sample, which leaves a second pattern in the repo.
 - **Gap**: the "Write views" paragraph on Output schemas described `validation_alias`, `AliasPath`, and computed values with long examples that no code uses, and `CLAUDE.md` asks for docs only for what code cannot say. **Chosen**: the paragraph keeps the three rules in three sentences, with the why that no code shows: `alias` also renames the JSON member. **Rejected**: deleting the rules, which ticket 03 asks for, and keeping the examples, which restate Pydantic's docs.
+
+## Answer
+
+Merged into `rastro-review-fixes` in `fa0ce19`. The merge ran the full check gate and `docker compose up --build`. The code review fixes merged in `a6ddcc8`, after the same checks.

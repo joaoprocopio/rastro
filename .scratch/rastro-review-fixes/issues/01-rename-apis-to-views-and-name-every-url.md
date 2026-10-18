@@ -6,7 +6,7 @@ Each app's view module is `views.py`, and each view function is `<entity>_<actio
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] No module named `apis` remains in `rastro`, and every view function ends in `_view`.
 - [x] The shared view helpers live in `rastro.common`'s views module beside the CSRF failure view and the handlers.
@@ -30,3 +30,7 @@ Verified on branch `ticket/01-views`. `src/rastro/iam/tests/views/test_urls.py` 
 - **Gap**: the sample app in `rastro.common.tests.sample` is a test URLconf, where Django ignores `app_name`. **Chosen**: its module is `views.py` with `paint_apply_view`, `paint_count_view`, and `boom_raise_view`, and its `urls.py` wraps the named patterns in `include((sample_patterns, "sample"))`, so `reverse("sample:paint_apply")` resolves at the same paths. **Rejected**: `app_name` in the sample URLconf, which Django ignores in a root URLconf, and unnamed sample URLs, which break the rule for the tests of ticket 02.
 - **Gap**: `rastro.common.tests` had `test_apis.py` for the helpers and `test_views.py` for the hooks, and both now test `rastro.common.views`. **Chosen**: one `test_views.py` that runs every test against the sample URLconf. The `404` test now resolves `/nope` through the sample URLconf, which re-exports the same `handler404`. **Rejected**: a second test module for one source module.
 - **Gap**: the gate failed before this ticket. Commit `fe09e81` locked ruff 0.17.1, whose wider default rule set reports 34 findings in code that predates it. **Chosen**: `pyproject.toml` pins `select = ["E4", "E7", "E9", "F"]`, the pre-0.17 defaults, in a separate commit. **Rejected**: fixing the 34 findings here, which rewrites generics in `fields.py` that ticket 05 replaces and adds `ClassVar` to Django `Meta` attributes, and leaving the gate red for every ticket. The user decides whether to adopt the new rules in a change of its own.
+
+## Answer
+
+Merged into `rastro-review-fixes` in `353da93`. The merge ran the full check gate and `docker compose up --build`. The code review fixes merged in `a6ddcc8`, after the same checks.

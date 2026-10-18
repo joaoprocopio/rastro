@@ -1,6 +1,6 @@
 # Fix what the review of the rastro rewrite found
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 

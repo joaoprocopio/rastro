@@ -6,7 +6,7 @@ The `iam` test package gets a `conftest.py` with `identity`, `signed_in_client`,
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The `iam` test package's `conftest.py` holds the five fixtures above, and the root `conftest.py` holds no `iam` fixture.
 - [x] No test file defines `_start_session`, `_post`, `_register`, or `_post_json`, and no test file defines a URL constant.
@@ -36,3 +36,7 @@ Verified on branch `ticket/02-fixtures`. `src/rastro/iam/tests/conftest.py` hold
 - **Gap**: four admin tests in `src/rastro/iam/tests/test_admin.py` built the same Identity with `IdentityFactory.create(email=Email("ana@x.com"))`. **Chosen**: the four tests take the `identity` fixture, and the change page tests assert `ana@example.com`, the email of the fixture. **Rejected**: a new admin fixture with `ana@x.com`, which repeats `identity` with another email.
 - **Gap**: the review asked whether `RecordingHasher` in `views/test_session_start.py` belongs in `tests/fakes.py`. **Chosen**: it stays in the test module. It is a Django password hasher that one test installs through `PASSWORD_HASHERS`, not a fake of a port, and `fakes.py` holds one fake per port. **Rejected**: moving it to `fakes.py`, which mixes a Django setting double with the port fakes for one caller.
 - **Gap**: the `admin_client` fixture of `iam` shadows the pytest-django fixture of the same name. **Chosen**: the name stays `admin_client`, because the spec names it so and the shadow breaks nothing: pytest-django's `admin_user` calls `create_superuser` with no `display_name`, so its `admin_client` cannot build an Identity anyway. **Rejected**: a new name such as `staff_client`, which breaks the spec's fixture list.
+
+## Answer
+
+Merged into `rastro-review-fixes` in `fda51db`. The merge ran the full check gate and `docker compose up --build`. The code review fixes merged in `a6ddcc8`, after the same checks.

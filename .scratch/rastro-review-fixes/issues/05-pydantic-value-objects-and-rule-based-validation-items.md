@@ -6,7 +6,7 @@ The value object base in `rastro.common` holds only `frozen=True`, and code read
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Every `iam` value object is a frozen `RootModel` with its current normalization and limits, and the value object tests cover normalization and rejection with no database.
 - [x] mypy rejects a raw `str` and the wrong value object in a service argument.
@@ -46,3 +46,7 @@ Verified on branch `ticket/05-value-objects`. `src/rastro/iam/tests/views/test_i
 - **Gap**: the review found that the check on Pydantic error types in `tests/architecture/rules.py` missed an aliased module, for example `import pydantic as p` followed by `p.ValidationError`. **Chosen**: the check collects every name that an `import pydantic` statement binds, with or without `as`, and reports `ValidationError` read from any of them. `test_the_check_reports_a_pydantic_error_read_through_an_alias` covers the alias. **Rejected**: banning `import pydantic as`, which adds a second rule to catch the first.
 - **Gap**: `create_user` and `create_superuser` in `src/rastro/iam/models.py` repeated the same three `model_validate` calls under `django_validation_errors()`, the `password or ""` rule included. **Chosen**: a module function `_parse_registration()` holds the parse, and each manager method calls it and then its own service. **Rejected**: a private method on `IdentityManager`, because a manager holds only the methods that Django calls, and one method that takes the service as an argument, which hides which service each method calls.
 - **Note**: the decision above that `ValueObjectField.from_db_value` lets `pydantic.ValidationError` through still holds, but `to_error` answered it with `422`. Ticket 04 records the fix, which answers it with `500`.
+
+## Answer
+
+Merged into `rastro-review-fixes` in `9b50581`. The merge ran the full check gate and `docker compose up --build`. The code review fixes merged in `a6ddcc8`, after the same checks.

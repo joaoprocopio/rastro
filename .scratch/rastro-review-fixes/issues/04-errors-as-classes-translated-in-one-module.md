@@ -8,7 +8,7 @@ The value objects still raise `InvalidValueError` in this ticket, so `to_error` 
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `BaseError` raises `TypeError` when Python creates a subclass with no `code`, with no `status`, or with a code that another subclass already declared, and the message names both classes.
 - [x] Every class in the spec's error table exists with its code and status, and the `iam` errors declare `409`, `401`, and `401`.
@@ -46,3 +46,7 @@ Verified on branch `ticket/04-errors`. `rastro.common.errors` declares `BaseErro
 - **Gap**: the review noted that `_field_error`, `ProblemItem.from_item`, and `Problem.from_error` each match on error types. **Chosen**: the three `match` statements stay. Each one does a different translation: Pydantic type to rastro error, error to item members, and error to body and header. All three sit in the problems module, as the rule asks. **Rejected**: a method on each error that returns its own members, which moves the translation out of the problems module, and one function for all three translations.
 - **Gap**: the review noted that `Problem.allow` is a response header stored on the body model with `exclude=True`. **Chosen**: it stays, for the reasons of the first decision of this ticket: the spec gives `problem_response(problem)` one argument. **Rejected**: `problem_response(error)`, which breaks the spec's signature, and a general `headers` dict on `Problem`, which has the same shape with one more level.
 - **Gap**: `_require_method` and `MethodNotAllowedError` took a plain `str` for the method. **Chosen**: both take `http.HTTPMethod`, and `Problem.allow` is typed `HTTPMethod | None`, so mypy rejects a misspelled method. The `Allow` header keeps the same value, because `HTTPMethod` is a `StrEnum`. **Rejected**: keeping `str`.
+
+## Answer
+
+Merged into `rastro-review-fixes` in `c18c634`. The merge ran the full check gate and `docker compose up --build`. The code review fixes merged in `a6ddcc8`, after the same checks.
