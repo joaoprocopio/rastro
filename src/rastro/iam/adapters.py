@@ -1,9 +1,10 @@
 from django.contrib import auth
+from django.contrib.auth.hashers import make_password
 from django.http import HttpRequest
 
 from rastro.iam.models import Identity
-from rastro.iam.ports import Authenticator, SessionStore
-from rastro.iam.values import Email, RawPassword
+from rastro.iam.ports import Authenticator, PasswordHasher, SessionStore
+from rastro.iam.values import Email, HashedPassword, RawPassword
 
 
 def django_authenticate(
@@ -29,3 +30,10 @@ class DjangoSessionStore:
 
 
 _session_store: SessionStore = DjangoSessionStore()
+
+
+def django_make_password(*, password: RawPassword) -> HashedPassword:
+    return HashedPassword(make_password(password.value))
+
+
+_password_hasher: PasswordHasher = django_make_password
