@@ -103,3 +103,8 @@ class StrValueObjectField(_CharField[V]):
         if isinstance(value, StrValueObject):
             value = value.value
         super().run_validators(value)
+
+    def value_from_object(self, obj: models.Model) -> str | None:  # type: ignore[override]
+        # The admin form and the serializers read the plain string, not the dataclass repr.
+        value = super().value_from_object(obj)
+        return value.value if isinstance(value, StrValueObject) else value
