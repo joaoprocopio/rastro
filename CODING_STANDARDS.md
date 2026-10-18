@@ -26,7 +26,7 @@ These rules follow from the split:
 
 - rastro code never calls `full_clean()`, `clean_fields()`, `validate_unique()`, or `validate_constraints()`, and models define no `clean()`. The admin still calls `full_clean()` through its ModelForm, so a model field converts `InvalidValueError` to Django's `ValidationError` for the admin to show.
 - A `CheckConstraint` violation means that an edge let invalid data through. It is a bug, so it responds with `500`.
-- A `unique` violation is a business rule. The service checks for the conflict, catches the `IntegrityError` that a concurrent write can still cause, and raises a named `ApplicationError` for both cases.
+- A `unique` violation is a business rule. The service checks for the conflict, catches the `IntegrityError` that a concurrent write can still cause, and raises a named `BaseError` subclass for both cases.
 - Every edge validates, the database included. A value that the database returns and that fails its value object raises an error. No code path skips validation for a source that it trusts.
 
 ## Write value objects
@@ -49,7 +49,7 @@ Each Django app is one context. An app uses a flat layout, with one module per r
 <app>/
   models.py      # data and database constraints
   values.py      # value objects: the validation rules
-  errors.py      # the ApplicationError subclasses of the app
+  errors.py      # the BaseError subclasses of the app
   services.py    # commands: functions that write
   selectors.py   # queries: functions that read
   ports.py       # the Protocol of each dependency that the app uses
@@ -113,7 +113,7 @@ A long parameter list is acceptable. Dependencies are never grouped into a bundl
 
 ## Write views
 
-A view is a Django view function in `<app>/views.py` that handles one operation, named `<entity>_<action>_view`, for example `session_start_view`. Each view has its own URL. A command uses `POST` on a URL that names the action, for example `POST /api/v1/iam/session/start`, and a query uses `GET`, for example `GET /api/v1/iam/session`. The decorators `require_POST` and `require_GET` from `rastro.common.views` restrict the method and answer any other method with a problem details `405`. The view parses the input with `parse_body`, calls one service or one selector, and builds the response with `respond`, both from `rastro.common.views`. It holds no business logic, and no view is exempt from CSRF.
+A view is a Django view function in `<app>/views.py` that handles one operation, named `<entity>_<action>_view`, for example `session_start_view`. Each view has its own URL. A command uses `POST` on a URL that names the action, for example `POST /api/v1/iam/session/start`, and a query uses `GET`, for example `GET /api/v1/iam/session`. The decorators `require_POST` and `require_GET` from `rastro.common.views` restrict the method and raise `MethodNotAllowedError` for any other method, which the exception middleware answers with a problem details `405`. The view parses the input with `parse_body`, calls one service or one selector, and builds the response with `respond`, both from `rastro.common.views`. It holds no business logic, and no view is exempt from CSRF.
 
 Each app's `urls.py` sets `app_name` to the app label, and each URL pattern has a name: the view name without `_view`, for example `name="session_start"`. Code and tests build a URL with `reverse("iam:session_start")` and never type the path. The Django hooks in `rastro.common.views` follow the same rule: `csrf_failure_view`, `not_found_view`, and `server_error_view`.
 
@@ -125,11 +125,43 @@ A command view responds with no body: `201` when it creates something and `204` 
 
 ## Return errors as problem details
 
-Every error response uses RFC 9457 (`application/problem+json`) and carries only `type` and `status`. The `type` is `/problems/<code>`, and it is the identifier that a client reads: a frontend picks its own text from it, and an API consumer can look it up. The response carries no `title`, `detail`, or `code` member. An error without a code of its own, for example a `404` or a `405`, omits `type`, which RFC 9457 reads as `about:blank`.
+Every error response uses RFC 9457 (`application/problem+json`) and carries only `type` and `status`. The `type` is `/problems/<code>`, and it is the identifier that a client reads: a frontend picks its own text from it, and an API consumer can look it up. The response carries no `title`, `detail`, or `code` member, and it omits a member that has no value. Every error has a code, so a `404`, a `405`, and a `500` carry a `type` too.
 
-An error code has the form `<app>.<name>`, for example `iam.email_in_use`. Each app declares its errors in `<app>/errors.py` as subclasses of `ApplicationError`, and an error carries its code but no HTTP status, because a service also runs outside HTTP, for example in a Celery task. Codes that every app shares use the `request.` prefix. A test checks that no code repeats across apps.
+### Declare an error as a class
 
-The exception middleware holds the only table that maps a code to an HTTP status. A validation error responds with `422`, the type `/problems/request.validation_failed`, and an `errors` extension with one item per field. Each item has a JSON Pointer to the field and a problem type:
+An error is a class that declares its code and its HTTP status, so one class holds everything about one error, and a new error needs this class and nothing else. Each app declares its errors in `<app>/errors.py` as subclasses of `BaseError` from `rastro.common.errors`, and each class name ends in `Error`:
+
+```python
+class EmailInUseError(BaseError):
+    code = "iam.email_in_use"
+    status = HTTPStatus.CONFLICT
+```
+
+A code has the form `<prefix>.<name>`. The prefix is the app label for the errors of an app, `request` for the errors of an HTTP request that every app shares, and `server` for a failure of rastro itself. The status costs nothing outside HTTP: a Celery task ignores it.
+
+`BaseError` checks each subclass when Python creates it. It raises `TypeError` when the subclass declares no `code` or no `status`, and when another class already declares the same code, and the message names both classes. A repeated code therefore fails at import time. An architecture test imports every app's `errors` module, so the check runs for every app, and it checks the `<prefix>.<name>` form.
+
+An error that holds data takes it in its constructor. `ValidationFailedError` holds one `ValidationItem` per failed field, and `MethodNotAllowedError` holds the method that the URL allows.
+
+### Translate errors in the problems module
+
+The problems module, `rastro.common.problems`, is the only translation layer in rastro. No other module reads a Pydantic error type or builds a problem body. It holds three names:
+
+- `to_error(exception)` returns a `BaseError` unchanged, turns a `pydantic.ValidationError` into a `ValidationFailedError`, turns an `Http404` into a `NotFoundError`, and returns `None` for any other exception.
+- `Problem.from_error(error)` builds the body of a `BaseError`.
+- `problem_response(problem)` returns an `HttpResponse` with the body, the status, and the media type, and it sets `Allow` for a `MethodNotAllowedError`.
+
+Every other module calls these names in place of a translation of its own:
+
+- The exception middleware passes each exception through `to_error`. It answers the problem of the error, and it lets Django handle the exception when `to_error` returns `None`. It imports nothing from Pydantic.
+- `require_POST` and `require_GET` raise `MethodNotAllowedError`, and the middleware answers it like any other error.
+- `csrf_failure_view` answers `CsrfFailedError`.
+- `not_found_view` passes its exception through `to_error`, so a `404` from the URL resolver and an `Http404` from a view answer the same problem.
+- `server_error_view` answers `InternalServerError`. An unhandled exception reaches it, a `CheckConstraint` violation included.
+
+### Report a validation failure per field
+
+A validation error responds with `422`, the type `/problems/request.validation_failed`, and an `errors` extension with one item per field. Each item has a JSON Pointer to the field and a problem type:
 
 ```json
 {
@@ -142,7 +174,7 @@ The exception middleware holds the only table that maps a code to an HTTP status
 }
 ```
 
-A value object error uses the code of its `InvalidValueError`. The middleware translates the errors that Pydantic raises before any value object runs to rastro codes, so the contract never exposes Pydantic's vocabulary: a missing field becomes `request.field_required`, a wrong type `request.invalid_type`, malformed JSON `request.invalid_json`, and an unknown field `request.unknown_field`.
+A value object error uses the code of its `InvalidValueError`. The problems module translates the errors that Pydantic raises before any value object runs to rastro errors, so the contract never exposes Pydantic's vocabulary: a missing field becomes `FieldRequiredError`, a wrong type becomes `InvalidTypeError`, malformed JSON becomes `InvalidJsonError`, and an unknown field becomes `UnknownFieldError`.
 
 ## Test by layer
 

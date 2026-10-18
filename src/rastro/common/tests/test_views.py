@@ -117,7 +117,10 @@ def test_require_post_answers_a_get_with_a_problem_405(client: Client) -> None:
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
     assert response["Content-Type"] == "application/problem+json"
     assert response["Allow"] == "POST"
-    assert response.json() == {"status": 405}
+    assert response.json() == {
+        "type": "/problems/request.method_not_allowed",
+        "status": 405,
+    }
 
 
 def test_require_get_answers_a_post_with_a_problem_405(client: Client) -> None:
@@ -126,7 +129,10 @@ def test_require_get_answers_a_post_with_a_problem_405(client: Client) -> None:
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
     assert response["Content-Type"] == "application/problem+json"
     assert response["Allow"] == "GET"
-    assert response.json() == {"status": 405}
+    assert response.json() == {
+        "type": "/problems/request.method_not_allowed",
+        "status": 405,
+    }
 
 
 def test_respond_without_an_output_has_no_body(client: Client) -> None:
@@ -150,19 +156,44 @@ def test_a_csrf_failure_is_a_problem_403() -> None:
     assert response.json() == {"type": "/problems/request.csrf_failed", "status": 403}
 
 
-def test_an_unknown_url_is_a_problem_404_without_a_type(client: Client) -> None:
+def test_an_unknown_url_is_a_problem_404(client: Client) -> None:
     response = client.get("/nope")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response["Content-Type"] == "application/problem+json"
-    assert response.json() == {"status": 404}
+    assert response.json() == {"type": "/problems/request.not_found", "status": 404}
 
 
-def test_an_unhandled_exception_is_a_problem_500_without_a_type() -> None:
+def test_an_http404_from_a_view_is_the_same_problem_404(client: Client) -> None:
+    response = client.get(reverse("sample:paint_find"))
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response["Content-Type"] == "application/problem+json"
+    assert response.json() == {"type": "/problems/request.not_found", "status": 404}
+
+
+def test_an_unhandled_exception_is_a_problem_500() -> None:
     client = Client(raise_request_exception=False)
 
     response = client.get(reverse("sample:boom_raise"))
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
     assert response["Content-Type"] == "application/problem+json"
-    assert response.json() == {"status": 500}
+    assert response.json() == {
+        "type": "/problems/server.internal_error",
+        "status": 500,
+    }
+
+
+@pytest.mark.django_db
+def test_a_check_constraint_violation_is_a_problem_500() -> None:
+    client = Client(raise_request_exception=False)
+
+    response = client.post(reverse("sample:wall_paint"))
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert response["Content-Type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "/problems/server.internal_error",
+        "status": 500,
+    }
