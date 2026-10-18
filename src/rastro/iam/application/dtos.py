@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from rastro.iam.domain.value_objects import (
+from rastro.iam.values import (
     DisplayName,
     Email,
     RawPassword,
@@ -25,7 +25,7 @@ class IdentityOutputDTO(DTO):
     id: Id
     email: Email
     display_name: DisplayName
-    date_joined: datetime
+    created_at: datetime
     last_login: Optional[datetime]
     is_active: bool
     is_staff: bool

@@ -117,7 +117,7 @@ DATABASES = {
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.Argon2PasswordHasher"]
 AUTH_PASSWORD_VALIDATORS = []  # type: ignore
-AUTH_USER_MODEL = "iam.IdentityModel"
+AUTH_USER_MODEL = "iam.Identity"
 
 LANGUAGE_CODE = "en-us"
 

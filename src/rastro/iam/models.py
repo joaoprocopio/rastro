@@ -13,10 +13,14 @@ from django.contrib.auth.models import (
 from django.db import models
 from django.db.models import QuerySet
 from django.db.models.base import Model
-from django.utils import timezone
+from django.db.models.functions import Lower
+
+from rastro.common.models import BaseModel
+from rastro.iam.fields import DisplayNameField, EmailField
+from rastro.iam.values import DisplayName, Email
 
 
-class IdentityManager(BaseUserManager["IdentityModel"]):
+class IdentityManager(BaseUserManager["Identity"]):
     use_in_migrations = True
 
     def _create_user_object(
@@ -25,9 +29,12 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> IdentityModel:
-        email = self.normalize_email(email)
-        user = self.model(display_name=display_name, email=email, **extra_fields)
+    ) -> Identity:
+        user = self.model(
+            display_name=DisplayName(display_name),
+            email=Email(email),
+            **extra_fields,
+        )
         user.password = make_password(password)
         return user
 
@@ -37,7 +44,7 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> IdentityModel:
+    ) -> Identity:
         user = self._create_user_object(display_name, email, password, **extra_fields)
         user.save(using=self._db)
         return user
@@ -48,7 +55,7 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> IdentityModel:
+    ) -> Identity:
         extra_fields.setdefault("is_staff", False)
         extra_fields.setdefault("is_superuser", False)
         return self._create_user(display_name, email, password, **extra_fields)
@@ -61,7 +68,7 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
         email: str,
         password: str,
         **extra_fields: Any,
-    ) -> IdentityModel:
+    ) -> Identity:
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
 
@@ -81,7 +88,7 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
         include_superusers: bool = True,
         backend: Any = None,
         obj: Model | None = None,
-    ) -> QuerySet[IdentityModel]:
+    ) -> QuerySet[Identity]:
         if backend is None:
             backends = auth.get_backends()
             if len(backends) == 1:
@@ -100,7 +107,7 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
 
         if hasattr(backend, "with_perm"):
             return cast(
-                QuerySet[IdentityModel],
+                QuerySet[Identity],
                 backend.with_perm(
                     perm,
                     is_active=is_active,
@@ -112,15 +119,26 @@ class IdentityManager(BaseUserManager["IdentityModel"]):
         return self.none()
 
 
-# https://docs.djangoproject.com/en/6.0/topics/auth/customizing/
-class IdentityModel(AbstractBaseUser, PermissionsMixin):
-    display_name = models.CharField(max_length=320)
-    email = models.EmailField(unique=True)
+class Identity(BaseModel, AbstractBaseUser, PermissionsMixin):
+    email = EmailField(max_length=254)
+    display_name = DisplayNameField(max_length=320)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    date_joined = models.DateTimeField(default=timezone.now)
 
     objects = IdentityManager()
 
     USERNAME_FIELD = "email"
     EMAIL_FIELD = "email"
+    REQUIRED_FIELDS = ["display_name"]
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["email"], name="iam_identity_email_unique"),
+            models.CheckConstraint(
+                condition=models.Q(email=Lower("email")),
+                name="iam_identity_email_lowercase",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.email.value

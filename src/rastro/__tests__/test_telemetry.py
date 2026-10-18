@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
 from opentelemetry.trace import SpanKind
 
 from rastro import telemetry
-from rastro.iam.models import IdentityModel
+from rastro.iam.models import Identity
 
 SESSION_URL = "/api/v1/iam/session"
 
@@ -37,7 +37,7 @@ def _request_span(exporter: InMemorySpanExporter) -> ReadableSpan:
 
 
 def test_authenticated_request_records_the_identity_id_and_not_the_email(
-    exporter: InMemorySpanExporter, client: Client, identity: IdentityModel
+    exporter: InMemorySpanExporter, client: Client, identity: Identity
 ) -> None:
     client.force_login(identity)
 
@@ -45,7 +45,7 @@ def test_authenticated_request_records_the_identity_id_and_not_the_email(
 
     attributes = dict(_request_span(exporter).attributes or {})
     assert attributes["enduser.id"] == str(identity.pk)
-    assert identity.email not in attributes.values()
+    assert identity.email.value not in attributes.values()
 
 
 def test_anonymous_request_records_no_enduser_id(
