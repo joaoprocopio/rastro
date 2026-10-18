@@ -243,7 +243,7 @@ All URLs live under `/api/v1/iam/`. A command uses `POST` on a URL that names th
 - `DEBUG` defaults to off. `SECRET_KEY` has no insecure default and is required when `DEBUG` is off.
 - `CSRF_COOKIE_HTTPONLY` is `False` and is defined once.
 - The unused `OTEL_HTTP_ENDPOINT` setting is removed.
-- The test run uses the test settings module. The type checker uses the base module.
+- The test run and the type checker both use the test settings module, because the django-stubs plugin imports the settings and the base module stops without `RASTRO_SECRET_KEY`.
 
 ### Telemetry
 
