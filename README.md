@@ -16,7 +16,8 @@ The API answers on `http://localhost:8000`, and Grafana on `http://localhost:714
 docker compose up -d postgres
 uv sync
 uv run ruff check src/
+uv run ruff format --check src/
 uv run mypy src/
 uv run pytest
-uv run python manage.py check
+RASTRO_DEBUG=1 uv run python manage.py check
 ```

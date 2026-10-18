@@ -49,10 +49,10 @@ warn_return_any = true
 warn_unused_ignores = true
 
 [tool.django-stubs]
-django_settings_module = "rastro.settings"
+django_settings_module = "rastro.settings.test"
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "rastro.settings"
+DJANGO_SETTINGS_MODULE = "rastro.settings.test"
 addopts = "-s --cov src/"
 
 [tool.ruff.lint]

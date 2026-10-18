@@ -1,6 +1,11 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
+
+from rastro.settings.sessions import *  # noqa: F403
+from rastro.settings.telemetry import *  # noqa: F403
 from rastro_shared_kernel.env import get_env, parse_booleanish, parse_csv
 
 if TYPE_CHECKING:
@@ -9,42 +14,23 @@ if TYPE_CHECKING:
     django_stubs_ext.monkeypatch()
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-SERVICE_NAMESPACE = get_env(
-    "RASTRO_DJANGO_SERVICE_NAMESPACE",
-    default="rastro",
-)
-
-SERVICE_NAME = get_env(
-    "RASTRO_DJANGO_SERVICE_NAME",
-    default="rastro",
-)
-
-DEPLOYMENT_ID = get_env(
-    "RASTRO_DJANGO_DEPLOYMENT_ID",
-    default="2f92ca37",
-)
-
-DEPLOYMENT_ENVIRONMENT = get_env(
-    "RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT",
-    default="dev",
-)
-
-SECRET_KEY = get_env(
-    "RASTRO_DJANGO_SECRET_KEY",
-    default="i-nh1u%jl!9-f=-kws-k4&z=0z%49e_%m!7dwf=u(c9-wqh)b^",
-)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 DEBUG = get_env(
-    "RASTRO_DJANGO_DEBUG",
-    default="1",
+    "RASTRO_DEBUG",
+    default="0",
     parser=parse_booleanish,
 )
 
+_secret_key = get_env("RASTRO_SECRET_KEY")
+
+if _secret_key is None and not DEBUG:
+    raise ImproperlyConfigured("Set RASTRO_SECRET_KEY when RASTRO_DEBUG is off.")
+
+SECRET_KEY = _secret_key if _secret_key is not None else get_random_secret_key()
 
 ALLOWED_HOSTS = get_env(
-    "RASTRO_DJANGO_ALLOWED_HOSTS",
+    "RASTRO_ALLOWED_HOSTS",
     default="localhost, 127.0.0.1, 0.0.0.0, [::1]",
     parser=parse_csv,
 )
@@ -86,7 +72,6 @@ MIDDLEWARE = DJANGO_MIDDLEWARE + LOCAL_MIDDLEWARE
 
 ROOT_URLCONF = "rastro.urls"
 
-
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -104,52 +89,35 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "rastro.wsgi.application"
 
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": get_env(
-            "RASTRO_DJANGO_POSTGRES_DB",
+            "RASTRO_POSTGRES_DB",
             default="postgres",
         ),
         "USER": get_env(
-            "RASTRO_DJANGO_POSTGRES_USER",
+            "RASTRO_POSTGRES_USER",
             default="postgres",
         ),
         "PASSWORD": get_env(
-            "RASTRO_DJANGO_POSTGRES_PASSWORD",
+            "RASTRO_POSTGRES_PASSWORD",
             default="postgres",
         ),
         "HOST": get_env(
-            "RASTRO_DJANGO_POSTGRES_HOST",
+            "RASTRO_POSTGRES_HOST",
             default="localhost",
         ),
         "PORT": get_env(
-            "RASTRO_DJANGO_POSTGRES_PORT",
+            "RASTRO_POSTGRES_PORT",
             default="5432",
         ),
     }
 }
 
-
-CSRF_COOKIE_HTTPONLY = True
-
-
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.Argon2PasswordHasher"]
 AUTH_PASSWORD_VALIDATORS = []  # type: ignore
 AUTH_USER_MODEL = "iam.IdentityModel"
-
-CSRF_COOKIE_DOMAIN = get_env(
-    "RASTRO_DJANGO_CSRF_COOKIE_DOMAIN",
-    default=".localhost",
-)
-CSRF_TRUSTED_ORIGINS = get_env(
-    "RASTRO_DJANGO_CSRF_TRUSTED_ORIGINS",
-    default="http://localhost:8000",
-    parser=parse_csv,
-)
-CSRF_COOKIE_HTTPONLY = False
-
 
 LANGUAGE_CODE = "en-us"
 
@@ -159,21 +127,10 @@ USE_I18N = False
 
 USE_TZ = True
 
-
 STATIC_ROOT = BASE_DIR / "static"
 STATIC_URL = "/static/"
 
 APPEND_SLASH = False
-
-
-OTEL_GRPC_ENDPOINT = get_env(
-    "RASTRO_DJANGO_OTEL_GRPC_ENDPOINT",
-    default="localhost:4317",
-)
-OTEL_HTTP_ENDPOINT = get_env(
-    "RASTRO_DJANGO_OTEL_HTTP_ENDPOINT",
-    default="localhost:4318",
-)
 
 LOGGING = {
     "version": 1,
