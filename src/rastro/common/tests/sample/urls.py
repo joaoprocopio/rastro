@@ -1,6 +1,8 @@
 from django.urls import path
 
 from rastro.common.tests.sample import apis
+
+# Django reads the handlers from the active ROOT_URLCONF, so this one re-exports them.
 from rastro.urls import handler404, handler500  # noqa: F401
 
 urlpatterns = [

@@ -17,6 +17,7 @@ STATUS_BY_CODE: dict[str, HTTPStatus] = {
     "iam.not_authenticated": HTTPStatus.UNAUTHORIZED,
 }
 
+# Any other Pydantic error, for example string_type or int_parsing, is a wrong type.
 _REQUEST_CODE_BY_PYDANTIC_TYPE: dict[str, RequestCode] = {
     "missing": RequestCode.FIELD_REQUIRED,
     "json_invalid": RequestCode.INVALID_JSON,
