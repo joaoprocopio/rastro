@@ -27,6 +27,20 @@ class DisplayNameValueField(ValueObjectField[DisplayName]):
     value_object = DisplayName
 
 
+def _parse_registration(
+    *,
+    email: str | Email,
+    display_name: str | DisplayName,
+    password: str | None,
+) -> tuple[Email, DisplayName, RawPassword]:
+    with django_validation_errors():
+        return (
+            Email.model_validate(email),
+            DisplayName.model_validate(display_name),
+            RawPassword.model_validate(password or ""),
+        )
+
+
 class IdentityManager(BaseUserManager["Identity"]):
     def create_user(
         self,
@@ -38,10 +52,9 @@ class IdentityManager(BaseUserManager["Identity"]):
         # The manager imports the service at call time: the service imports this module.
         from rastro.iam import deps, services
 
-        with django_validation_errors():
-            parsed_email = Email.model_validate(email)
-            parsed_display_name = DisplayName.model_validate(display_name)
-            parsed_password = RawPassword.model_validate(password or "")
+        parsed_email, parsed_display_name, parsed_password = _parse_registration(
+            email=email, display_name=display_name, password=password
+        )
         services.identity_register(
             email=parsed_email,
             display_name=parsed_display_name,
@@ -59,10 +72,9 @@ class IdentityManager(BaseUserManager["Identity"]):
     ) -> Identity:
         from rastro.iam import deps, services
 
-        with django_validation_errors():
-            parsed_email = Email.model_validate(email)
-            parsed_display_name = DisplayName.model_validate(display_name)
-            parsed_password = RawPassword.model_validate(password or "")
+        parsed_email, parsed_display_name, parsed_password = _parse_registration(
+            email=email, display_name=display_name, password=password
+        )
         services.identity_register_superuser(
             email=parsed_email,
             display_name=parsed_display_name,

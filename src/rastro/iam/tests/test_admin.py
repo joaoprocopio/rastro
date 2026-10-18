@@ -4,8 +4,7 @@ from django.test import Client
 from django.urls import reverse
 
 from rastro.iam.models import Identity
-from rastro.iam.tests.factories import IdentityFactory
-from rastro.iam.values import DisplayName, Email
+from rastro.iam.values import Email
 
 
 def test_the_admin_rejects_an_invalid_email_on_the_email_field(
@@ -58,10 +57,8 @@ def test_the_admin_rejects_a_short_password_on_the_password_field(
 
 
 def test_the_change_page_shows_the_hash_without_a_password_input(
-    admin_client: Client,
+    admin_client: Client, identity: Identity
 ) -> None:
-    identity = IdentityFactory.create(email=Email("ana@x.com"))
-
     response = admin_client.get(
         reverse("admin:iam_identity_change", args=[identity.pk])
     )
@@ -72,10 +69,8 @@ def test_the_change_page_shows_the_hash_without_a_password_input(
 
 
 def test_the_change_page_shows_the_hash_summary_without_a_reset_link(
-    admin_client: Client,
+    admin_client: Client, identity: Identity
 ) -> None:
-    identity = IdentityFactory.create(email=Email("ana@x.com"))
-
     response = admin_client.get(
         reverse("admin:iam_identity_change", args=[identity.pk])
     )
@@ -85,29 +80,26 @@ def test_the_change_page_shows_the_hash_summary_without_a_reset_link(
     assert "../password/" not in content
 
 
-def test_the_change_page_shows_the_email_as_typed_text(admin_client: Client) -> None:
-    identity = IdentityFactory.create(email=Email("ana@x.com"))
-
+def test_the_change_page_shows_the_email_as_typed_text(
+    admin_client: Client, identity: Identity
+) -> None:
     response = admin_client.get(
         reverse("admin:iam_identity_change", args=[identity.pk])
     )
 
-    assert 'value="ana@x.com"' in response.content.decode()
+    assert 'value="ana@example.com"' in response.content.decode()
 
 
 def test_the_change_page_edits_the_flags_and_keeps_the_hash(
-    admin_client: Client,
+    admin_client: Client, identity: Identity
 ) -> None:
-    identity = IdentityFactory.create(
-        email=Email("ana@x.com"), display_name=DisplayName("Ana")
-    )
     password_hash = identity.password
 
     response = admin_client.post(
         reverse("admin:iam_identity_change", args=[identity.pk]),
         {
-            "email": "ana@x.com",
-            "display_name": "Ana",
+            "email": identity.email.root,
+            "display_name": identity.display_name.root,
             "password": "plain-text-attempt",
             "is_staff": "on",
             "is_superuser": "on",

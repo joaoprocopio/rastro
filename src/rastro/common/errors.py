@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from http import HTTPStatus
+from http import HTTPMethod, HTTPStatus
 from typing import ClassVar
 
 
@@ -104,7 +104,7 @@ class MethodNotAllowedError(BaseError):
     code = "request.method_not_allowed"
     status = HTTPStatus.METHOD_NOT_ALLOWED
 
-    def __init__(self, allow: str) -> None:
+    def __init__(self, allow: HTTPMethod) -> None:
         super().__init__()
         self.allow = allow
 

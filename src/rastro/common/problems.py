@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from http import HTTPStatus
+from collections.abc import Iterator
+from contextlib import contextmanager
+from http import HTTPMethod, HTTPStatus
 
 import pydantic
 from django.http import Http404, HttpResponse
@@ -21,7 +23,7 @@ from rastro.common.errors import (
     ValidationItem,
 )
 
-PROBLEM_MEDIA_TYPE = "application/problem+json"
+_PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 
 def _json_pointer(loc: tuple[int | str, ...]) -> str:
@@ -49,21 +51,25 @@ def _field_error(error: ErrorDetails) -> BaseError:
             return InvalidTypeError()
 
 
+@contextmanager
+def validation_failed_errors() -> Iterator[None]:
+    try:
+        yield
+    except pydantic.ValidationError as exception:
+        raise ValidationFailedError(
+            [
+                ValidationItem(
+                    pointer=_json_pointer(error["loc"]), error=_field_error(error)
+                )
+                for error in exception.errors(include_url=False, include_input=False)
+            ]
+        ) from exception
+
+
 def to_error(exception: Exception) -> BaseError | None:
     match exception:
         case BaseError():
             return exception
-        case pydantic.ValidationError():
-            return ValidationFailedError(
-                [
-                    ValidationItem(
-                        pointer=_json_pointer(error["loc"]), error=_field_error(error)
-                    )
-                    for error in exception.errors(
-                        include_url=False, include_input=False
-                    )
-                ]
-            )
         case Http404():
             return NotFoundError()
         case _:
@@ -74,14 +80,14 @@ def _problem_type(code: str) -> str:
     return f"/problems/{code}"
 
 
-class ProblemItem(pydantic.BaseModel):
+class _ProblemItem(pydantic.BaseModel):
     pointer: str
     type: str
     min_length: int | None = None
     max_length: int | None = None
 
     @classmethod
-    def from_item(cls, item: ValidationItem) -> ProblemItem:
+    def from_item(cls, item: ValidationItem) -> _ProblemItem:
         problem_item = cls(pointer=item.pointer, type=_problem_type(item.error.code))
         match item.error:
             case TooShortError():
@@ -94,16 +100,16 @@ class ProblemItem(pydantic.BaseModel):
 class Problem(pydantic.BaseModel):
     type: str
     status: HTTPStatus
-    errors: list[ProblemItem] | None = None
+    errors: list[_ProblemItem] | None = None
     # A header of the response, never a member of the body.
-    allow: str | None = pydantic.Field(default=None, exclude=True)
+    allow: HTTPMethod | None = pydantic.Field(default=None, exclude=True)
 
     @classmethod
     def from_error(cls, error: BaseError) -> Problem:
         problem = cls(type=_problem_type(error.code), status=error.status)
         match error:
             case ValidationFailedError():
-                problem.errors = [ProblemItem.from_item(item) for item in error.items]
+                problem.errors = [_ProblemItem.from_item(item) for item in error.items]
             case MethodNotAllowedError():
                 problem.allow = error.allow
         return problem
@@ -113,7 +119,7 @@ def problem_response(problem: Problem) -> HttpResponse:
     response = HttpResponse(
         problem.model_dump_json(exclude_none=True),
         status=problem.status,
-        content_type=PROBLEM_MEDIA_TYPE,
+        content_type=_PROBLEM_MEDIA_TYPE,
     )
     if problem.allow is not None:
         response["Allow"] = problem.allow

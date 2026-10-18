@@ -132,10 +132,13 @@ def foreign_imports(*, source: str, name: str) -> list[str]:
 
 
 def pydantic_error_reads(*, source: str, name: str) -> list[str]:
+    tree = ast.parse(source)
+    pydantic_names = _pydantic_module_names(tree)
     return [
         f"{name}:{node.lineno}: {ast.unparse(node)}"
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.stmt | ast.expr) and _reads_pydantic_error(node)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.stmt | ast.expr)
+        and _reads_pydantic_error(node, pydantic_names)
     ]
 
 
@@ -226,7 +229,17 @@ def _is_allowed_in_values(imported: str) -> bool:
     )
 
 
-def _reads_pydantic_error(node: ast.stmt | ast.expr) -> bool:
+def _pydantic_module_names(tree: ast.Module) -> set[str]:
+    return {
+        alias.asname or "pydantic"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "pydantic" or alias.name.startswith("pydantic.")
+    }
+
+
+def _reads_pydantic_error(node: ast.stmt | ast.expr, pydantic_names: set[str]) -> bool:
     match node:
         case ast.Import(names=names):
             return any(_is_pydantic_core(alias.name) for alias in names)
@@ -234,8 +247,8 @@ def _reads_pydantic_error(node: ast.stmt | ast.expr) -> bool:
             return any(alias.name == PYDANTIC_ERROR for alias in names)
         case ast.ImportFrom(module=str(module)):
             return _is_pydantic_core(module)
-        case ast.Attribute(value=ast.Name(id="pydantic"), attr=attr):
-            return attr == PYDANTIC_ERROR
+        case ast.Attribute(value=ast.Name(id=module_name), attr=attr):
+            return module_name in pydantic_names and attr == PYDANTIC_ERROR
         case _:
             return False
 

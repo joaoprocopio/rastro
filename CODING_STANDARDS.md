@@ -48,7 +48,7 @@ An edge parses a raw value with `<ValueObject>.model_validate(value)`, which acc
 
 An enum is a `StrEnum` in `<app>/values.py`. Django's `TextChoices` stays out of the core.
 
-A `values.py` module imports only the standard library, `pydantic`, and `rastro.common.values`, never Django. The fields in `rastro.common.fields` connect value objects to Django. `ValueObjectField` converts a model field to and from database values, and `ValueObjectFormField` parses a form input, for example the password of the admin add form. Both raise Django's `ValidationError` with the code of each field error, so the admin shows the error on its field. A model manager that Django calls parses inside `django_validation_errors()` from the same module, so `createsuperuser` prints the code. A value that the database returns and that fails its value object raises `pydantic.ValidationError`.
+A `values.py` module imports only the standard library, `pydantic`, and `rastro.common.values`, never Django. The fields in `rastro.common.fields` connect value objects to Django. `ValueObjectField` converts a model field to and from database values, and `ValueObjectFormField` parses a form input, for example the password of the admin add form. Both raise Django's `ValidationError` with the code of each field error, so the admin shows the error on its field. A model manager that Django calls parses inside `django_validation_errors()` from the same module, so `createsuperuser` prints the code. A value that the database returns and that fails its value object raises `pydantic.ValidationError`, so a request that reads it answers `500`.
 
 ## The frontend never validates
 
@@ -132,7 +132,7 @@ Each app's `urls.py` sets `app_name` to the app label, and each URL pattern has 
 
 The request and response schemas live in `<app>/schemas.py` and are named `<Entity><Action>Input` and `<Entity><Action>Output`, for example `SessionStartInput`. Each schema belongs to one operation, and no other operation reuses it, so an operation can change its format without breaking another one. Only `views.py` imports `schemas.py`.
 
-An Output schema reads the model, so a new output field is one line in the schema and none in the view. The schema sets `model_config = pydantic.ConfigDict(from_attributes=True)`, and the view builds it with `SessionCurrentOutput.model_validate(identity)`, never field by field. A field whose name differs from the model attribute declares `Field(validation_alias="display_name")`, and a field that reads a related model declares `Field(validation_alias=AliasPath("profile", "city"))`. Use `validation_alias` and not `alias`, because `alias` also renames the JSON member. A computed value, for example a count, comes ready from the selector as an attribute of what it returns, for example a queryset annotation, so the schema holds no validator and no `computed_field`.
+An Output schema sets `model_config = pydantic.ConfigDict(from_attributes=True)`, and the view builds it with `SessionCurrentOutput.model_validate(identity)`, so a new output field is one line in the schema. A field that reads another attribute declares `Field(validation_alias=...)`, with an `AliasPath` for a related model, because `alias` also renames the JSON member. A computed value comes ready from the selector, for example as a queryset annotation, so the schema holds no logic.
 
 A command view responds with no body: `201` when it creates something and `204` otherwise. A query view responds with its `Output` schema.
 
@@ -158,20 +158,24 @@ An error that holds data takes it in its constructor. `ValidationFailedError` ho
 
 ### Translate errors in the problems module
 
-The problems module, `rastro.common.problems`, is the only translation layer in rastro. No other module builds a problem body or reads a Pydantic error type, except `rastro.common.fields`, which catches `pydantic.ValidationError` to pass it through `to_error`. The problems module holds three names:
+The problems module, `rastro.common.problems`, is the only translation layer in rastro. No other module builds a problem body or reads a Pydantic error type. The problems module exports four public names, and every other name in it starts with `_`:
 
-- `to_error(exception)` returns a `BaseError` unchanged, turns a `pydantic.ValidationError` into a `ValidationFailedError`, turns an `Http404` into a `NotFoundError`, and returns `None` for any other exception.
+- `validation_failed_errors()` is a context manager that turns a `pydantic.ValidationError` raised inside it into a `ValidationFailedError`.
+- `to_error(exception)` returns a `BaseError` unchanged, turns an `Http404` into a `NotFoundError`, and returns `None` for any other exception, a `pydantic.ValidationError` included.
 - `Problem.from_error(error)` builds the body of a `BaseError`.
 - `problem_response(problem)` returns an `HttpResponse` with the body, the status, and the media type, and it sets `Allow` for a `MethodNotAllowedError`.
 
+Only a parse inside `validation_failed_errors()` answers `422`. A `pydantic.ValidationError` raised outside it, for example by a corrupted value that the database returns, reaches `to_error` unchanged and answers `500`.
+
 Every other module calls these names in place of a translation of its own:
 
+- `parse_body` parses inside `validation_failed_errors()`, so a request body that fails its schema answers `422`.
 - The exception middleware passes each exception through `to_error`. It answers the problem of the error, and it lets Django handle the exception when `to_error` returns `None`. It imports nothing from Pydantic.
 - `require_POST` and `require_GET` raise `MethodNotAllowedError`, and the middleware answers it like any other error.
 - `csrf_failure_view` answers `CsrfFailedError`.
 - `not_found_view` passes its exception through `to_error`, so a `404` from the URL resolver and an `Http404` from a view answer the same problem.
 - `server_error_view` answers `InternalServerError`. An unhandled exception reaches it, a `CheckConstraint` violation included.
-- `ValueObjectField`, `ValueObjectFormField`, and `django_validation_errors()` pass a failed value object through `to_error` and raise Django's `ValidationError` with the code of each item.
+- `django_validation_errors()` wraps `validation_failed_errors()` and raises Django's `ValidationError` with the code of each item. `ValueObjectField`, `ValueObjectFormField`, and the model managers parse inside it.
 
 ### Report a validation failure per field
 
@@ -202,7 +206,7 @@ The problems module translates each Pydantic error type to a rastro error, so th
 
 Value object tests are pure and use no database. They check the normalization of each value object and that a bad value raises `pydantic.ValidationError`, and the view tests own the code of each rejection. Service and selector tests cover the business rules, use the test database, and pass a fake for each port, so no test uses `mock.patch`. A service test asserts the error class with `pytest.raises`. View tests cover the HTTP contract: status codes, bodies, headers, and cookies. A view test compares the literal JSON of each problem, because the literal is the contract that a client reads.
 
-Before you write a test, look in the app's `tests/conftest.py` for a fixture that builds the state the test needs, and ask for it by name. When a second test needs the same state, add a fixture to that `conftest.py`, and keep the test file free of setup helpers. A fixture that more than one app uses lives in the root `conftest.py`. A test that needs a variation of the shared state, for example a second Identity, calls the factory_boy factory from `tests/factories.py` in the test, so the fixture set stays small.
+Before you write a test, look in the app's `tests/conftest.py` for a fixture that builds the state the test needs, and ask for it by name. When a second test needs the same state, add a fixture to that `conftest.py`, and keep the test file free of setup helpers. A fixture that more than one app uses lives in the root `conftest.py`. A test outside an app, for example the telemetry test in `rastro/tests/`, cannot see the fixtures of the app, so it calls the factory of the app and `force_login` in the test. A `pytest_plugins` line in the root `conftest.py` would give it the fixtures, but it makes every fixture of the app global. A test that needs a variation of the shared state, for example a second Identity, calls the factory_boy factory from `tests/factories.py` in the test, so the fixture set stays small.
 
 A test that needs a Session starts it with `force_login`, for example through the `signed_in_client` fixture of `iam`. A test posts Credentials to the `session_start` view only when the start itself is the behaviour under test, for example a wrong password or an email that registration normalized.
 
@@ -214,7 +218,7 @@ Tools check these rules, and every change passes them before it merges, so a vio
 
 - **import-linter** checks the layers: `views` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `views` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` never imports Django. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
 - **ruff** bans `django.dispatch.receiver` and `django.views.decorators.csrf.csrf_exempt` through `TID251`, because signals hold no business logic and no view is exempt from CSRF.
-- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library, `pydantic`, and `rastro.common.values`, because import-linter has no allow list for the standard library. Only `rastro.common.problems` and `rastro.common.fields` import `pydantic.ValidationError` or `pydantic_core`, because import-linter cannot name a member or a submodule of an external package. Test modules are exempt from this check, so a value object test can expect `pydantic.ValidationError`. They also walk the root URLconf: every URL whose view lives in `rastro` has a name inside an app namespace, and every view, the error handlers and the CSRF failure view included, is a `<entity>_<action>_view` function in a `views` module. Every `*Output` schema sets `from_attributes`, and no `views` module calls an `*Output` class, so a view builds its Output only with `model_validate`.
+- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library, `pydantic`, and `rastro.common.values`, because import-linter has no allow list for the standard library. Only `rastro.common.problems` imports `pydantic.ValidationError` or `pydantic_core`, or reads `ValidationError` from the `pydantic` module under any alias, because import-linter cannot name a member or a submodule of an external package. Test modules are exempt from this check, so a value object test can expect `pydantic.ValidationError`. They also walk the root URLconf: every URL whose view lives in `rastro` has a name inside an app namespace, and every view, the error handlers and the CSRF failure view included, is a `<entity>_<action>_view` function in a `views` module. Every `*Output` schema sets `from_attributes`, and no `views` module calls an `*Output` class, so a view builds its Output only with `model_validate`.
 
 ## Configure settings
 

@@ -3,13 +3,12 @@ from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-import pydantic
 from django import forms
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from rastro.common.errors import ValidationFailedError
-from rastro.common.problems import to_error
+from rastro.common.problems import validation_failed_errors
 from rastro.common.values import ValueObject
 
 T = TypeVar("T")
@@ -24,17 +23,15 @@ def str_enum_to_choices(str_enum: type[E]) -> list[tuple[str, str]]:
 @contextmanager
 def django_validation_errors() -> Iterator[None]:
     try:
-        yield
-    except pydantic.ValidationError as error:
-        match to_error(error):
-            case ValidationFailedError(items=items):
-                raise ValidationError(
-                    [
-                        ValidationError(item.error.code, code=item.error.code)
-                        for item in items
-                    ]
-                ) from error
-        raise
+        with validation_failed_errors():
+            yield
+    except ValidationFailedError as error:
+        raise ValidationError(
+            [
+                ValidationError(item.error.code, code=item.error.code)
+                for item in error.items
+            ]
+        ) from error
 
 
 if TYPE_CHECKING:

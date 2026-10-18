@@ -1,13 +1,13 @@
 from tests.architecture.rules import pydantic_error_reads, rastro_sources
 
-TRANSLATION_MODULES = ("rastro.common.problems", "rastro.common.fields")
+PROBLEMS_MODULE = "rastro.common.problems"
 
 
-def test_only_the_problems_and_fields_modules_read_pydantic_errors() -> None:
+def test_only_the_problems_module_reads_pydantic_errors() -> None:
     reads = [
         read
         for name, source in rastro_sources()
-        if name not in TRANSLATION_MODULES and "tests" not in name.split(".")
+        if name != PROBLEMS_MODULE and "tests" not in name.split(".")
         for read in pydantic_error_reads(source=source, name=name)
     ]
 
@@ -30,4 +30,20 @@ def test_the_check_reports_each_way_to_reach_a_pydantic_error() -> None:
         "rastro.sample.views:3: from pydantic import BaseModel, ValidationError",
         "rastro.sample.views:4: from pydantic_core import ErrorDetails",
         "rastro.sample.views:6: pydantic.ValidationError",
+    ]
+
+
+def test_the_check_reports_a_pydantic_error_read_through_an_alias() -> None:
+    source = (
+        "import pydantic as p\n"
+        "import pydantic_core as core\n"
+        "from pydantic import ValidationError as Invalid\n"
+        "p.ValidationError\n"
+        "p.BaseModel\n"
+    )
+
+    assert pydantic_error_reads(source=source, name="rastro.sample.views") == [
+        "rastro.sample.views:2: import pydantic_core as core",
+        "rastro.sample.views:3: from pydantic import ValidationError as Invalid",
+        "rastro.sample.views:4: p.ValidationError",
     ]
