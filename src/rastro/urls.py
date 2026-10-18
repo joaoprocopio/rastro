@@ -7,3 +7,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/iam/", include(iam_urls)),
 ]
+
+handler404 = "rastro.common.views.not_found"
+handler500 = "rastro.common.views.server_error"

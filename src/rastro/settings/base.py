@@ -65,7 +65,7 @@ DJANGO_MIDDLEWARE = [
 ]
 
 LOCAL_MIDDLEWARE = [
-    "rastro.middleware.ExceptionHandlerMiddleware",
+    "rastro.common.middleware.ProblemDetailsMiddleware",
 ]
 
 MIDDLEWARE = DJANGO_MIDDLEWARE + LOCAL_MIDDLEWARE

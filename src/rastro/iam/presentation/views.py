@@ -7,6 +7,7 @@ from django.views import View
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from rastro.iam.application.dtos import AuthenticateInputDTO, RegisterIdentityInputDTO
+from rastro.iam.errors import NotAuthenticatedError
 from rastro.iam.application.use_cases import (
     AuthenticateUseCase,
     EndSessionUseCase,
@@ -72,7 +73,7 @@ class SessionView(View):
         identity = get_current_identity_use_case.execute()
 
         if identity is None:
-            return HttpResponse(status=HTTPStatus.UNAUTHORIZED)
+            raise NotAuthenticatedError()
 
         return JsonResponse(
             PresentIdentityMapper.map(identity).model_dump(),
