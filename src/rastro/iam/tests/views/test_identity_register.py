@@ -116,7 +116,10 @@ def test_a_get_is_a_problem_405(client: Client, db: None) -> None:
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
     assert response["Content-Type"] == "application/problem+json"
     assert response["Allow"] == "POST"
-    assert response.json() == {"status": 405}
+    assert response.json() == {
+        "type": "/problems/request.method_not_allowed",
+        "status": 405,
+    }
 
 
 def test_a_request_without_a_csrf_token_is_a_problem_403(db: None) -> None:

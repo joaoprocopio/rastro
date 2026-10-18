@@ -1,8 +1,9 @@
 from http import HTTPStatus
 
 import pydantic
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 
+from rastro.common.tests.sample.models import Wall
 from rastro.common.tests.sample.values import Color
 from rastro.common.views import parse_body, require_GET, require_POST, respond
 
@@ -35,3 +36,14 @@ def paint_count_view(request: HttpRequest) -> HttpResponse:
 
 def boom_raise_view(request: HttpRequest) -> HttpResponse:
     raise RuntimeError("boom")
+
+
+@require_GET
+def paint_find_view(request: HttpRequest) -> HttpResponse:
+    raise Http404
+
+
+@require_POST
+def wall_paint_view(request: HttpRequest) -> HttpResponse:
+    Wall.objects.create(coats=-1)
+    return respond(status=HTTPStatus.NO_CONTENT)

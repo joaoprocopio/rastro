@@ -1,16 +1,16 @@
 import importlib
 import importlib.util
-from collections import defaultdict
-from collections.abc import Iterable
-from enum import StrEnum
+import re
+from http import HTTPStatus
 from types import ModuleType
 
+import pytest
 from django.apps import apps
 
 from rastro.common import errors as common_errors
-from rastro.common.errors import ApplicationError
-from rastro.common.middleware import STATUS_BY_CODE
-from tests.architecture.helpers import module_with
+from rastro.common.errors import BaseError
+
+CODE_FORM = re.compile(r"[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*")
 
 
 def _error_modules() -> list[ModuleType]:
@@ -22,73 +22,70 @@ def _error_modules() -> list[ModuleType]:
     return modules
 
 
-def _error_classes(modules: Iterable[ModuleType]) -> list[type[ApplicationError]]:
+def _error_classes() -> list[type[BaseError]]:
     return [
         member
-        for module in modules
+        for module in _error_modules()
         for member in vars(module).values()
         if isinstance(member, type)
-        and issubclass(member, ApplicationError)
-        and member is not ApplicationError
+        and issubclass(member, BaseError)
+        and member is not BaseError
         and member.__module__ == module.__name__
     ]
 
 
-def _owners_by_code(modules: Iterable[ModuleType]) -> dict[str, list[str]]:
-    owners: dict[str, list[str]] = defaultdict(list)
-    for module in modules:
-        for name, member in vars(module).items():
-            if not isinstance(member, type) or member.__module__ != module.__name__:
-                continue
-            if issubclass(member, ApplicationError) and member is not ApplicationError:
-                owners[member.code].append(f"{module.__name__}.{name}")
-            elif issubclass(member, StrEnum):
-                for code in member:
-                    owners[code.value].append(f"{module.__name__}.{name}.{code.name}")
-    return owners
+def test_every_error_code_has_the_form_prefix_dot_name() -> None:
+    codes = [error.code for error in _error_classes()]
+
+    assert [code for code in codes if not CODE_FORM.fullmatch(code)] == []
 
 
-def _repeated_codes(modules: Iterable[ModuleType]) -> dict[str, list[str]]:
-    return {
-        code: owners
-        for code, owners in _owners_by_code(modules).items()
-        if len(owners) > 1
+def test_every_error_declares_the_code_and_status_of_the_contract() -> None:
+    assert {error.code: error.status for error in _error_classes()} == {
+        "request.validation_failed": 422,
+        "request.field_required": 422,
+        "request.invalid_type": 422,
+        "request.invalid_json": 422,
+        "request.unknown_field": 422,
+        "request.too_short": 422,
+        "request.too_long": 422,
+        "request.invalid_format": 422,
+        "request.csrf_failed": 403,
+        "request.not_found": 404,
+        "request.method_not_allowed": 405,
+        "server.internal_error": 500,
+        "iam.email_in_use": 409,
+        "iam.incorrect_credentials": 401,
+        "iam.not_authenticated": 401,
     }
 
 
-def test_no_error_code_repeats_across_apps() -> None:
-    assert _repeated_codes(_error_modules()) == {}
+def test_an_error_without_a_code_is_rejected() -> None:
+    with pytest.raises(TypeError, match="WallPaintError declares no code"):
+
+        class WallPaintError(BaseError):
+            status = HTTPStatus.CONFLICT
 
 
-def test_every_error_code_has_the_form_app_dot_name() -> None:
-    codes = _owners_by_code(_error_modules())
+def test_an_error_without_a_status_is_rejected() -> None:
+    with pytest.raises(TypeError, match="WallPaintError declares no status"):
 
-    for code in codes:
-        app, _, name = code.partition(".")
-        assert app and name and name == name.lower(), code
-
-
-def test_every_application_error_has_a_status() -> None:
-    codes = {error.code for error in _error_classes(_error_modules())}
-
-    assert codes <= STATUS_BY_CODE.keys()
+        class WallPaintError(BaseError):
+            code = "tests.wall_paint"
 
 
-def test_the_check_reports_a_code_that_two_apps_declare() -> None:
-    class BookingTakenError(ApplicationError):
-        code = "booking.taken"
+def test_an_error_that_repeats_a_code_is_rejected_with_both_classes_named() -> None:
+    class BookingTakenError(BaseError):
+        code = "tests.booking_taken"
+        status = HTTPStatus.CONFLICT
 
-    class SeatTakenError(ApplicationError):
-        code = "booking.taken"
+    with pytest.raises(TypeError) as excinfo:
 
-    modules = [
-        module_with("tests.booking.errors", BookingTakenError),
-        module_with("tests.seating.errors", SeatTakenError),
-    ]
+        class SeatTakenError(BaseError):
+            code = "tests.booking_taken"
+            status = HTTPStatus.CONFLICT
 
-    assert _repeated_codes(modules) == {
-        "booking.taken": [
-            "tests.booking.errors.BookingTakenError",
-            "tests.seating.errors.SeatTakenError",
-        ]
-    }
+    message = str(excinfo.value)
+    assert "SeatTakenError" in message
+    assert "BookingTakenError" in message
+    assert "tests.booking_taken" in message

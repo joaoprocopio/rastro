@@ -6,9 +6,13 @@ from typing import Concatenate, ParamSpec, TypeVar
 import pydantic
 from django.http import HttpRequest, HttpResponse
 
-from rastro.common.errors import RequestCode
-from rastro.common.middleware import STATUS_BY_CODE
-from rastro.common.problems import problem_response
+from rastro.common.errors import (
+    CsrfFailedError,
+    InternalServerError,
+    MethodNotAllowedError,
+    NotFoundError,
+)
+from rastro.common.problems import Problem, problem_response, to_error
 
 Schema = TypeVar("Schema", bound=pydantic.BaseModel)
 P = ParamSpec("P")
@@ -35,9 +39,7 @@ def _require_method(method: str, view: View[P]) -> View[P]:
         request: HttpRequest, /, *args: P.args, **kwargs: P.kwargs
     ) -> HttpResponse:
         if request.method != method:
-            response = problem_response(HTTPStatus.METHOD_NOT_ALLOWED)
-            response["Allow"] = method
-            return response
+            raise MethodNotAllowedError(allow=method)
         return view(request, *args, **kwargs)
 
     return guarded
@@ -52,14 +54,13 @@ def require_GET(view: View[P]) -> View[P]:
 
 
 def csrf_failure_view(request: HttpRequest, reason: str = "") -> HttpResponse:
-    return problem_response(
-        STATUS_BY_CODE[RequestCode.CSRF_FAILED], code=RequestCode.CSRF_FAILED
-    )
+    return problem_response(Problem.from_error(CsrfFailedError()))
 
 
 def not_found_view(request: HttpRequest, exception: Exception) -> HttpResponse:
-    return problem_response(HTTPStatus.NOT_FOUND)
+    error = to_error(exception) or NotFoundError()
+    return problem_response(Problem.from_error(error))
 
 
 def server_error_view(request: HttpRequest) -> HttpResponse:
-    return problem_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+    return problem_response(Problem.from_error(InternalServerError()))
