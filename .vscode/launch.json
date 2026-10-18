@@ -11,7 +11,8 @@
       "args": ["runserver", "--noreload"],
       "django": true,
       "autoStartBrowser": false,
-      "program": "${workspaceFolder}/manage.py"
+      "program": "${workspaceFolder}/manage.py",
+      "envFile": "${workspaceFolder}/.env"
     },
     {
       "name": "Python Debugger: Pytest",
