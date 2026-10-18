@@ -20,6 +20,21 @@ def test_email_rejects_an_invalid_address(raw: str) -> None:
     assert excinfo.value.code == "iam.invalid_email"
 
 
+def test_email_allows_254_characters() -> None:
+    local_part = "a" * (254 - len("@example.com"))
+
+    assert len(Email(f"{local_part}@example.com").value) == 254
+
+
+def test_email_rejects_255_characters() -> None:
+    local_part = "a" * (255 - len("@example.com"))
+
+    with pytest.raises(InvalidValueError) as excinfo:
+        Email(f"{local_part}@example.com")
+
+    assert excinfo.value.code == "iam.invalid_email"
+
+
 def test_display_name_strips_spaces() -> None:
     assert DisplayName("  Ana  ").value == "Ana"
 

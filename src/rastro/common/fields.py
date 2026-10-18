@@ -5,18 +5,31 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from rastro.common.values import InvalidValueError, StrValueObject
+
+T = TypeVar("T")
 E = TypeVar("E", bound=StrEnum)
+V = TypeVar("V", bound=StrValueObject)
 
 
 def str_enum_to_choices(str_enum: type[E]) -> list[tuple[str, str]]:
     return [(member.value, member.name) for member in str_enum]
 
 
+def parse_value_object(value_object: type[V], value: str | V) -> V:
+    if isinstance(value, value_object):
+        return value
+    try:
+        return value_object(str(value))
+    except InvalidValueError as error:
+        raise ValidationError(str(error), code=error.code) from error
+
+
 if TYPE_CHECKING:
-    _CharField = models.CharField[E, E]
+    _CharField = models.CharField[T, T]
 else:
     # Django's Field has no __class_getitem__, so the runtime base adds one through Generic.
-    class _CharField(models.CharField, Generic[E]):
+    class _CharField(models.CharField, Generic[T]):
         pass
 
 
@@ -51,3 +64,47 @@ class StrEnumField(_CharField[E]):
         if value is None:
             return None
         return self.enum(value).value
+
+
+class StrValueObjectField(_CharField[V]):
+    value_object: type[V]
+
+    def __init__(self, value_object: type[V] | None = None, **kwargs: Any) -> None:
+        # A subclass names its value object as a class attribute and takes no argument.
+        if value_object is not None:
+            self.value_object = value_object
+        super().__init__(**kwargs)
+
+    def deconstruct(self) -> tuple[str, str, Sequence[Any], dict[str, Any]]:
+        name, path, args, kwargs = super().deconstruct()
+        if "value_object" in vars(self):
+            kwargs["value_object"] = self.value_object
+        return name, path, args, kwargs
+
+    def from_db_value(self, value: Any, expression: Any, connection: Any) -> V | None:
+        if value is None:
+            return None
+        return self.value_object(value)
+
+    def to_python(self, value: Any) -> V | None:
+        if value is None:
+            return None
+        parsed: V = parse_value_object(self.value_object, value)
+        return parsed
+
+    def get_prep_value(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        parsed: V = parse_value_object(self.value_object, value)
+        return parsed.value
+
+    def run_validators(self, value: Any) -> None:
+        # CharField's MaxLengthValidator calls len(), so it gets the plain string.
+        if isinstance(value, StrValueObject):
+            value = value.value
+        super().run_validators(value)
+
+    def value_from_object(self, obj: models.Model) -> str | None:  # type: ignore[override]
+        # The admin form and the serializers read the plain string, not the dataclass repr.
+        value = super().value_from_object(obj)
+        return value.value if isinstance(value, StrValueObject) else value

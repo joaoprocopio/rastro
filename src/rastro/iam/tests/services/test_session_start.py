@@ -5,21 +5,8 @@ from django.test import RequestFactory
 from rastro.iam.errors import IncorrectCredentialsError
 from rastro.iam.models import Identity
 from rastro.iam.services import session_start
+from rastro.iam.tests.fakes import FakeSessionStore
 from rastro.iam.values import Email, RawPassword
-
-
-class FakeSessionStore:
-    def __init__(self) -> None:
-        self.started: list[Identity] = []
-
-    def start(self, *, request: HttpRequest, identity: Identity) -> None:
-        self.started.append(identity)
-
-    def end(self, *, request: HttpRequest) -> None:
-        pass
-
-    def current(self, *, request: HttpRequest) -> Identity | None:
-        return self.started[-1] if self.started else None
 
 
 def _refuse(

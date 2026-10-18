@@ -79,10 +79,10 @@ def _record_identity(
     span: trace.Span, request: HttpRequest, response: HttpResponse
 ) -> None:
     # The span carries the Identity's id and never its email, so no personal data reaches ClickHouse.
-    user = getattr(request, "user", None)
+    identity = getattr(request, "user", None)
 
-    if user is not None and user.is_authenticated:
-        span.set_attribute(enduser_attributes.ENDUSER_ID, str(user.pk))
+    if identity is not None and identity.is_authenticated:
+        span.set_attribute(enduser_attributes.ENDUSER_ID, str(identity.pk))
 
 
 def instrument_django(*, tracer_provider: TracerProvider) -> None:
