@@ -25,3 +25,18 @@ def test_it_stores_the_hash_that_the_hasher_returns() -> None:
     assert identity.display_name == DisplayName("Ana")
     assert identity.is_staff is False
     assert identity.is_superuser is False
+
+
+@pytest.mark.django_db
+def test_it_raises_email_in_use_for_an_email_that_an_identity_holds() -> None:
+    IdentityFactory.create(email=Email("ana@x.com"))
+
+    with pytest.raises(EmailInUseError):
+        identity_register(
+            email=Email("ana@x.com"),
+            display_name=DisplayName("Ana"),
+            password=RawPassword("supersecret"),
+            password_hasher=fake_hash,
+        )
+
+    assert Identity.objects.filter(email=Email("ana@x.com")).count() == 1

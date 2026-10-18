@@ -1,5 +1,6 @@
 from django.db import transaction
 
+from rastro.iam.errors import EmailInUseError
 from rastro.iam.models import Identity
 from rastro.iam.ports import PasswordHasher
 from rastro.iam.values import DisplayName, Email, RawPassword
@@ -13,6 +14,8 @@ def identity_register(
     password: RawPassword,
     password_hasher: PasswordHasher,
 ) -> None:
+    if Identity.objects.filter(email=email).exists():
+        raise EmailInUseError()
     Identity.objects.create(
         email=email,
         display_name=display_name,
