@@ -1,17 +1,11 @@
-import json
 from http import HTTPStatus
-from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.contrib.auth.hashers import MD5PasswordHasher, make_password
 from django.test import Client, override_settings
+from django.urls import reverse
 
 from rastro.iam.models import Identity
-
-if TYPE_CHECKING:
-    from django.test.client import _MonkeyPatchedWSGIResponse
-
-SESSION_START_URL = "/api/v1/iam/session/start"
 
 
 class RecordingHasher(MD5PasswordHasher):
@@ -23,19 +17,13 @@ class RecordingHasher(MD5PasswordHasher):
         return super().encode(password, salt)
 
 
-def _start_session(
-    client: Client, payload: dict[str, str]
-) -> "_MonkeyPatchedWSGIResponse":
-    return client.post(
-        SESSION_START_URL, data=json.dumps(payload), content_type="application/json"
-    )
-
-
 def test_correct_credentials_start_a_session(
     client: Client, identity: Identity
 ) -> None:
-    response = _start_session(
-        client, {"email": identity.email.value, "password": "password"}
+    response = client.post(
+        reverse("iam:session_start"),
+        {"email": identity.email.value, "password": "password"},
+        content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.NO_CONTENT
@@ -46,11 +34,15 @@ def test_correct_credentials_start_a_session(
 def test_a_wrong_password_and_an_unknown_email_answer_the_same_problem(
     client: Client, identity: Identity
 ) -> None:
-    wrong_password = _start_session(
-        client, {"email": identity.email.value, "password": "wrongpassword"}
+    wrong_password = client.post(
+        reverse("iam:session_start"),
+        {"email": identity.email.value, "password": "wrongpassword"},
+        content_type="application/json",
     )
-    unknown_email = _start_session(
-        client, {"email": "nobody@example.com", "password": "wrongpassword"}
+    unknown_email = client.post(
+        reverse("iam:session_start"),
+        {"email": "nobody@example.com", "password": "wrongpassword"},
+        content_type="application/json",
     )
 
     assert wrong_password.status_code == HTTPStatus.UNAUTHORIZED
@@ -72,8 +64,10 @@ def test_an_inactive_identity_answers_the_same_problem(
     identity.is_active = False
     identity.save(update_fields=["is_active"])
 
-    response = _start_session(
-        client, {"email": identity.email.value, "password": "password"}
+    response = client.post(
+        reverse("iam:session_start"),
+        {"email": identity.email.value, "password": "password"},
+        content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -93,8 +87,10 @@ def test_an_inactive_identity_answers_the_same_problem(
 def test_an_unknown_email_runs_the_password_hasher(client: Client, db: None) -> None:
     RecordingHasher.encoded.clear()
 
-    response = _start_session(
-        client, {"email": "nobody@example.com", "password": "wrongpassword"}
+    response = client.post(
+        reverse("iam:session_start"),
+        {"email": "nobody@example.com", "password": "wrongpassword"},
+        content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -113,8 +109,10 @@ def test_a_session_start_upgrades_an_outdated_hash(
     identity.password = make_password("password", hasher="pbkdf2_sha256")
     identity.save(update_fields=["password"])
 
-    response = _start_session(
-        client, {"email": identity.email.value, "password": "password"}
+    response = client.post(
+        reverse("iam:session_start"),
+        {"email": identity.email.value, "password": "password"},
+        content_type="application/json",
     )
 
     identity.refresh_from_db()
@@ -126,7 +124,11 @@ def test_a_session_start_upgrades_an_outdated_hash(
 def test_a_session_start_records_last_login(client: Client, identity: Identity) -> None:
     assert identity.last_login is None
 
-    _start_session(client, {"email": identity.email.value, "password": "password"})
+    client.post(
+        reverse("iam:session_start"),
+        {"email": identity.email.value, "password": "password"},
+        content_type="application/json",
+    )
 
     identity.refresh_from_db()
     assert identity.last_login is not None
@@ -135,10 +137,14 @@ def test_a_session_start_records_last_login(client: Client, identity: Identity) 
 def test_a_session_start_while_a_session_exists_succeeds(
     client: Client, identity: Identity
 ) -> None:
-    payload = {"email": identity.email.value, "password": "password"}
-    first = _start_session(client, payload)
+    credentials = {"email": identity.email.value, "password": "password"}
+    first = client.post(
+        reverse("iam:session_start"), credentials, content_type="application/json"
+    )
 
-    second = _start_session(client, payload)
+    second = client.post(
+        reverse("iam:session_start"), credentials, content_type="application/json"
+    )
 
     assert first.status_code == HTTPStatus.NO_CONTENT
     assert second.status_code == HTTPStatus.NO_CONTENT

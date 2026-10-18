@@ -2,19 +2,20 @@ import pytest
 
 from rastro.iam.errors import EmailInUseError
 from rastro.iam.models import Identity
+from rastro.iam.ports import PasswordHasher
 from rastro.iam.services import identity_register_superuser
-from rastro.iam.tests.factories import IdentityFactory
-from rastro.iam.tests.fakes import fake_hash
 from rastro.iam.values import DisplayName, Email, RawPassword
 
 
 @pytest.mark.django_db
-def test_it_creates_an_identity_with_the_staff_and_superuser_flags() -> None:
+def test_it_creates_an_identity_with_the_staff_and_superuser_flags(
+    password_hasher: PasswordHasher,
+) -> None:
     identity_register_superuser(
         email=Email("root@x.com"),
         display_name=DisplayName("Root"),
         password=RawPassword("supersecret"),
-        password_hasher=fake_hash,
+        password_hasher=password_hasher,
     )
 
     identity = Identity.objects.get(email=Email("root@x.com"))
@@ -24,16 +25,15 @@ def test_it_creates_an_identity_with_the_staff_and_superuser_flags() -> None:
     assert identity.is_superuser is True
 
 
-@pytest.mark.django_db
-def test_it_raises_email_in_use_for_an_email_that_an_identity_holds() -> None:
-    IdentityFactory.create(email=Email("root@x.com"))
-
+def test_it_raises_email_in_use_for_an_email_that_an_identity_holds(
+    identity: Identity, password_hasher: PasswordHasher
+) -> None:
     with pytest.raises(EmailInUseError):
         identity_register_superuser(
-            email=Email("root@x.com"),
+            email=identity.email,
             display_name=DisplayName("Root"),
             password=RawPassword("supersecret"),
-            password_hasher=fake_hash,
+            password_hasher=password_hasher,
         )
 
-    assert Identity.objects.get(email=Email("root@x.com")).is_superuser is False
+    assert Identity.objects.get(email=identity.email).is_superuser is False

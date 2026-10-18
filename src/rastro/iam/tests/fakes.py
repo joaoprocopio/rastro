@@ -5,8 +5,8 @@ from rastro.iam.values import HashedPassword, RawPassword
 
 
 class FakeSessionStore:
-    def __init__(self, identity: Identity | None = None) -> None:
-        self.identity = identity
+    def __init__(self) -> None:
+        self.identity: Identity | None = None
         self.started: list[Identity] = []
         self.ended = 0
 

@@ -9,23 +9,20 @@ from rastro.iam.tests.fakes import FakeSessionStore
 from rastro.iam.values import Email, RawPassword
 
 
-def _refuse(
-    *, request: HttpRequest, email: Email, password: RawPassword
-) -> Identity | None:
-    return None
-
-
 def test_incorrect_credentials_raise_and_start_no_session(
-    rf: RequestFactory, db: None
+    rf: RequestFactory, db: None, session_store: FakeSessionStore
 ) -> None:
-    session_store = FakeSessionStore()
+    def refuse(
+        *, request: HttpRequest, email: Email, password: RawPassword
+    ) -> Identity | None:
+        return None
 
     with pytest.raises(IncorrectCredentialsError):
         session_start(
             request=rf.post("/"),
             email=Email("nobody@example.com"),
             password=RawPassword("wrongpassword"),
-            authenticator=_refuse,
+            authenticator=refuse,
             session_store=session_store,
         )
 
@@ -33,11 +30,8 @@ def test_incorrect_credentials_raise_and_start_no_session(
 
 
 def test_correct_credentials_start_a_session_for_the_identity(
-    rf: RequestFactory, db: None
+    rf: RequestFactory, identity: Identity, session_store: FakeSessionStore
 ) -> None:
-    identity = Identity(email=Email("ada@example.com"))
-    session_store = FakeSessionStore()
-
     def accept(
         *, request: HttpRequest, email: Email, password: RawPassword
     ) -> Identity | None:
@@ -45,8 +39,8 @@ def test_correct_credentials_start_a_session_for_the_identity(
 
     session_start(
         request=rf.post("/"),
-        email=Email("ada@example.com"),
-        password=RawPassword("supersecret"),
+        email=identity.email,
+        password=RawPassword("password"),
         authenticator=accept,
         session_store=session_store,
     )
