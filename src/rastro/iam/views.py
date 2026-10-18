@@ -3,7 +3,7 @@ from http import HTTPStatus
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 
-from rastro.common.apis import parse_body, require_GET, require_POST, respond
+from rastro.common.views import parse_body, require_GET, require_POST, respond
 from rastro.iam import deps, selectors, services
 from rastro.iam.schemas import (
     IdentityRegisterInput,
@@ -13,7 +13,7 @@ from rastro.iam.schemas import (
 
 
 @require_POST
-def identity_register_api(request: HttpRequest) -> HttpResponse:
+def identity_register_view(request: HttpRequest) -> HttpResponse:
     body = parse_body(request, IdentityRegisterInput)
     services.identity_register(
         email=body.email,
@@ -25,7 +25,7 @@ def identity_register_api(request: HttpRequest) -> HttpResponse:
 
 
 @require_POST
-def session_start_api(request: HttpRequest) -> HttpResponse:
+def session_start_view(request: HttpRequest) -> HttpResponse:
     body = parse_body(request, SessionStartInput)
     services.session_start(
         request=request,
@@ -38,7 +38,7 @@ def session_start_api(request: HttpRequest) -> HttpResponse:
 
 
 @require_GET
-def session_current_api(request: HttpRequest) -> HttpResponse:
+def session_current_view(request: HttpRequest) -> HttpResponse:
     identity = selectors.identity_get_current(
         request=request, session_store=deps.SESSION_STORE
     )
@@ -49,12 +49,12 @@ def session_current_api(request: HttpRequest) -> HttpResponse:
 
 
 @require_POST
-def session_end_api(request: HttpRequest) -> HttpResponse:
+def session_end_view(request: HttpRequest) -> HttpResponse:
     services.session_end(request=request, session_store=deps.SESSION_STORE)
     return respond(status=HTTPStatus.NO_CONTENT)
 
 
 @require_GET
 @ensure_csrf_cookie
-def csrf_get_api(request: HttpRequest) -> HttpResponse:
+def csrf_get_view(request: HttpRequest) -> HttpResponse:
     return respond(status=HTTPStatus.NO_CONTENT)

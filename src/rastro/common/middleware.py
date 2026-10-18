@@ -5,8 +5,8 @@ import pydantic
 from django.http import HttpRequest, HttpResponse
 from pydantic_core import ErrorDetails
 
-from rastro.common.apis import problem_response, problem_type
 from rastro.common.errors import ApplicationError, RequestCode
+from rastro.common.problems import problem_response, problem_type
 from rastro.common.values import InvalidValueError
 
 STATUS_BY_CODE: dict[str, HTTPStatus] = {
