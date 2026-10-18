@@ -1,6 +1,6 @@
 # Coding standards
 
-These rules define how rastro code is structured. Other projects copy rastro's patterns, so every change follows these rules, and a change that breaks a rule on purpose updates this file in the same commit. Code written before the planned rewrite of rastro does not follow every rule yet.
+These rules define how rastro code is structured. Other projects copy rastro's patterns, so every change follows these rules, and a change that breaks a rule on purpose updates this file in the same commit.
 
 Use the domain terms from `GLOSSARY.md` in code, tests, and docs.
 
@@ -97,10 +97,10 @@ Each app declares the ports it consumes in `ports.py` and implements them in `ad
 
 A service or selector receives each dependency as a required keyword-only argument, typed with a `typing.Protocol`. A dependency argument has no default, so every caller passes every dependency and mypy rejects a call that leaves one out. When a service calls another service, it passes the dependencies down by name.
 
-A `Protocol` works like a Rust trait: an implementation never inherits from it, and the code uses no `abc.ABC`. Below each real implementation, one line asks mypy to check that it matches its protocol:
+A `Protocol` works like a Rust trait: an implementation never inherits from it, and the code uses no `abc.ABC`. Below each real implementation, one line asks mypy to check that it matches its protocol. The line is named after the port, because a module that holds two adapters cannot assign `_` twice without a `no-redef` error from mypy:
 
 ```python
-_: Authenticator = django_authenticate
+_authenticator: Authenticator = django_authenticate
 ```
 
 Only the services and selectors of a Session receive the `HttpRequest`, because Django keeps the Session in the request. Every other service and selector runs without a request, so a Celery task or the shell can call it.
@@ -146,9 +146,9 @@ Value object tests are pure and use no database. Service and selector tests cove
 
 Tools check these rules, and every change passes them before it merges, so a violation fails the check instead of waiting for a review:
 
-- **import-linter** checks the layers: `apis` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `apis` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` never imports Django. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
+- **import-linter** checks the layers: `apis` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `apis` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` imports neither Django nor Pydantic. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
 - **ruff** bans `django.dispatch.receiver` and `django.views.decorators.csrf.csrf_exempt` through `TID251`, because signals hold no business logic and no API is exempt from CSRF.
-- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings.
+- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library and `rastro.common.values`, because import-linter has no allow list for the standard library.
 
 ## Configure settings
 

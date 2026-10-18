@@ -1,5 +1,4 @@
 import pytest
-from django.contrib.auth.models import AnonymousUser
 
 from rastro.iam.models import Identity
 from rastro.iam.tests.factories import IdentityFactory
@@ -13,8 +12,3 @@ def identity(db: None) -> Identity:
         display_name=DisplayName("user"),
         password="password",
     )
-
-
-@pytest.fixture
-def anonymous_user(db: None) -> AnonymousUser:
-    return AnonymousUser()
