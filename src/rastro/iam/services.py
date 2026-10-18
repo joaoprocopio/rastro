@@ -6,6 +6,7 @@ from rastro.iam.ports import Authenticator, SessionStore
 from rastro.iam.values import Email, RawPassword
 
 
+@transaction.atomic
 def session_start(
     *,
     request: HttpRequest,
@@ -17,5 +18,4 @@ def session_start(
     identity = authenticator(request=request, email=email, password=password)
     if identity is None:
         raise IncorrectCredentialsError()
-    with transaction.atomic():
-        session_store.start(request=request, identity=identity)
+    session_store.start(request=request, identity=identity)
