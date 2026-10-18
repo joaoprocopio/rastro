@@ -21,7 +21,7 @@ The value object base in `rastro.common` holds only `frozen=True`, and code read
 - [x] `CODING_STANDARDS.md` describes value objects, validation items, and the architecture checks as the code does them.
 - [x] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
