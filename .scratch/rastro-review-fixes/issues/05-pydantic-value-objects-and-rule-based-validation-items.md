@@ -8,17 +8,35 @@ The value object base in `rastro.common` holds only `frozen=True`, and code read
 
 **Status:** ready-for-agent
 
-- [ ] Every `iam` value object is a frozen `RootModel` with its current normalization and limits, and the value object tests cover normalization and rejection with no database.
-- [ ] mypy rejects a raw `str` and the wrong value object in a service argument.
-- [ ] A registration with an invalid email and a 5-character password answers `422` with an `invalid_format` item at `#/email` and a `too_short` item at `#/password` that carries `"min_length": 8`.
-- [ ] A value longer than its limit answers a `too_long` item that carries `max_length`, and no item exposes the email pattern.
-- [ ] A missing field, a wrong type, malformed JSON, and an unknown field keep their current item types.
-- [ ] The admin shows `request.invalid_format` on the email field and `request.too_short` on the password field, and stores nothing.
-- [ ] `createsuperuser` and the Identity manager parse with `model_validate` and keep the registration rules.
-- [ ] A value from the database that fails its value object still raises.
-- [ ] No code mentions `StrValueObject`, `parse_value_object`, `InvalidValueError`, or `iam.invalid_`.
-- [ ] The import contract for `values` allows `pydantic`, `services` and `selectors` still import no `pydantic`, and a pytest architecture test rejects `pydantic.ValidationError` or `pydantic_core` outside the problems module and the fields module.
-- [ ] `CODING_STANDARDS.md` describes value objects, validation items, and the architecture checks as the code does them.
-- [ ] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
-- [ ] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
+- [x] Every `iam` value object is a frozen `RootModel` with its current normalization and limits, and the value object tests cover normalization and rejection with no database.
+- [x] mypy rejects a raw `str` and the wrong value object in a service argument.
+- [x] A registration with an invalid email and a 5-character password answers `422` with an `invalid_format` item at `#/email` and a `too_short` item at `#/password` that carries `"min_length": 8`.
+- [x] A value longer than its limit answers a `too_long` item that carries `max_length`, and no item exposes the email pattern.
+- [x] A missing field, a wrong type, malformed JSON, and an unknown field keep their current item types.
+- [x] The admin shows `request.invalid_format` on the email field and `request.too_short` on the password field, and stores nothing.
+- [x] `createsuperuser` and the Identity manager parse with `model_validate` and keep the registration rules.
+- [x] A value from the database that fails its value object still raises.
+- [x] No code mentions `StrValueObject`, `parse_value_object`, `InvalidValueError`, or `iam.invalid_`.
+- [x] The import contract for `values` allows `pydantic`, `services` and `selectors` still import no `pydantic`, and a pytest architecture test rejects `pydantic.ValidationError` or `pydantic_core` outside the problems module and the fields module.
+- [x] `CODING_STANDARDS.md` describes value objects, validation items, and the architecture checks as the code does them.
+- [x] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
+- [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
 - [ ] `docker compose up --build` starts the stack and Django serves requests.
+
+## Comments
+
+Verified on branch `ticket/05-value-objects`. `src/rastro/iam/tests/views/test_identity_register.py` posts an invalid email with a 5-character password and gets `request.invalid_format` at `#/email` and `request.too_short` with `"min_length": 8` at `#/password`. An email of 296 characters gets `request.too_long` with `"max_length": 254`, and a display name of 321 characters gets `"max_length": 320`. The admin, `createsuperuser`, and manager tests now expect `request.invalid_format` and `request.too_short`. To check the mypy criterion, I ran mypy on a throwaway module. mypy rejected `email=DisplayName("Ana")` and `email="ana@x.com"` in `identity_register` with `arg-type` and accepted `email=Email("ana@x.com")`. `makemigrations --check` detects no changes. The gate is green: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (6 kept), `pytest` (180 passed), and `manage.py check`. I did not run `docker compose up --build`; the merger runs it.
+
+### Decisions
+
+- **Gap**: the spec's `Email` declaration puts the `BeforeValidator` before `StringConstraints`, so Pydantic applies the length rule after the validator and reports `too_long` in place of `string_too_long`. The spec's table names only the `string_` types. **Chosen**: I kept the spec's declaration, and the problems module translates `too_short` and `too_long` the same way as `string_too_short` and `string_too_long`, with the limit from `ctx`. `CODING_STANDARDS.md` tells you to put the `BeforeValidator` first and says why. **Rejected**: `StringConstraints` before the `BeforeValidator`. In that order, Pydantic checks `pattern` before `to_lower`, so `Email` rejects `Ana@x.com`. Also rejected: lowercasing in the `BeforeValidator`, which moves a rule that `StringConstraints` can express out of it.
+- **Gap**: the spec says that an item holds the limit, but ticket 04 left `TooShortError` and `TooLongError` without one. **Chosen**: `TooShortError(min_length=...)` and `TooLongError(max_length=...)` hold the limit, and `ProblemItem.from_item` copies it to the item. The item holds the error, so the limit reaches the response. **Rejected**: a limit field on `ValidationItem`, which every other item carries empty.
+- **Gap**: the manager must parse with `model_validate`, but `createsuperuser` turns only Django's `ValidationError` into a `CommandError`. Only the problems module and the fields module may name `pydantic.ValidationError`. **Chosen**: the fields module holds a context manager, `django_validation_errors()`. It catches `pydantic.ValidationError`, passes it through `to_error`, and raises Django's `ValidationError` with the code of each item. The manager calls `model_validate` inside it, and `ValueObjectField` and `ValueObjectFormField` use it too. **Rejected**: a manager that lets the Pydantic error through, which makes `createsuperuser` crash with a traceback in place of a `CommandError`. Also rejected: a parse helper, which brings back `parse_value_object`, and a manager that catches `ValueError` and translates the error itself, which repeats the translation at each edge.
+- **Gap**: the ticket bans every mention of `StrValueObject`, and `StrValueObjectField` contains that name. **Chosen**: the model field is `ValueObjectField`, and the form field is `ValueObjectFormField`. The migration names `EmailValueField` and `DisplayNameValueField`, so it does not change. **Rejected**: keeping `StrValueObjectField`, which breaks the criterion.
+- **Gap**: the spec does not say whether the check on Pydantic error types covers test modules. **Chosen**: the check covers every `rastro` module outside a `tests` package, so a value object test can expect `pydantic.ValidationError`. **Rejected**: a check that also covers the tests, which forces the tests to expect `ValueError`, the base class, and so assert less.
+- **Gap**: the spec says that a value from the database that fails its value object still raises, but not which error. **Chosen**: `ValueObjectField.from_db_value` lets `pydantic.ValidationError` through. **Rejected**: Django's `ValidationError`, which reads as a form error for what is corrupted data.
+- **Gap**: the spec asks for one table of Pydantic error types, but three entries need the limit from `ctx`. **Chosen**: one `match` statement in `_field_error`, with one `case` per type. **Rejected**: a dict of lambdas, where some entries take `ctx` and some ignore it.
+- **Gap**: the Django `ValidationError` of a field needs a message, and the spec gives only its code. **Chosen**: the message is the code, as before, with no `params`. **Rejected**: `params` with the limit, which no admin template or test reads.
+- **Gap**: the sample `Color` raised `sample.invalid_color`, which the deletion of `InvalidValueError` removes. **Chosen**: `Color` allows 3 to 6 lowercase letters, so the `rastro.common` HTTP tests cover `request.invalid_format`, `request.too_short` with `min_length`, and `request.too_long` with `max_length`. **Rejected**: a `Literal` color, whose `literal_error` becomes `request.invalid_type` and covers no rule.
+- **Gap**: the spec says that the fields get no seam of their own, but `test_fields.py` already tests the model field directly. **Chosen**: I kept those tests under the new name. They cover `deconstruct` and `from_db_value`, which no HTTP test reaches. I added no direct test for the form field, because the admin tests cover it. **Rejected**: deleting the direct tests, which leaves the migration path untested.
+- **Gap**: the mypy criterion has no automated check. **Chosen**: I verified it by hand with a throwaway module, as the first paragraph of these comments describes. **Rejected**: a pytest test that runs mypy, which adds seconds to every run and needs the Django plugin configuration.

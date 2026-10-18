@@ -87,7 +87,7 @@ def test_it_rejects_an_invalid_email_and_asks_again(
     )
 
     assert prompts[:2] == ["Email: ", "Email: "]
-    assert "iam.invalid_email" in stderr.getvalue()
+    assert "request.invalid_format" in stderr.getvalue()
     assert Identity.objects.get().email == Email("root@x.com")
 
 
@@ -95,7 +95,7 @@ def test_it_rejects_an_invalid_email_and_asks_again(
 def test_it_rejects_a_password_shorter_than_8_characters(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(CommandError, match="iam.invalid_password"):
+    with pytest.raises(CommandError, match="request.too_short"):
         create_superuser_interactively(
             monkeypatch,
             answers=["root@x.com", "Root"],
@@ -123,7 +123,7 @@ def test_it_creates_the_administrator_without_input(
 def test_it_rejects_a_short_password_without_input(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    with pytest.raises(CommandError, match="iam.invalid_password"):
+    with pytest.raises(CommandError, match="request.too_short"):
         create_superuser_without_input(
             monkeypatch, email="root@x.com", display_name="Root", password="short"
         )
@@ -137,7 +137,7 @@ def test_it_rejects_a_missing_password_without_input(
 ) -> None:
     monkeypatch.delenv("DJANGO_SUPERUSER_PASSWORD", raising=False)
 
-    with pytest.raises(CommandError, match="iam.invalid_password"):
+    with pytest.raises(CommandError, match="request.too_short"):
         call_command(
             "createsuperuser",
             interactive=False,

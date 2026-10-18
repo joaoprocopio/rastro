@@ -14,8 +14,8 @@ def test_a_session_answers_the_email_and_display_name_of_its_identity(
     assert response.status_code == HTTPStatus.OK
     assert response["Content-Type"] == "application/json"
     assert response.json() == {
-        "email": identity.email.value,
-        "display_name": identity.display_name.value,
+        "email": identity.email.root,
+        "display_name": identity.display_name.root,
     }
 
 

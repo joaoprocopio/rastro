@@ -10,7 +10,7 @@ from rastro.iam.values import Email, HashedPassword, RawPassword
 def django_authenticate(
     *, request: HttpRequest, email: Email, password: RawPassword
 ) -> Identity | None:
-    identity = auth.authenticate(request, email=email, password=password.value)
+    identity = auth.authenticate(request, email=email, password=password.root)
     return identity if isinstance(identity, Identity) else None
 
 
@@ -33,7 +33,7 @@ _session_store: SessionStore = DjangoSessionStore()
 
 
 def django_make_password(*, password: RawPassword) -> HashedPassword:
-    return HashedPassword(make_password(password.value))
+    return HashedPassword(make_password(password.root))
 
 
 _password_hasher: PasswordHasher = django_make_password

@@ -27,6 +27,8 @@ FORBIDDEN_VALIDATION_METHODS = (
     "validate_constraints",
 )
 COMMON_VALUES = "rastro.common.values"
+PYDANTIC_ERROR = "ValidationError"
+PYDANTIC_CORE = "pydantic_core"
 
 
 class Role(StrEnum):
@@ -129,6 +131,14 @@ def foreign_imports(*, source: str, name: str) -> list[str]:
     ]
 
 
+def pydantic_error_reads(*, source: str, name: str) -> list[str]:
+    return [
+        f"{name}:{node.lineno}: {ast.unparse(node)}"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.stmt | ast.expr) and _reads_pydantic_error(node)
+    ]
+
+
 def url_violations(
     patterns: Sequence[URLPattern | URLResolver], *, namespace: str | None = None
 ) -> list[str]:
@@ -211,9 +221,27 @@ def _imported_names(node: ast.Import | ast.ImportFrom) -> list[str]:
 
 def _is_allowed_in_values(imported: str) -> bool:
     return (
-        imported == COMMON_VALUES
+        imported in (COMMON_VALUES, "pydantic")
         or imported.partition(".")[0] in sys.stdlib_module_names
     )
+
+
+def _reads_pydantic_error(node: ast.stmt | ast.expr) -> bool:
+    match node:
+        case ast.Import(names=names):
+            return any(_is_pydantic_core(alias.name) for alias in names)
+        case ast.ImportFrom(module="pydantic", names=names):
+            return any(alias.name == PYDANTIC_ERROR for alias in names)
+        case ast.ImportFrom(module=str(module)):
+            return _is_pydantic_core(module)
+        case ast.Attribute(value=ast.Name(id="pydantic"), attr=attr):
+            return attr == PYDANTIC_ERROR
+        case _:
+            return False
+
+
+def _is_pydantic_core(module: str) -> bool:
+    return module == PYDANTIC_CORE or module.startswith(f"{PYDANTIC_CORE}.")
 
 
 def _public_functions(module: ModuleType) -> list[tuple[str, Any]]:

@@ -1,8 +1,8 @@
+import pydantic
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
 
-from rastro.common.values import InvalidValueError
 from rastro.iam.errors import EmailInUseError
 from rastro.iam.models import Identity, IdentityManager
 from rastro.iam.tests.factories import IdentityFactory
@@ -65,10 +65,8 @@ def test_an_invalid_email_from_the_database_raises() -> None:
     with connection.cursor() as cursor:
         cursor.execute("UPDATE iam_identity SET email = 'not-an-email'")
 
-    with pytest.raises(InvalidValueError) as excinfo:
+    with pytest.raises(pydantic.ValidationError):
         Identity.objects.get()
-
-    assert excinfo.value.code == "iam.invalid_email"
 
 
 @pytest.mark.django_db
@@ -122,7 +120,9 @@ def test_create_user_rejects_an_invalid_email_with_a_validation_error() -> None:
             email="not-an-email", display_name="Ana", password="supersecret"
         )
 
-    assert excinfo.value.code == "iam.invalid_email"
+    assert [error.code for error in excinfo.value.error_list] == [
+        "request.invalid_format"
+    ]
     assert not Identity.objects.exists()
 
 
@@ -133,7 +133,7 @@ def test_create_user_rejects_a_short_password_with_a_validation_error() -> None:
             email="ana@x.com", display_name="Ana", password="short"
         )
 
-    assert excinfo.value.code == "iam.invalid_password"
+    assert [error.code for error in excinfo.value.error_list] == ["request.too_short"]
     assert not Identity.objects.exists()
 
 
@@ -144,7 +144,7 @@ def test_create_user_rejects_a_missing_password_with_a_validation_error() -> Non
             email="ana@x.com", display_name="Ana", password=None
         )
 
-    assert excinfo.value.code == "iam.invalid_password"
+    assert [error.code for error in excinfo.value.error_list] == ["request.too_short"]
 
 
 @pytest.mark.django_db

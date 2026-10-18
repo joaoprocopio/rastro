@@ -1,28 +1,40 @@
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+import pydantic
+from django import forms
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from rastro.common.values import InvalidValueError, StrValueObject
+from rastro.common.errors import ValidationFailedError
+from rastro.common.problems import to_error
+from rastro.common.values import ValueObject
 
 T = TypeVar("T")
 E = TypeVar("E", bound=StrEnum)
-V = TypeVar("V", bound=StrValueObject)
+V = TypeVar("V", bound=ValueObject[str])
 
 
 def str_enum_to_choices(str_enum: type[E]) -> list[tuple[str, str]]:
     return [(member.value, member.name) for member in str_enum]
 
 
-def parse_value_object(value_object: type[V], value: str | V) -> V:
-    if isinstance(value, value_object):
-        return value
+@contextmanager
+def django_validation_errors() -> Iterator[None]:
     try:
-        return value_object(str(value))
-    except InvalidValueError as error:
-        raise ValidationError(str(error), code=error.code) from error
+        yield
+    except pydantic.ValidationError as error:
+        match to_error(error):
+            case ValidationFailedError(items=items):
+                raise ValidationError(
+                    [
+                        ValidationError(item.error.code, code=item.error.code)
+                        for item in items
+                    ]
+                ) from error
+        raise
 
 
 if TYPE_CHECKING:
@@ -66,7 +78,7 @@ class StrEnumField(_CharField[E]):
         return self.enum(value).value
 
 
-class StrValueObjectField(_CharField[V]):
+class ValueObjectField(_CharField[V]):
     value_object: type[V]
 
     def __init__(self, value_object: type[V] | None = None, **kwargs: Any) -> None:
@@ -84,27 +96,38 @@ class StrValueObjectField(_CharField[V]):
     def from_db_value(self, value: Any, expression: Any, connection: Any) -> V | None:
         if value is None:
             return None
-        return self.value_object(value)
+        return self.value_object.model_validate(value)
 
     def to_python(self, value: Any) -> V | None:
         if value is None:
             return None
-        parsed: V = parse_value_object(self.value_object, value)
-        return parsed
+        with django_validation_errors():
+            return self.value_object.model_validate(value)
 
     def get_prep_value(self, value: Any) -> str | None:
-        if value is None:
-            return None
-        parsed: V = parse_value_object(self.value_object, value)
-        return parsed.value
+        parsed = self.to_python(value)
+        return None if parsed is None else parsed.root
 
     def run_validators(self, value: Any) -> None:
         # CharField's MaxLengthValidator calls len(), so it gets the plain string.
-        if isinstance(value, StrValueObject):
-            value = value.value
+        if isinstance(value, ValueObject):
+            value = value.root
         super().run_validators(value)
 
     def value_from_object(self, obj: models.Model) -> str | None:  # type: ignore[override]
-        # The admin form and the serializers read the plain string, not the dataclass repr.
+        # The admin form and the serializers read the plain string, not the model repr.
         value = super().value_from_object(obj)
-        return value.value if isinstance(value, StrValueObject) else value
+        return value.root if isinstance(value, ValueObject) else value
+
+
+class ValueObjectFormField(forms.CharField, Generic[V]):
+    def __init__(self, value_object: type[V], **kwargs: Any) -> None:
+        self.value_object = value_object
+        super().__init__(**kwargs)
+
+    def to_python(self, value: Any) -> Any:
+        value = super().to_python(value)
+        if value in self.empty_values:
+            return value
+        with django_validation_errors():
+            return self.value_object.model_validate(value)

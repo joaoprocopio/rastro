@@ -1,10 +1,15 @@
-from dataclasses import dataclass
+from typing import Annotated
 
-from rastro.common.values import InvalidValueError, StrValueObject
+from pydantic import StringConstraints
+
+from rastro.common.values import ValueObject
 
 
-@dataclass(frozen=True, slots=True)
-class Color(StrValueObject):
-    def __post_init__(self) -> None:
-        if self.value not in {"red", "blue"}:
-            raise InvalidValueError("sample.invalid_color")
+class Color(
+    ValueObject[
+        Annotated[
+            str, StringConstraints(min_length=3, max_length=6, pattern=r"^[a-z]+$")
+        ]
+    ]
+):
+    pass

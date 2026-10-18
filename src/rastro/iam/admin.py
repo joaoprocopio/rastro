@@ -8,7 +8,7 @@ from django.contrib.auth.forms import (
 )
 from django.http import HttpRequest
 
-from rastro.common.fields import parse_value_object
+from rastro.common.fields import ValueObjectFormField
 from rastro.iam import deps, services
 from rastro.iam.models import Identity
 from rastro.iam.values import RawPassword
@@ -23,17 +23,13 @@ else:
 
 
 class IdentityAddForm(_IdentityForm):
-    password = forms.CharField(strip=False, widget=forms.PasswordInput)
+    password = ValueObjectFormField(
+        RawPassword, strip=False, widget=forms.PasswordInput
+    )
 
     class Meta:
         model = Identity
         fields = ["email", "display_name"]
-
-    def clean_password(self) -> RawPassword:
-        password: RawPassword = parse_value_object(
-            RawPassword, self.cleaned_data["password"]
-        )
-        return password
 
 
 class PasswordHashWidget(ReadOnlyPasswordHashWidget):
