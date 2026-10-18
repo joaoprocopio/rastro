@@ -1,5 +1,5 @@
 # Use a Python image with uv pre-installed
-FROM astral/uv:python3.14-trixie
+FROM astral/uv:python3.15-trixie
 
 # Install the project into `/app`
 WORKDIR /app
