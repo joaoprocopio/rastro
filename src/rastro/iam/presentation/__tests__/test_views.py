@@ -84,7 +84,11 @@ def test_authenticate_wrong_password_and_unknown_email_are_identical(
     assert unknown_email.status_code == HTTPStatus.UNAUTHORIZED
     assert wrong_password["Content-Type"] == "application/problem+json"
     assert unknown_email["Content-Type"] == "application/problem+json"
-    assert wrong_password.json() == unknown_email.json()
+    assert wrong_password.json() == {
+        "type": "/problems/iam.incorrect_credentials",
+        "status": 401,
+    }
+    assert unknown_email.json() == wrong_password.json()
 
 
 def test_current_identity_when_authenticated(
@@ -105,6 +109,11 @@ def test_current_identity_when_unauthenticated(client: Client, db: None) -> None
     response = client.get(SESSION_URL)
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response["Content-Type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "/problems/iam.not_authenticated",
+        "status": 401,
+    }
 
 
 def test_end_session(client: Client, identity: IdentityModel) -> None:
@@ -130,3 +139,8 @@ def test_malformed_json_is_unprocessable(client: Client, db: None) -> None:
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response["Content-Type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#", "type": "/problems/request.invalid_json"}],
+    }
