@@ -14,6 +14,43 @@ def identity_register(
     password: RawPassword,
     password_hasher: PasswordHasher,
 ) -> None:
+    _identity_create(
+        email=email,
+        display_name=display_name,
+        password=password,
+        password_hasher=password_hasher,
+        is_staff=False,
+        is_superuser=False,
+    )
+
+
+@transaction.atomic
+def identity_register_superuser(
+    *,
+    email: Email,
+    display_name: DisplayName,
+    password: RawPassword,
+    password_hasher: PasswordHasher,
+) -> None:
+    _identity_create(
+        email=email,
+        display_name=display_name,
+        password=password,
+        password_hasher=password_hasher,
+        is_staff=True,
+        is_superuser=True,
+    )
+
+
+def _identity_create(
+    *,
+    email: Email,
+    display_name: DisplayName,
+    password: RawPassword,
+    password_hasher: PasswordHasher,
+    is_staff: bool,
+    is_superuser: bool,
+) -> None:
     if Identity.objects.filter(email=email).exists():
         raise EmailInUseError()
     try:
@@ -21,6 +58,8 @@ def identity_register(
             email=email,
             display_name=display_name,
             password=password_hasher(password=password).value,
+            is_staff=is_staff,
+            is_superuser=is_superuser,
         )
     except IntegrityError as error:
         raise EmailInUseError() from error
