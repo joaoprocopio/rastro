@@ -78,7 +78,7 @@ type = "layers"
 containers = ["rastro.iam"]
 layers = [
     "apis",
-    "services",
+    "services : selectors",
     "models",
     "values",
 ]
@@ -94,14 +94,14 @@ allow_indirect_imports = true
 [[tool.importlinter.contracts]]
 name = "services and selectors import no pydantic"
 type = "forbidden"
-source_modules = ["rastro.iam.services"]
+source_modules = ["rastro.iam.services", "rastro.iam.selectors"]
 forbidden_modules = ["pydantic", "pydantic_core"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "services and selectors never import adapters"
 type = "forbidden"
-source_modules = ["rastro.iam.services"]
+source_modules = ["rastro.iam.services", "rastro.iam.selectors"]
 forbidden_modules = ["rastro.iam.adapters"]
 
 [[tool.importlinter.contracts]]
