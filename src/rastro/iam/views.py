@@ -42,9 +42,7 @@ def session_current_view(request: HttpRequest) -> HttpResponse:
     identity = selectors.identity_get_current(
         request=request, session_store=deps.SESSION_STORE
     )
-    output = SessionCurrentOutput(
-        email=identity.email, display_name=identity.display_name
-    )
+    output = SessionCurrentOutput.model_validate(identity)
     return respond(status=HTTPStatus.OK, output=output)
 
 
