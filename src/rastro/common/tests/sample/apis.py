@@ -3,7 +3,7 @@ from http import HTTPStatus
 import pydantic
 from django.http import HttpRequest, HttpResponse
 
-from rastro.common.apis import parse_body, respond
+from rastro.common.apis import parse_body, require_GET, require_POST, respond
 from rastro.common.tests.sample.values import Color
 
 
@@ -19,9 +19,15 @@ class PaintOutput(pydantic.BaseModel):
     coats: int
 
 
+@require_POST
 def paint_api(request: HttpRequest) -> HttpResponse:
     input = parse_body(request, PaintInput)
     return respond(
         status=HTTPStatus.OK,
         output=PaintOutput(color=input.color, coats=input.coats),
     )
+
+
+@require_GET
+def paint_count_api(request: HttpRequest) -> HttpResponse:
+    return respond(status=HTTPStatus.NO_CONTENT)
