@@ -139,3 +139,8 @@ def test_malformed_json_is_unprocessable(client: Client, db: None) -> None:
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response["Content-Type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "/problems/request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#", "type": "/problems/request.invalid_json"}],
+    }
