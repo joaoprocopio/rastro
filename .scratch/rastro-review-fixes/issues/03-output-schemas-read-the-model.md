@@ -13,7 +13,7 @@ An Output schema sets `from_attributes=True`, and its view builds it with `<Outp
 - [x] `CODING_STANDARDS.md` states the rule for `from_attributes`, `validation_alias`, `AliasPath`, and computed values.
 - [x] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
