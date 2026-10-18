@@ -45,12 +45,12 @@ class IdentitiesView(View):
 
 
 class SessionView(View):
-    authenticate_use_case_factory: Callable[
-        [HttpRequest], AuthenticateUseCase
-    ] = staticmethod(django_authenticate_use_case_factory)
-    end_session_use_case_factory: Callable[
-        [HttpRequest], EndSessionUseCase
-    ] = staticmethod(django_end_session_use_case_factory)
+    authenticate_use_case_factory: Callable[[HttpRequest], AuthenticateUseCase] = (
+        staticmethod(django_authenticate_use_case_factory)
+    )
+    end_session_use_case_factory: Callable[[HttpRequest], EndSessionUseCase] = (
+        staticmethod(django_end_session_use_case_factory)
+    )
     get_current_identity_use_case_factory: Callable[
         [HttpRequest], GetCurrentIdentityUseCase
     ] = staticmethod(django_get_current_identity_use_case_factory)

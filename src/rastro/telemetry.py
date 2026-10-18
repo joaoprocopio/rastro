@@ -19,15 +19,15 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.semconv._incubating.attributes import deployment_attributes
 from opentelemetry.semconv.attributes import service_attributes
 
-from rastro import settings
+from rastro.settings import telemetry as telemetry_settings
 
 _resource = Resource(
     attributes={
-        service_attributes.SERVICE_NAME: settings.SERVICE_NAME,
-        service_attributes.SERVICE_NAMESPACE: settings.SERVICE_NAMESPACE,
+        service_attributes.SERVICE_NAME: telemetry_settings.SERVICE_NAME,
+        service_attributes.SERVICE_NAMESPACE: telemetry_settings.SERVICE_NAMESPACE,
         service_attributes.SERVICE_INSTANCE_ID: str(uuid.uuid4()),
-        deployment_attributes.DEPLOYMENT_ID: settings.DEPLOYMENT_ID,
-        deployment_attributes.DEPLOYMENT_ENVIRONMENT: settings.DEPLOYMENT_ENVIRONMENT,
+        deployment_attributes.DEPLOYMENT_ID: telemetry_settings.DEPLOYMENT_ID,
+        deployment_attributes.DEPLOYMENT_ENVIRONMENT: telemetry_settings.DEPLOYMENT_ENVIRONMENT,
     }
 )
 
@@ -36,7 +36,7 @@ def _setup_tracer() -> None:
     tracer_provider = TracerProvider(resource=_resource)
 
     tracer_exporter = OTLPSpanExporter(
-        endpoint=settings.OTEL_GRPC_ENDPOINT,
+        endpoint=telemetry_settings.OTEL_GRPC_ENDPOINT,
         insecure=True,
     )
     tracer_processor = BatchSpanProcessor(tracer_exporter)
@@ -47,7 +47,7 @@ def _setup_tracer() -> None:
 
 def _setup_metrics() -> None:
     metric_exporter = OTLPMetricExporter(
-        endpoint=settings.OTEL_GRPC_ENDPOINT,
+        endpoint=telemetry_settings.OTEL_GRPC_ENDPOINT,
         insecure=True,
     )
 
@@ -59,7 +59,7 @@ def _setup_metrics() -> None:
 
 def _setup_logs() -> None:
     log_exporter = OTLPLogExporter(
-        endpoint=settings.OTEL_GRPC_ENDPOINT,
+        endpoint=telemetry_settings.OTEL_GRPC_ENDPOINT,
         insecure=True,
     )
     log_processor = BatchLogRecordProcessor(log_exporter)

@@ -5,20 +5,19 @@ services:
       dockerfile: dockerfile
     command: sh -c "python manage.py migrate && python manage.py collectstatic --no-input && gunicorn -w 8 rastro.wsgi --bind 0.0.0.0:8000"
     environment:
-      RASTRO_DJANGO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
-      RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT: "prod"
+      RASTRO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
+      RASTRO_DEPLOYMENT_ENVIRONMENT: "prod"
 
-      RASTRO_DJANGO_OTEL_GRPC_ENDPOINT: "otel:4317"
-      RASTRO_DJANGO_OTEL_HTTP_ENDPOINT: "otel:4318"
+      RASTRO_OTEL_GRPC_ENDPOINT: "otel:4317"
 
-      RASTRO_DJANGO_SECRET_KEY: "019d4579758e762eb65db7ba3d7ceb81"
-      RASTRO_DJANGO_DEBUG: "0"
+      RASTRO_SECRET_KEY: "019d4579758e762eb65db7ba3d7ceb81"
+      RASTRO_DEBUG: "0"
 
-      RASTRO_DJANGO_POSTGRES_DB: "postgres"
-      RASTRO_DJANGO_POSTGRES_USER: "postgres"
-      RASTRO_DJANGO_POSTGRES_PASSWORD: "postgres"
-      RASTRO_DJANGO_POSTGRES_HOST: "postgres"
-      RASTRO_DJANGO_POSTGRES_PORT: "5432"
+      RASTRO_POSTGRES_DB: "postgres"
+      RASTRO_POSTGRES_USER: "postgres"
+      RASTRO_POSTGRES_PASSWORD: "postgres"
+      RASTRO_POSTGRES_HOST: "postgres"
+      RASTRO_POSTGRES_PORT: "5432"
     depends_on:
       postgres:
         condition: service_healthy
