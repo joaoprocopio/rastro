@@ -8,7 +8,7 @@ from rastro.iam.values import (
     HashedPassword,
 )
 from rastro.iam.models import Identity
-from rastro.iam.shared.mappers import DehydrateIdentityMapper, HydrateIdentityMapper
+from rastro.iam.shared.mappers import HydrateIdentityMapper
 from rastro_shared_kernel.value_objects import Id
 
 
@@ -41,9 +41,3 @@ class DjangoIdentityRepository(IdentityRepository):
             return HydrateIdentityMapper.map(identity_model)
         except Identity.DoesNotExist:
             return None
-
-    def update_password(self, identity: IdentityAggregate) -> IdentityAggregate:
-        identity_model = DehydrateIdentityMapper.map(identity)
-        identity_model.save(update_fields=["password"])
-
-        return HydrateIdentityMapper.map(identity_model)

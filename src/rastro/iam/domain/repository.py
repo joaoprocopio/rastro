@@ -17,6 +17,3 @@ class IdentityRepository(ABC):
 
     @abstractmethod
     def get_by_email(self, email: Email) -> Optional[IdentityAggregate]: ...
-
-    @abstractmethod
-    def update_password(self, identity: IdentityAggregate) -> IdentityAggregate: ...

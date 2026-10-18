@@ -16,11 +16,6 @@ class RegisterIdentityInputDTO(DTO):
     password: RawPassword
 
 
-class AuthenticateInputDTO(DTO):
-    email: Email
-    password: RawPassword
-
-
 class IdentityOutputDTO(DTO):
     id: Id
     email: Email

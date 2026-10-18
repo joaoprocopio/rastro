@@ -1,15 +1,11 @@
 from typing import Optional
 
 from django.contrib import auth
-from django.contrib.auth.hashers import make_password, verify_password
+from django.contrib.auth.hashers import make_password
 from django.http import HttpRequest
 
 from rastro.iam.domain.aggregates import IdentityAggregate
-from rastro.iam.domain.services import (
-    PasswordHashingService,
-    PasswordVerification,
-    SessionService,
-)
+from rastro.iam.domain.services import PasswordHashingService, SessionService
 from rastro.iam.values import HashedPassword, RawPassword
 from rastro.iam.shared.mappers import DehydrateIdentityMapper, HydrateIdentityMapper
 
@@ -36,12 +32,3 @@ class DjangoSessionService(SessionService):
 class DjangoPasswordHashingService(PasswordHashingService):
     def hash(self, raw_password: RawPassword) -> HashedPassword:
         return HashedPassword(make_password(raw_password.value))
-
-    def verify(
-        self, raw_password: RawPassword, hashed_password: HashedPassword
-    ) -> PasswordVerification:
-        is_correct, must_upgrade = verify_password(
-            raw_password.value, hashed_password.value
-        )
-
-        return PasswordVerification(is_correct=is_correct, must_upgrade=must_upgrade)
