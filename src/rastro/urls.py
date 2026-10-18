@@ -8,5 +8,5 @@ urlpatterns = [
     path("api/v1/iam/", include(iam_urls)),
 ]
 
-handler404 = "rastro.common.views.not_found"
-handler500 = "rastro.common.views.server_error"
+handler404 = "rastro.common.views.not_found_view"
+handler500 = "rastro.common.views.server_error_view"

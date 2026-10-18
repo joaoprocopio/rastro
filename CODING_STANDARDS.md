@@ -8,7 +8,7 @@ Use the domain terms from `GLOSSARY.md` in code, tests, and docs.
 
 An edge is any place where data enters the system from outside the process. The database is an edge, and so is the network. The edges in rastro are:
 
-- an API, which parses the HTTP request;
+- a view, which parses the HTTP request;
 - a model field, which parses the values that the database returns and the values that the admin submits;
 - a model manager that Django calls, for example `create_superuser` for `createsuperuser`;
 - a client for an external service, which parses the response;
@@ -56,14 +56,14 @@ Each Django app is one context. An app uses a flat layout, with one module per r
   adapters.py    # the implementations of the ports
   deps.py        # the real implementation chosen for each port
   schemas.py     # the Pydantic Input and Output of each operation
-  apis.py        # one view function per operation
-  urls.py
+  views.py       # one view function per operation
+  urls.py        # one named URL per view, under the app_name namespace
   admin.py
   tests/
     factories.py
     services/test_<service>.py
     selectors/test_<selector>.py
-    apis/test_<api>.py
+    views/test_<view>.py
 ```
 
 When a module grows too large to read in one pass, it becomes a package with one module per entity, for example `services/identity.py` and `services/session.py`. The package `__init__.py` re-exports the public names.
@@ -72,7 +72,7 @@ Code that more than one app uses lives in `rastro/common/`. The `rastro` package
 
 ## Write services and selectors
 
-A service writes and a selector reads. Business logic lives in services and selectors only: APIs, schemas, models, managers, and signals hold none. Each function follows these rules:
+A service writes and a selector reads. Business logic lives in services and selectors only: views, schemas, models, managers, and signals hold none. Each function follows these rules:
 
 - The name is `<entity>_<action>`, for example `identity_register`, `session_start`, or `identity_get_current`.
 - Arguments are keyword-only and fully typed.
@@ -109,13 +109,15 @@ Each app has a `deps.py` that holds one constant per real implementation, for ex
 
 A long parameter list is acceptable. Dependencies are never grouped into a bundle object, so the signature of each service shows every dependency it uses.
 
-## Write APIs
+## Write views
 
-An API is a Django view function that handles one operation, named `<entity>_<action>_api`, for example `session_start_api`. Each API has its own URL. A command uses `POST` on a URL that names the action, for example `POST /api/v1/iam/session/start`, and a query uses `GET`, for example `GET /api/v1/iam/session`. The decorators `require_POST` and `require_GET` from `rastro.common.apis` restrict the method and answer any other method with a problem details `405`. The API parses the input, calls one service or one selector, and builds the response. It holds no business logic, and no API is exempt from CSRF.
+A view is a Django view function in `<app>/views.py` that handles one operation, named `<entity>_<action>_view`, for example `session_start_view`. Each view has its own URL. A command uses `POST` on a URL that names the action, for example `POST /api/v1/iam/session/start`, and a query uses `GET`, for example `GET /api/v1/iam/session`. The decorators `require_POST` and `require_GET` from `rastro.common.views` restrict the method and answer any other method with a problem details `405`. The view parses the input with `parse_body`, calls one service or one selector, and builds the response with `respond`, both from `rastro.common.views`. It holds no business logic, and no view is exempt from CSRF.
 
-The request and response schemas live in `<app>/schemas.py` and are named `<Entity><Action>Input` and `<Entity><Action>Output`, for example `SessionStartInput`. Each schema belongs to one operation, and no other operation reuses it, so an operation can change its format without breaking another one. Only `apis.py` imports `schemas.py`.
+Each app's `urls.py` sets `app_name` to the app label, and each URL pattern has a name: the view name without `_view`, for example `name="session_start"`. Code and tests build a URL with `reverse("iam:session_start")` and never type the path. The Django hooks in `rastro.common.views` follow the same rule: `csrf_failure_view`, `not_found_view`, and `server_error_view`.
 
-A command API responds with no body: `201` when it creates something and `204` otherwise. A query API responds with its `Output` schema.
+The request and response schemas live in `<app>/schemas.py` and are named `<Entity><Action>Input` and `<Entity><Action>Output`, for example `SessionStartInput`. Each schema belongs to one operation, and no other operation reuses it, so an operation can change its format without breaking another one. Only `views.py` imports `schemas.py`.
+
+A command view responds with no body: `201` when it creates something and `204` otherwise. A query view responds with its `Output` schema.
 
 ## Return errors as problem details
 
@@ -140,15 +142,15 @@ A value object error uses the code of its `InvalidValueError`. The middleware tr
 
 ## Test by layer
 
-Value object tests are pure and use no database. Service and selector tests cover the business rules, use the test database, and pass fakes for the ports. API tests cover the HTTP contract: status codes, bodies, and cookies. Test data comes from factory_boy factories in `tests/factories.py`.
+Value object tests are pure and use no database. Service and selector tests cover the business rules, use the test database, and pass fakes for the ports. View tests cover the HTTP contract: status codes, bodies, and cookies. Test data comes from factory_boy factories in `tests/factories.py`.
 
 ## Check the architecture
 
 Tools check these rules, and every change passes them before it merges, so a violation fails the check instead of waiting for a review:
 
-- **import-linter** checks the layers: `apis` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `apis` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` imports neither Django nor Pydantic. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
-- **ruff** bans `django.dispatch.receiver` and `django.views.decorators.csrf.csrf_exempt` through `TID251`, because signals hold no business logic and no API is exempt from CSRF.
-- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library and `rastro.common.values`, because import-linter has no allow list for the standard library.
+- **import-linter** checks the layers: `views` imports `schemas`, `services`, and `selectors`, which import `models` and `values`, and no module imports a layer above it. Only `views` imports `schemas`. `services` and `selectors` never import `pydantic`, and `values` imports neither Django nor Pydantic. import-linter cannot name `django.conf`, because it squashes an external package to its top-level name, so the pytest architecture tests check that `services` and `selectors` never import `django.conf`. `services` and `selectors` import `ports` but never `adapters`, and only `deps.py` imports `adapters`.
+- **ruff** bans `django.dispatch.receiver` and `django.views.decorators.csrf.csrf_exempt` through `TID251`, because signals hold no business logic and no view is exempt from CSRF.
+- **pytest architecture tests** in `tests/architecture/` inspect every public function in `services.py` and `selectors.py`. Each argument is keyword-only and typed, no argument is a raw `str` or `dict` except the `request` of a Session, no dependency argument has a default, every service returns `None`, and every name follows `<entity>_<action>`. The same tests check that no code calls `full_clean()` or its siblings, and that `values.py` imports only the standard library and `rastro.common.values`, because import-linter has no allow list for the standard library. They also walk the root URLconf: every URL whose view lives in `rastro` has a name inside an app namespace, and every view, the error handlers and the CSRF failure view included, is a `<entity>_<action>_view` function in a `views` module.
 
 ## Configure settings
 

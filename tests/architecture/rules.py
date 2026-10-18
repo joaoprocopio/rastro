@@ -5,16 +5,19 @@ import pkgutil
 import re
 import sys
 import typing
+from collections.abc import Callable, Sequence
 from enum import StrEnum
 from pathlib import Path
 from types import ModuleType, NoneType, UnionType
 from typing import Any
 
 from django.http import HttpRequest
+from django.urls import URLPattern, URLResolver
 
 import rastro
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)+$")
+VIEW_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)+_view$")
 RAW_TYPES = (str, dict)
 FORBIDDEN_VALIDATION_METHODS = (
     "full_clean",
@@ -115,6 +118,40 @@ def foreign_imports(*, source: str, name: str) -> list[str]:
             _is_allowed_in_values(imported) for imported in _imported_names(node)
         )
     ]
+
+
+def url_violations(
+    patterns: Sequence[URLPattern | URLResolver], *, namespace: str | None = None
+) -> list[str]:
+    violations: list[str] = []
+    for entry in patterns:
+        if isinstance(entry, URLResolver):
+            violations.extend(
+                url_violations(
+                    entry.url_patterns, namespace=entry.namespace or namespace
+                )
+            )
+            continue
+        view = entry.callback
+        if not view.__module__.startswith("rastro."):
+            continue
+        label = f"{view.__module__}.{view.__name__}"
+        if entry.name is None:
+            violations.append(f"{label}: URL has no name")
+        if namespace is None:
+            violations.append(f"{label}: URL is outside an app namespace")
+        violations.extend(view_violations(view))
+    return violations
+
+
+def view_violations(view: Callable[..., Any]) -> list[str]:
+    label = f"{view.__module__}.{view.__name__}"
+    violations: list[str] = []
+    if not view.__module__.endswith(".views"):
+        violations.append(f"{label}: view lives outside a views module")
+    if VIEW_NAME_PATTERN.match(view.__name__) is None:
+        violations.append(f"{label}: name does not follow <entity>_<action>_view")
+    return violations
 
 
 def _module_name(path: Path, root: Path) -> str:
