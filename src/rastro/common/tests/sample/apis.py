@@ -31,3 +31,7 @@ def paint_api(request: HttpRequest) -> HttpResponse:
 @require_GET
 def paint_count_api(request: HttpRequest) -> HttpResponse:
     return respond(status=HTTPStatus.NO_CONTENT)
+
+
+def boom_api(request: HttpRequest) -> HttpResponse:
+    raise RuntimeError("boom")

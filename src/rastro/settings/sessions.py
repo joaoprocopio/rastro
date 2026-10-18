@@ -13,3 +13,5 @@ CSRF_TRUSTED_ORIGINS = get_env(
 
 # The single-page app reads the token from the cookie and sends it in X-CSRFToken.
 CSRF_COOKIE_HTTPONLY = False
+
+CSRF_FAILURE_VIEW = "rastro.common.views.csrf_failure"
