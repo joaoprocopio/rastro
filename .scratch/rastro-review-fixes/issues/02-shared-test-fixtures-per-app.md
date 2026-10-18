@@ -15,7 +15,7 @@ The `iam` test package gets a `conftest.py` with `identity`, `signed_in_client`,
 - [x] The test section of `CODING_STANDARDS.md` tells an agent to look in the app's `conftest.py` for a fixture that builds the state a test needs before it writes the test, and to add a fixture when two tests need the same state.
 - [x] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
