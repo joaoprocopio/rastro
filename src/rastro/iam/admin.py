@@ -2,7 +2,10 @@ from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import admin
-from django.contrib.auth.forms import ReadOnlyPasswordHashField
+from django.contrib.auth.forms import (
+    ReadOnlyPasswordHashField,
+    ReadOnlyPasswordHashWidget,
+)
 from django.http import HttpRequest
 
 from rastro.common.fields import parse_value_object
@@ -33,8 +36,13 @@ class IdentityAddForm(_IdentityForm):
         return password
 
 
+class PasswordHashWidget(ReadOnlyPasswordHashWidget):
+    # The admin has no password change view, so the widget drops Django's reset button.
+    template_name = "iam/widgets/password_hash.html"
+
+
 class IdentityChangeForm(_IdentityForm):
-    password = ReadOnlyPasswordHashField()
+    password = ReadOnlyPasswordHashField(widget=PasswordHashWidget)
 
     class Meta:
         model = Identity

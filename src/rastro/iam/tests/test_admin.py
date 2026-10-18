@@ -79,6 +79,18 @@ def test_the_change_page_shows_the_hash_without_a_password_input(
     assert response.context["adminform"].form.fields["password"].disabled
 
 
+def test_the_change_page_shows_the_hash_summary_without_a_reset_link(
+    admin_client: Client,
+) -> None:
+    identity = IdentityFactory.create(email=Email("ana@x.com"))
+
+    response = admin_client.get(f"/admin/iam/identity/{identity.pk}/change/")
+
+    content = response.content.decode()
+    assert "algorithm" in content
+    assert "../password/" not in content
+
+
 def test_the_change_page_shows_the_email_as_typed_text(admin_client: Client) -> None:
     identity = IdentityFactory.create(email=Email("ana@x.com"))
 
