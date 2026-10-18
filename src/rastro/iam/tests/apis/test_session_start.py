@@ -123,9 +123,7 @@ def test_a_session_start_upgrades_an_outdated_hash(
     assert identity.check_password("password")
 
 
-def test_a_session_start_records_last_login(
-    client: Client, identity: Identity
-) -> None:
+def test_a_session_start_records_last_login(client: Client, identity: Identity) -> None:
     assert identity.last_login is None
 
     _start_session(client, {"email": identity.email.value, "password": "password"})

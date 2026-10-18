@@ -13,7 +13,7 @@ def django_authenticate(
     return user if isinstance(user, Identity) else None
 
 
-_: Authenticator = django_authenticate
+_authenticator: Authenticator = django_authenticate
 
 
 class DjangoSessionStore:
@@ -28,4 +28,4 @@ class DjangoSessionStore:
         return user if isinstance(user, Identity) else None
 
 
-_: SessionStore = DjangoSessionStore()
+_session_store: SessionStore = DjangoSessionStore()

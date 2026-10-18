@@ -77,9 +77,40 @@ name = "iam layers"
 type = "layers"
 containers = ["rastro.iam"]
 layers = [
+    "apis",
+    "services",
     "models",
     "values",
 ]
+
+[[tool.importlinter.contracts]]
+name = "only apis import schemas"
+type = "forbidden"
+source_modules = ["rastro.iam.*"]
+forbidden_modules = ["rastro.iam.schemas"]
+ignore_imports = ["rastro.iam.apis -> rastro.iam.schemas"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "services and selectors import no pydantic"
+type = "forbidden"
+source_modules = ["rastro.iam.services"]
+forbidden_modules = ["pydantic", "pydantic_core"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "services and selectors never import adapters"
+type = "forbidden"
+source_modules = ["rastro.iam.services"]
+forbidden_modules = ["rastro.iam.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "only deps imports adapters"
+type = "forbidden"
+source_modules = ["rastro.iam.*"]
+forbidden_modules = ["rastro.iam.adapters"]
+ignore_imports = ["rastro.iam.deps -> rastro.iam.adapters"]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "values import no framework"
