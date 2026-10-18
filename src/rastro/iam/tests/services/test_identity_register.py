@@ -4,11 +4,8 @@ from rastro.iam.errors import EmailInUseError
 from rastro.iam.models import Identity
 from rastro.iam.services import identity_register
 from rastro.iam.tests.factories import IdentityFactory
+from rastro.iam.tests.fakes import fake_hash
 from rastro.iam.values import DisplayName, Email, HashedPassword, RawPassword
-
-
-def fake_hash(*, password: RawPassword) -> HashedPassword:
-    return HashedPassword(f"fake${password.value}")
 
 
 @pytest.mark.django_db
