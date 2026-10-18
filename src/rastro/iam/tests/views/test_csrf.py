@@ -1,12 +1,11 @@
 from http import HTTPStatus
 
 from django.test import Client
-
-CSRF_URL = "/api/v1/iam/csrf"
+from django.urls import reverse
 
 
 def test_sets_a_csrf_cookie_that_javascript_can_read(client: Client) -> None:
-    response = client.get(CSRF_URL)
+    response = client.get(reverse("iam:csrf_get"))
 
     assert response.status_code == HTTPStatus.NO_CONTENT
     assert response.content == b""

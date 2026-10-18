@@ -1,17 +1,9 @@
-import json
 from http import HTTPStatus
-from typing import TYPE_CHECKING
 
 from django.test import Client
+from django.urls import reverse
 
 from rastro.iam.models import Identity
-
-if TYPE_CHECKING:
-    from django.test.client import _MonkeyPatchedWSGIResponse
-
-IDENTITY_REGISTER_URL = "/api/v1/iam/identities/register"
-SESSION_URL = "/api/v1/iam/session"
-SESSION_START_URL = "/api/v1/iam/session/start"
 
 VALID_PAYLOAD = {
     "email": "ada@example.com",
@@ -20,42 +12,38 @@ VALID_PAYLOAD = {
 }
 
 
-def _register(client: Client, payload: dict[str, str]) -> "_MonkeyPatchedWSGIResponse":
-    return client.post(
-        IDENTITY_REGISTER_URL,
-        data=json.dumps(payload),
-        content_type="application/json",
-    )
-
-
-def _start_session(
-    client: Client, payload: dict[str, str]
-) -> "_MonkeyPatchedWSGIResponse":
-    return client.post(
-        SESSION_START_URL, data=json.dumps(payload), content_type="application/json"
-    )
-
-
 def test_a_valid_body_registers_the_identity_with_no_body(
     client: Client, db: None
 ) -> None:
-    response = _register(client, VALID_PAYLOAD)
+    response = client.post(
+        reverse("iam:identity_register"),
+        VALID_PAYLOAD,
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.CREATED
     assert response.content == b""
 
 
 def test_registration_starts_no_session(client: Client, db: None) -> None:
-    _register(client, VALID_PAYLOAD)
+    client.post(
+        reverse("iam:identity_register"),
+        VALID_PAYLOAD,
+        content_type="application/json",
+    )
 
-    response = client.get(SESSION_URL)
+    response = client.get(reverse("iam:session_current"))
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.json() == {"type": "/problems/iam.not_authenticated", "status": 401}
 
 
 def test_an_email_in_use_is_a_conflict(client: Client, identity: Identity) -> None:
-    response = _register(client, {**VALID_PAYLOAD, "email": identity.email.value})
+    response = client.post(
+        reverse("iam:identity_register"),
+        {**VALID_PAYLOAD, "email": identity.email.value},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.CONFLICT
     assert response["Content-Type"] == "application/problem+json"
@@ -65,9 +53,10 @@ def test_an_email_in_use_is_a_conflict(client: Client, identity: Identity) -> No
 def test_an_invalid_field_points_at_the_field_with_the_value_object_code(
     client: Client, db: None
 ) -> None:
-    response = _register(
-        client,
+    response = client.post(
+        reverse("iam:identity_register"),
         {"email": "nope", "display_name": "x" * 321, "password": "short"},
+        content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -91,8 +80,10 @@ def test_an_email_longer_than_254_characters_is_a_validation_error(
 ) -> None:
     local_part = "a" * (296 - len("@example.com"))
 
-    response = _register(
-        client, {**VALID_PAYLOAD, "email": f"{local_part}@example.com"}
+    response = client.post(
+        reverse("iam:identity_register"),
+        {**VALID_PAYLOAD, "email": f"{local_part}@example.com"},
+        content_type="application/json",
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -104,15 +95,23 @@ def test_an_email_longer_than_254_characters_is_a_validation_error(
 
 
 def test_the_email_is_stripped_and_lowercased(client: Client, db: None) -> None:
-    _register(client, {**VALID_PAYLOAD, "email": " Ana@X.com "})
+    client.post(
+        reverse("iam:identity_register"),
+        {**VALID_PAYLOAD, "email": " Ana@X.com "},
+        content_type="application/json",
+    )
 
-    response = _start_session(client, {"email": "ana@x.com", "password": "supersecret"})
+    response = client.post(
+        reverse("iam:session_start"),
+        {"email": "ana@x.com", "password": "supersecret"},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.NO_CONTENT
 
 
 def test_a_get_is_a_problem_405(client: Client, db: None) -> None:
-    response = client.get(IDENTITY_REGISTER_URL)
+    response = client.get(reverse("iam:identity_register"))
 
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
     assert response["Content-Type"] == "application/problem+json"
@@ -123,7 +122,11 @@ def test_a_get_is_a_problem_405(client: Client, db: None) -> None:
 def test_a_request_without_a_csrf_token_is_a_problem_403(db: None) -> None:
     client = Client(enforce_csrf_checks=True)
 
-    response = _register(client, VALID_PAYLOAD)
+    response = client.post(
+        reverse("iam:identity_register"),
+        VALID_PAYLOAD,
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
     assert response["Content-Type"] == "application/problem+json"
@@ -131,13 +134,21 @@ def test_a_request_without_a_csrf_token_is_a_problem_403(db: None) -> None:
 
 
 def test_the_password_keeps_its_spaces(client: Client, db: None) -> None:
-    _register(client, {**VALID_PAYLOAD, "password": "  pass word  "})
-
-    trimmed = _start_session(
-        client, {"email": "ada@example.com", "password": "pass word"}
+    client.post(
+        reverse("iam:identity_register"),
+        {**VALID_PAYLOAD, "password": "  pass word  "},
+        content_type="application/json",
     )
-    exact = _start_session(
-        client, {"email": "ada@example.com", "password": "  pass word  "}
+
+    trimmed = client.post(
+        reverse("iam:session_start"),
+        {"email": "ada@example.com", "password": "pass word"},
+        content_type="application/json",
+    )
+    exact = client.post(
+        reverse("iam:session_start"),
+        {"email": "ada@example.com", "password": "  pass word  "},
+        content_type="application/json",
     )
 
     assert trimmed.status_code == HTTPStatus.UNAUTHORIZED

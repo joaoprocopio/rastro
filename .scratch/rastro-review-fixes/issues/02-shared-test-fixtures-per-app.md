@@ -8,11 +8,24 @@ The `iam` test package gets a `conftest.py` with `identity`, `signed_in_client`,
 
 **Status:** ready-for-agent
 
-- [ ] The `iam` test package's `conftest.py` holds the five fixtures above, and the root `conftest.py` holds no `iam` fixture.
-- [ ] No test file defines `_start_session`, `_post`, `_register`, or `_post_json`, and no test file defines a URL constant.
-- [ ] Every test that needs a Session, other than the `session_start` tests, starts it with `force_login`.
-- [ ] HTTP tests still compare the literal JSON of each problem, and service tests still assert the error class.
-- [ ] The test section of `CODING_STANDARDS.md` tells an agent to look in the app's `conftest.py` for a fixture that builds the state a test needs before it writes the test, and to add a fixture when two tests need the same state.
-- [ ] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
-- [ ] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
+- [x] The `iam` test package's `conftest.py` holds the five fixtures above, and the root `conftest.py` holds no `iam` fixture.
+- [x] No test file defines `_start_session`, `_post`, `_register`, or `_post_json`, and no test file defines a URL constant.
+- [x] Every test that needs a Session, other than the `session_start` tests, starts it with `force_login`.
+- [x] HTTP tests still compare the literal JSON of each problem, and service tests still assert the error class.
+- [x] The test section of `CODING_STANDARDS.md` tells an agent to look in the app's `conftest.py` for a fixture that builds the state a test needs before it writes the test, and to add a fixture when two tests need the same state.
+- [x] Every decision that the spec did not settle is recorded under `## Comments`, as the spec's Further Notes describe.
+- [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest`.
 - [ ] `docker compose up --build` starts the stack and Django serves requests.
+
+## Comments
+
+Verified on branch `ticket/02-fixtures`. `src/rastro/iam/tests/conftest.py` holds the five fixtures, and every test reads its URLs with `reverse()`. The suite still runs 163 tests and keeps every assertion on status, body, header, cookie, and error class. The gate is green: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (6 kept), `pytest` (163 passed), and `manage.py check`. I did not run `docker compose up --build`; the merger runs it.
+
+### Decisions
+
+- **Gap**: after `identity` moves to `iam`, the root `conftest.py` holds no fixture. **Chosen**: I deleted the file. The first fixture that two apps use creates it again, and `CODING_STANDARDS.md` names its place. **Rejected**: an empty root `conftest.py` kept as a placeholder, which an agent reads as a file with a purpose.
+- **Gap**: `src/rastro/tests/test_telemetry.py` is outside `iam` and took the `identity` fixture from the root `conftest.py`. **Chosen**: the test calls `IdentityFactory.create()` itself, as the spec says for a variation of the shared state. **Rejected**: a `pytest_plugins` line in the root `conftest.py` that loads the `iam` fixtures, which makes every `iam` fixture global again, and an `identity` fixture kept in the root, which the ticket forbids.
+- **Gap**: the spec does not say which client `signed_in_client` and `admin_client` sign in. **Chosen**: each fixture builds a new `Client()`, so a test that asks for `client` and `signed_in_client` gets one anonymous client and one client with a Session. The `iam` fixture `admin_client` replaces the pytest-django fixture of the same name. **Rejected**: signing in pytest-django's `client` fixture, which makes `client` and `signed_in_client` the same object with a Session.
+- **Gap**: the spec gives a `session_store` fixture but not how a service test gets a store with a current Session. **Chosen**: the fixture returns an empty `FakeSessionStore`, and the test calls `session_store.start(...)`, the method of the port. I removed the `identity` argument of the `FakeSessionStore` constructor, because no test passes it now. **Rejected**: a second fixture with a started store, which only one test file uses, and `FakeSessionStore(identity)` in the test, which leaves the fixture unused.
+- **Gap**: the end-to-end test and two registration tests (`test_the_email_is_stripped_and_lowercased` and `test_the_password_keeps_its_spaces`) post Credentials to `session_start` but are not tests of `session_start`. **Chosen**: they still post through the view, because the start of the Session is what they check: the end-to-end test covers the whole flow, and the registration tests can see the stored email and password only when the Credentials match. `CODING_STANDARDS.md` states the rule: a test posts Credentials to `session_start` only when the start is the behaviour under test. **Rejected**: `force_login`, which skips the Credentials check that these tests exist for, and a read of the stored hash from the database, which tests through a side channel.
+- **Gap**: the spec bans URL constants and the four private helpers, but not other module constants or local fakes. **Chosen**: `VALID_PAYLOAD` in `test_identity_register.py` and `NOT_AUTHENTICATED` in `test_end_to_end.py` stay, because they are test data that one file uses. The authenticator fakes of `services/test_session_start.py` are local functions in each test, because each test needs a different answer. `views/test_urls.py` keeps its literal paths, because it is the test that pins each URL name to its path. **Rejected**: an `authenticator` fixture or payload fixtures, which no second test file uses.

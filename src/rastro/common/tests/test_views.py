@@ -1,27 +1,18 @@
-import json
 from http import HTTPStatus
-from typing import TYPE_CHECKING
 
 import pytest
 from django.test import Client
-
-if TYPE_CHECKING:
-    from django.test.client import _MonkeyPatchedWSGIResponse
+from django.urls import reverse
 
 pytestmark = pytest.mark.urls("rastro.common.tests.sample.urls")
 
-PAINT_URL = "/paint"
-PAINT_COUNT_URL = "/paint/count"
-
-
-def _post_json(
-    client: Client, url: str, payload: object
-) -> "_MonkeyPatchedWSGIResponse":
-    return client.post(url, data=json.dumps(payload), content_type="application/json")
-
 
 def test_parses_the_body_and_answers_with_the_output(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {"color": "red", "coats": 2})
+    response = client.post(
+        reverse("sample:paint_apply"),
+        {"color": "red", "coats": 2},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.OK
     assert response["Content-Type"] == "application/json"
@@ -29,7 +20,9 @@ def test_parses_the_body_and_answers_with_the_output(client: Client) -> None:
 
 
 def test_a_missing_field_is_a_validation_failure(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {"color": "red"})
+    response = client.post(
+        reverse("sample:paint_apply"), {"color": "red"}, content_type="application/json"
+    )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response["Content-Type"] == "application/problem+json"
@@ -43,7 +36,11 @@ def test_a_missing_field_is_a_validation_failure(client: Client) -> None:
 
 
 def test_a_wrong_type_is_a_validation_failure(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {"color": "red", "coats": "two"})
+    response = client.post(
+        reverse("sample:paint_apply"),
+        {"color": "red", "coats": "two"},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["errors"] == [
@@ -53,7 +50,7 @@ def test_a_wrong_type_is_a_validation_failure(client: Client) -> None:
 
 def test_malformed_json_is_a_validation_failure(client: Client) -> None:
     response = client.post(
-        PAINT_URL, data="{not valid", content_type="application/json"
+        reverse("sample:paint_apply"), "{not valid", content_type="application/json"
     )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -66,7 +63,11 @@ def test_malformed_json_is_a_validation_failure(client: Client) -> None:
 
 
 def test_an_unknown_field_is_a_validation_failure(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {"color": "red", "coats": 2, "brush": 1})
+    response = client.post(
+        reverse("sample:paint_apply"),
+        {"color": "red", "coats": 2, "brush": 1},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["errors"] == [
@@ -75,7 +76,11 @@ def test_an_unknown_field_is_a_validation_failure(client: Client) -> None:
 
 
 def test_an_invalid_value_object_carries_its_own_code(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {"color": "green", "coats": 2})
+    response = client.post(
+        reverse("sample:paint_apply"),
+        {"color": "green", "coats": 2},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["errors"] == [
@@ -84,7 +89,11 @@ def test_an_invalid_value_object_carries_its_own_code(client: Client) -> None:
 
 
 def test_every_field_error_appears_in_one_response(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {"color": "green", "brush": 1})
+    response = client.post(
+        reverse("sample:paint_apply"),
+        {"color": "green", "brush": 1},
+        content_type="application/json",
+    )
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["errors"] == [
@@ -95,13 +104,15 @@ def test_every_field_error_appears_in_one_response(client: Client) -> None:
 
 
 def test_a_problem_carries_no_title_detail_or_code(client: Client) -> None:
-    response = _post_json(client, PAINT_URL, {})
+    response = client.post(
+        reverse("sample:paint_apply"), {}, content_type="application/json"
+    )
 
     assert set(response.json()) == {"type", "status", "errors"}
 
 
 def test_require_post_answers_a_get_with_a_problem_405(client: Client) -> None:
-    response = client.get(PAINT_URL)
+    response = client.get(reverse("sample:paint_apply"))
 
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
     assert response["Content-Type"] == "application/problem+json"
@@ -110,7 +121,7 @@ def test_require_post_answers_a_get_with_a_problem_405(client: Client) -> None:
 
 
 def test_require_get_answers_a_post_with_a_problem_405(client: Client) -> None:
-    response = client.post(PAINT_COUNT_URL)
+    response = client.post(reverse("sample:paint_count"))
 
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
     assert response["Content-Type"] == "application/problem+json"
@@ -119,7 +130,7 @@ def test_require_get_answers_a_post_with_a_problem_405(client: Client) -> None:
 
 
 def test_respond_without_an_output_has_no_body(client: Client) -> None:
-    response = client.get(PAINT_COUNT_URL)
+    response = client.get(reverse("sample:paint_count"))
 
     assert response.status_code == HTTPStatus.NO_CONTENT
     assert response.content == b""
@@ -129,8 +140,8 @@ def test_a_csrf_failure_is_a_problem_403() -> None:
     client = Client(enforce_csrf_checks=True)
 
     response = client.post(
-        PAINT_URL,
-        data=json.dumps({"color": "red", "coats": 2}),
+        reverse("sample:paint_apply"),
+        {"color": "red", "coats": 2},
         content_type="application/json",
     )
 
@@ -150,7 +161,7 @@ def test_an_unknown_url_is_a_problem_404_without_a_type(client: Client) -> None:
 def test_an_unhandled_exception_is_a_problem_500_without_a_type() -> None:
     client = Client(raise_request_exception=False)
 
-    response = client.get("/boom")
+    response = client.get(reverse("sample:boom_raise"))
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
     assert response["Content-Type"] == "application/problem+json"

@@ -60,7 +60,9 @@ Each Django app is one context. An app uses a flat layout, with one module per r
   urls.py        # one named URL per view, under the app_name namespace
   admin.py
   tests/
+    conftest.py  # the fixtures that more than one test of the app uses
     factories.py
+    fakes.py     # one fake per port
     services/test_<service>.py
     selectors/test_<selector>.py
     views/test_<view>.py
@@ -144,7 +146,13 @@ A value object error uses the code of its `InvalidValueError`. The middleware tr
 
 ## Test by layer
 
-Value object tests are pure and use no database. Service and selector tests cover the business rules, use the test database, and pass fakes for the ports. View tests cover the HTTP contract: status codes, bodies, and cookies. Test data comes from factory_boy factories in `tests/factories.py`.
+Value object tests are pure and use no database. Service and selector tests cover the business rules, use the test database, and pass a fake for each port, so no test uses `mock.patch`. A service test asserts the error class with `pytest.raises`. View tests cover the HTTP contract: status codes, bodies, headers, and cookies. A view test compares the literal JSON of each problem, because the literal is the contract that a client reads.
+
+Before you write a test, look in the app's `tests/conftest.py` for a fixture that builds the state the test needs, and ask for it by name. When a second test needs the same state, add a fixture to that `conftest.py`, and keep the test file free of setup helpers. A fixture that more than one app uses lives in the root `conftest.py`. A test that needs a variation of the shared state, for example a second Identity, calls the factory_boy factory from `tests/factories.py` in the test, so the fixture set stays small.
+
+A test that needs a Session starts it with `force_login`, for example through the `signed_in_client` fixture of `iam`. A test posts Credentials to the `session_start` view only when the start itself is the behaviour under test, for example a wrong password or an email that registration normalized.
+
+A test builds each URL with `reverse()` and posts JSON with the Django test client, `client.post(url, payload, content_type="application/json")`, which encodes the payload. Test classes are optional, so group tests in a class only when the group helps the reader.
 
 ## Check the architecture
 
