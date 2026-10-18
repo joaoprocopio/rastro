@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from rastro.iam.errors import EmailInUseError
 from rastro.iam.models import Identity
@@ -16,8 +16,11 @@ def identity_register(
 ) -> None:
     if Identity.objects.filter(email=email).exists():
         raise EmailInUseError()
-    Identity.objects.create(
-        email=email,
-        display_name=display_name,
-        password=password_hasher(password=password).value,
-    )
+    try:
+        Identity.objects.create(
+            email=email,
+            display_name=display_name,
+            password=password_hasher(password=password).value,
+        )
+    except IntegrityError as error:
+        raise EmailInUseError() from error

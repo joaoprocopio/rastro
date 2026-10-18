@@ -40,3 +40,21 @@ def test_it_raises_email_in_use_for_an_email_that_an_identity_holds() -> None:
         )
 
     assert Identity.objects.filter(email=Email("ana@x.com")).count() == 1
+
+
+@pytest.mark.django_db
+def test_it_raises_email_in_use_when_a_concurrent_registration_wins() -> None:
+    def hash_while_another_registration_lands(
+        *, password: RawPassword
+    ) -> HashedPassword:
+        # A second request inserts the same email between the check and the insert.
+        IdentityFactory.create(email=Email("ana@x.com"))
+        return fake_hash(password=password)
+
+    with pytest.raises(EmailInUseError):
+        identity_register(
+            email=Email("ana@x.com"),
+            display_name=DisplayName("Ana"),
+            password=RawPassword("supersecret"),
+            password_hasher=hash_while_another_registration_lands,
+        )
