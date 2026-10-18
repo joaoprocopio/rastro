@@ -1,8 +1,9 @@
 from django.db import IntegrityError, transaction
+from django.http import HttpRequest
 
-from rastro.iam.errors import EmailInUseError
+from rastro.iam.errors import EmailInUseError, IncorrectCredentialsError
 from rastro.iam.models import Identity
-from rastro.iam.ports import PasswordHasher
+from rastro.iam.ports import Authenticator, PasswordHasher, SessionStore
 from rastro.iam.values import DisplayName, Email, RawPassword
 
 
@@ -63,3 +64,18 @@ def _identity_create(
         )
     except IntegrityError as error:
         raise EmailInUseError() from error
+
+
+def session_start(
+    *,
+    request: HttpRequest,
+    email: Email,
+    password: RawPassword,
+    authenticator: Authenticator,
+    session_store: SessionStore,
+) -> None:
+    identity = authenticator(request=request, email=email, password=password)
+    if identity is None:
+        raise IncorrectCredentialsError()
+    with transaction.atomic():
+        session_store.start(request=request, identity=identity)

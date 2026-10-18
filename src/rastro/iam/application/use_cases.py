@@ -1,11 +1,9 @@
 from typing import Optional
 
 from rastro.iam.application.dtos import (
-    AuthenticateInputDTO,
     IdentityOutputDTO,
     RegisterIdentityInputDTO,
 )
-from rastro.iam.errors import IncorrectCredentialsError
 from rastro.iam.domain.repository import IdentityRepository
 from rastro.iam.domain.services import PasswordHashingService, SessionService
 from rastro.iam.shared.mappers import OutputIdentityMapper
@@ -47,38 +45,6 @@ class RegisterIdentityUseCase(UseCase):
             email=input.email,
             hashed_password=hashed_password,
         )
-
-        self.session_service.start(identity)
-
-        return OutputIdentityMapper.map(identity)
-
-
-class AuthenticateUseCase(UseCase):
-    def __init__(
-        self,
-        repository: IdentityRepository,
-        session_service: SessionService,
-        password_hashing_service: PasswordHashingService,
-    ):
-        self.repository = repository
-        self.session_service = session_service
-        self.password_hashing_service = password_hashing_service
-
-    def execute(self, input: AuthenticateInputDTO) -> IdentityOutputDTO:
-        identity = self.repository.get_by_email(input.email)
-
-        if identity is None:
-            raise IncorrectCredentialsError()
-
-        verification = identity.verify_password(
-            input.password, self.password_hashing_service
-        )
-
-        if not verification.is_correct:
-            raise IncorrectCredentialsError()
-
-        if verification.must_upgrade:
-            self.repository.update_password(identity)
 
         self.session_service.start(identity)
 

@@ -1,12 +1,10 @@
 from datetime import datetime
 from typing import Optional
 
-from rastro.iam.domain.services import PasswordHashingService, PasswordVerification
 from rastro.iam.values import (
     DisplayName,
     Email,
     HashedPassword,
-    RawPassword,
 )
 from rastro_base.aggregate import AggregateRoot
 from rastro_shared_kernel.value_objects import Id
@@ -22,22 +20,3 @@ class IdentityAggregate(AggregateRoot):
     is_active: bool
     is_staff: bool
     is_superuser: bool
-
-    def update_password(
-        self,
-        raw_password: RawPassword,
-        password_hashing_service: PasswordHashingService,
-    ) -> None:
-        self.password = password_hashing_service.hash(raw_password)
-
-    def verify_password(
-        self,
-        raw_password: RawPassword,
-        password_hashing_service: PasswordHashingService,
-    ) -> PasswordVerification:
-        verification = password_hashing_service.verify(raw_password, self.password)
-
-        if verification.is_correct and verification.must_upgrade:
-            self.update_password(raw_password, password_hashing_service)
-
-        return verification

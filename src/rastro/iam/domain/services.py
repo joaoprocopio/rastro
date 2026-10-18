@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from typing import TYPE_CHECKING, Optional
 
 from rastro_base.service import Service
 
@@ -8,19 +8,9 @@ if TYPE_CHECKING:  # prevents circular imports
     from rastro.iam.values import HashedPassword, RawPassword
 
 
-class PasswordVerification(NamedTuple):
-    is_correct: bool
-    must_upgrade: bool
-
-
 class PasswordHashingService(Service):
     @abstractmethod
     def hash(self, raw_password: RawPassword) -> HashedPassword: ...
-
-    @abstractmethod
-    def verify(
-        self, raw_password: RawPassword, hashed_password: HashedPassword
-    ) -> PasswordVerification: ...
 
 
 class SessionService(Service):
