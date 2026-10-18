@@ -19,3 +19,8 @@ def session_start(
     if identity is None:
         raise IncorrectCredentialsError()
     session_store.start(request=request, identity=identity)
+
+
+@transaction.atomic
+def session_end(*, request: HttpRequest, session_store: SessionStore) -> None:
+    session_store.end(request=request)
