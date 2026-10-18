@@ -18,6 +18,7 @@ uv sync
 uv run ruff check src/
 uv run ruff format --check src/
 uv run mypy src/
+uv run lint-imports
 uv run pytest
 RASTRO_DEBUG=1 uv run python manage.py check
 ```
