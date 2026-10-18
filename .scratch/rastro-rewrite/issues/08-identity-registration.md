@@ -6,7 +6,7 @@ The API is a view function named `identity_register_api`. It parses the body wit
 
 **Blocked by:** 07 (createsuperuser through services)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `POST /api/v1/iam/identities/register` with a valid body answers `201` with no body and no id.
 - [x] After registration, `GET` on the current Session does not show the new Identity, because registration starts no Session.
@@ -29,3 +29,7 @@ Verified on branch `ticket-08`, before the merge of `rastro-rewrite`:
 - The contracts from tickets 07 and 09 already cover `apis` and `schemas`, so `pyproject.toml` is unchanged. A temporary `from rastro.iam import schemas` in `services.py` and `from rastro.iam import apis` in `models.py` broke `only apis import schemas`, `iam layers`, and `services and selectors never import adapters`, and the report named the lines; both files are restored.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (6 kept, 0 broken), and `pytest` (137 passed) are green. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
 - After the merge of `rastro-rewrite` with ticket 10, both old routes are gone, so `presentation/`, `infrastructure/`, `application/use_cases.py`, and `domain/services.py` held nothing and the merge deletes them, with the old include in `rastro/urls.py`. `apis.py`, `schemas.py`, and `urls.py` hold the operations of both tickets. `application/dtos.py`, `domain/aggregates.py`, `shared/mappers.py`, and their tests stay for ticket 11. The gate is green again: `lint-imports` 6 kept, `pytest` 142 passed.
+
+## Answer
+
+Merged into `rastro-rewrite` in `7a0fca0`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

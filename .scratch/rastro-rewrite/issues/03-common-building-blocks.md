@@ -12,7 +12,7 @@ The building blocks are:
 
 **Blocked by:** 01 (Settings package and the RASTRO_ prefix)
 
-**Status:** in-review
+**Status:** resolved
 
 - [x] Pure tests, with no database, show that a `StrValueObject` subclass parses from a JSON string inside a Pydantic model, serializes back to a plain string, and turns an `InvalidValueError` into a Pydantic field error whose context still holds the code.
 - [x] A test shows that a non-string input fails as a type error before the value object runs.
@@ -36,3 +36,7 @@ Branch `ticket-03`, worktree `/home/jao/workspace/joaoprocopio/rastro-wt/ticket-
 - `rastro_shared_kernel` keeps `__init__.py` and `value_objects.py` (`Id`), which the old `iam` domain, repositories, DTOs, and mappers still import. `env.py`, `utils.py`, and `__tests__/` are gone.
 - The gate is green: `ruff check`, `ruff format --check`, `mypy` (66 files), and `pytest` (61 tests) with `RASTRO_POSTGRES_DB=ticket_03`.
 - The brief forbids `docker compose up` in a worktree, so I ran `docker compose build django` and served the image with `docker run --network host` against the `ticket_03` database on port 8003: `migrate` applied every migration, `GET /admin/login/` answered `200`, and `GET /api/v1/iam/session` answered `401`. The merger runs the full stack on the integration branch.
+
+## Answer
+
+Merged into `rastro-rewrite` in `4daa1be`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

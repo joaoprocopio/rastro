@@ -16,7 +16,7 @@ The tools are:
 
 **Blocked by:** 05 (The Identity model and the iam value objects)
 
-**Status:** done
+**Status:** resolved
 
 - [x] `lint-imports` runs from the project configuration and passes.
 - [x] A deliberate import of Django into a values module makes `lint-imports` fail. The test or the check that proves this is not left in the code.
@@ -24,7 +24,7 @@ The tools are:
 - [x] The architecture tests fail on a call to `full_clean()` or one of its siblings, and on a model that defines `clean()`.
 - [x] The Checks section of `README.md` lists `lint-imports`.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -39,3 +39,7 @@ Verified on branch `ticket-06`, before the merge of `rastro-rewrite`:
 - `test_values.py` keeps every app's `values.py` on the standard library and `rastro.common.values`, which import-linter cannot express because it has no allow list for the standard library.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, `lint-imports`, and `pytest` (108 passed) are green. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
 - Contracts that wait for their modules, for tickets 07 to 10: the rows `apis` and `services : selectors` above `models` in `iam layers`; `only apis import schemas` (source `rastro.iam.*`, forbidden `rastro.iam.schemas`, ignore `rastro.iam.apis -> rastro.iam.schemas`); `services and selectors import no pydantic` (forbidden `pydantic`); `services and selectors never import adapters`; and `only deps imports adapters` (ignore `rastro.iam.deps -> rastro.iam.adapters`). import-linter fails on a module that does not exist, so each ticket adds the contract with the module.
+
+## Answer
+
+Merged into `rastro-rewrite` in `2426631`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

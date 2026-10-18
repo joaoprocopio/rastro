@@ -13,7 +13,7 @@ The old Session start view, its use case, and the old password hashing service a
 
 **Blocked by:** 04 (The RFC 9457 error contract), 06 (Tooling that checks the architecture)
 
-**Status:** done
+**Status:** resolved
 
 - [x] `POST /api/v1/iam/session/start` with correct Credentials answers `204` with no body and sets the session cookie.
 - [x] A wrong password and an unknown email both answer `401` with the type `/problems/iam.incorrect_credentials`.
@@ -25,7 +25,7 @@ The old Session start view, its use case, and the old password hashing service a
 - [x] Starting a Session again while one exists answers `204`.
 - [x] The old Session start endpoint, its use case, and the old password hashing service are deleted, and import-linter contracts cover the new modules.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -40,3 +40,7 @@ Verified on branch `ticket-09`, before the merge of `rastro-rewrite`:
 - `pyproject.toml` adds `apis` and `services` to the `iam layers` contract and four forbidden contracts: `only apis import schemas`, `services and selectors import no pydantic`, `services and selectors never import adapters`, and `only deps imports adapters`. The first, second, and fourth set `allow_indirect_imports`, because `urls -> apis -> schemas`, `services -> ports -> models -> rastro.common.values -> pydantic`, and `apis -> deps -> adapters` are allowed chains. A temporary `import pydantic`, `from rastro.iam import adapters`, and `from rastro.iam import schemas` in `services.py`, plus `from rastro.iam import apis` in `values.py`, broke all six contracts; the files are restored. `selectors` joins the contracts in ticket 10, because import-linter fails on a module that does not exist.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (6 kept, 0 broken), and `pytest` (115 passed) are green. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
 - Update after review: the user chose the `@transaction.atomic` decorator on `session_start` and `session_end`, so the service test with the fake authenticator now runs on the test database through the `db` fixture.
+
+## Answer
+
+Merged into `rastro-rewrite` in `1ca15d3`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

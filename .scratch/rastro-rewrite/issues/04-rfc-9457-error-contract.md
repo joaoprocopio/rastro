@@ -17,7 +17,7 @@ The old `iam` code moves its errors to `ApplicationError` subclasses, so that th
 
 **Blocked by:** 03 (Building blocks in rastro.common)
 
-**Status:** in-review
+**Status:** resolved
 
 - [x] Every error response has the media type `application/problem+json` and carries only `type`, `status`, and, for a validation failure, `errors`. No response carries `title`, `detail`, or `code`.
 - [x] A start of a Session with incorrect Credentials on the existing endpoint answers `401` with the type `/problems/iam.incorrect_credentials`.
@@ -45,3 +45,7 @@ Branch `ticket-04`, worktree `/home/jao/workspace/joaoprocopio/rastro-wt/ticket-
 - `rastro/middleware.py`, `rastro/codes.py`, `rastro_base/error.py`, `rastro_base/problem.py`, `rastro/iam/domain/errors.py`, and their tests are deleted.
 - The gate is green: `ruff check`, `ruff format --check`, `mypy` (68 files), and `pytest` (62 tests) with `RASTRO_POSTGRES_DB=ticket_04`.
 - The brief forbids `docker compose up` in a worktree, so I ran `docker compose build django` and served the image with `docker run --network host` against the `ticket_04` database on port 8004: `migrate` applied every migration, `GET /nope` answered `{"status": 404}`, `GET /api/v1/iam/session` answered `iam.not_authenticated`, a `POST` without a CSRF token answered `request.csrf_failed`, and `GET /admin/login/` answered `200`. The merger runs the full stack on the integration branch.
+
+## Answer
+
+Merged into `rastro-rewrite` in `aa17eb4`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

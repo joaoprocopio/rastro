@@ -6,7 +6,7 @@ Today the Django request span records the Identity's email, the psycopg2 instrum
 
 **Blocked by:** 01 (Settings package and the RASTRO_ prefix)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The request span records the Identity's id as `enduser.id` and never records the email.
 - [x] A request without a Session records no `enduser.id`.
@@ -15,7 +15,7 @@ Today the Django request span records the Identity's email, the psycopg2 instrum
 - [x] Telemetry settings come from the telemetry settings module.
 - [x] A test covers the span attributes of an authenticated request and of an anonymous one.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -30,3 +30,7 @@ Branch `ticket-02`, head after the entry point commit. I verified each box by ha
 One box stays open:
 
 - "`docker compose up --build` starts the stack": the implementer brief forbids `docker compose up` in a worktree. I ran `docker compose build django` and served the image with `docker run --network host` against the `ticket_02` database on port 8003: `migrate` and `collectstatic` ran, gunicorn booted two workers, `GET /api/v1/iam/csrftoken` answered `200`, and `GET /api/v1/iam/session` answered `401`. The merger runs the full stack on the integration branch.
+
+## Answer
+
+Merged into `rastro-rewrite` in `53f51fc`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

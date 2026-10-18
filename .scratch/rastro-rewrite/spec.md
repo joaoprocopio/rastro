@@ -1,6 +1,6 @@
 # Rewrite rastro to the patterns in CODING_STANDARDS.md
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 

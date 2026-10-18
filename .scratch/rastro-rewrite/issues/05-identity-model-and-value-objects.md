@@ -8,7 +8,7 @@ The model follows the spec's "The Identity model" section. Its email and display
 
 **Blocked by:** 03 (Building blocks in rastro.common)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Pure tests cover each value object: `" Ana@X.com "` becomes `ana@x.com`, a full-width address becomes its plain form, an invalid address fails with `iam.invalid_email`, a 321-character name fails with `iam.invalid_display_name`, a 7-character password fails with `iam.invalid_password`, and a password with spaces keeps them.
 - [x] The model is `Identity` with the table `iam_identity`, it has `created_at` and `updated_at`, and it has no `date_joined`.
@@ -19,7 +19,7 @@ The model follows the spec's "The Identity model" section. Its email and display
 - [x] One new initial migration replaces the old migrations.
 - [x] The existing registration, Session, and CSRF endpoints still pass their HTTP tests on the new model.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -32,3 +32,7 @@ Verified on branch `ticket-05`, before the merge of `rastro-rewrite`:
 - One migration, `0001_initial.py`, replaces the old one, and `makemigrations --check` reports no change.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, and `pytest` (90 passed) are green. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
 - Open for later tickets: the manager keeps the old `UserManager` copy (ticket 07), and the `StrValueObjectField` base lives in `rastro/iam/fields.py` until a second app needs it.
+
+## Answer
+
+Merged into `rastro-rewrite` in `f6e95ee`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

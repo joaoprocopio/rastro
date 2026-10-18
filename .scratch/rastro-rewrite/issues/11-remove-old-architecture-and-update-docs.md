@@ -10,7 +10,7 @@ After tickets 08 and 10, no endpoint uses the old layers. This ticket deletes th
 
 **Blocked by:** 02 (Telemetry without personal data), 08 (Identity registration), 10 (Current Session, end of Session, and the CSRF cookie)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] The old `iam` subpackages, `rastro_base`, and `rastro_shared_kernel` no longer exist, and nothing imports them.
 - [x] `model_bakery` is no longer a dependency, and every test builds its data with factory_boy factories.
@@ -20,7 +20,7 @@ After tickets 08 and 10, no endpoint uses the old layers. This ticket deletes th
 - [x] `CODING_STANDARDS.md` no longer says that some code predates the rewrite.
 - [x] A final HTTP run covers the five operations of the spec's HTTP contract from end to end.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -34,3 +34,7 @@ Verified on branch `ticket-11`, before the merge of `rastro-rewrite`:
 - `CODING_STANDARDS.md` loses the sentence about code that predates the rewrite. The protocol check example reads `_authenticator: Authenticator = django_authenticate`, named after the port, with the `no-redef` reason, as `adapters.py` does. The import-linter bullet says that `values` imports neither Django nor Pydantic, and the pytest bullet names the standard library check of `values.py`. `session_start` and `session_end` carry `@transaction.atomic`, as the rule says, so that rule is unchanged.
 - `src/rastro/iam/tests/apis/test_end_to_end.py` walks the five operations with `Client(enforce_csrf_checks=True)`: `GET /csrf` answers `204` and sets `csrftoken`; `POST /identities/register` with `" Ada@Example.com"` answers `201`; `GET /session` answers `401` `iam.not_authenticated`; `POST /session/start` with `ada@example.com` answers `204` and sets the session cookie; `GET /session` answers `200` with `email` and `display_name`; `POST /session/end` answers `204`; and `GET /session` answers `401` again. Each POST reads the token from the `csrftoken` cookie, because Django rotates it on login. A copy of the test without the `X-CSRFToken` header failed with `403` on the registration, so the CSRF step is real.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (6 kept, 0 broken), and `pytest` (138 passed: 142 before, plus 1, minus the 5 mapper tests) are green. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
+
+## Answer
+
+Merged into `rastro-rewrite` in `af64d7c`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

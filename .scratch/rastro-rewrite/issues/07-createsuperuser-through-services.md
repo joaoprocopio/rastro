@@ -14,7 +14,7 @@ The code that the old manager copied from Django's `UserManager` is deleted.
 
 **Blocked by:** 04 (The RFC 9457 error contract), 06 (Tooling that checks the architecture)
 
-**Status:** done
+**Status:** resolved
 
 - [x] `createsuperuser`, run through `call_command`, asks for the email, the display name, and the password, and creates an Identity with `is_staff` and `is_superuser` set.
 - [x] `createsuperuser` rejects an invalid email and a password shorter than 8 characters.
@@ -24,7 +24,7 @@ The code that the old manager copied from Django's `UserManager` is deleted.
 - [x] The manager has only `create_user` and `create_superuser`. `with_perm`, `normalize_email`, the `alters_data` markers, and `use_in_migrations` are gone.
 - [x] import-linter contracts cover the new ports, adapters, deps, and services modules.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -38,3 +38,7 @@ Verified on branch `ticket-07`, before the merge of `rastro-rewrite`:
 - `pyproject.toml` gains `services` as the top layer of `iam layers` and three contracts: `services and selectors import no pydantic`, `services and selectors never import adapters`, and `only deps imports adapters` with `rastro.iam.deps -> rastro.iam.adapters` ignored. Two facts needed configuration that the spec does not name. The manager in `models` imports `services` and `deps`, so the layers contract ignores `rastro.iam.models -> rastro.iam.services` and the adapters contract ignores `rastro.iam.models -> rastro.iam.deps`. Every `values` module imports `rastro.common.values`, which imports Pydantic, so the pydantic contract sets `allow_indirect_imports = true` and checks direct imports only. A temporary `import pydantic` and `from rastro.iam import adapters` in `services.py`, plus the same adapters import in `admin.py`, broke the three new contracts and the report named the lines; I reverted the files.
 - The old registration use case still writes through `Identity.objects.create` and its HTTP tests stay green, so it is unchanged; ticket 08 replaces it.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (5 kept, 0 broken), and `pytest` (126 passed) are green. After the merge of `rastro-rewrite` with ticket 09, the four shared modules hold one section per port, the contracts of both tickets are folded into one set, and the gate is green again: `lint-imports` 6 kept, `pytest` 133 passed. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
+
+## Answer
+
+Merged into `rastro-rewrite` in `bfd67a9`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

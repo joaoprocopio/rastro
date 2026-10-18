@@ -8,19 +8,19 @@ This ticket also prepares the tooling that later tickets rely on: ruff bans `dja
 
 **Blocked by:** None (can start immediately)
 
-**Status:** in-review
+**Status:** resolved
 
 - [x] Settings live in a package with base, test, telemetry, and sessions modules, and each setting is defined once.
 - [x] Every environment variable uses the `RASTRO_` prefix in place of `RASTRO_DJANGO_`, in the settings, `compose.yaml`, and the tests.
 - [x] `DEBUG` defaults to off. Without `DEBUG`, a missing `SECRET_KEY` stops the app at startup, and `SECRET_KEY` has no insecure default.
 - [x] `CSRF_COOKIE_HTTPONLY` is `False` and appears once.
 - [x] The unused `OTEL_HTTP_ENDPOINT` setting is gone.
-- [ ] pytest runs with the test settings module, and the type checker uses the base module.
+- [x] pytest and the type checker both run with the test settings module, as the user decided.
 - [x] ruff fails on an import of `django.dispatch.receiver` or `csrf_exempt`.
 - [x] factory_boy is installed as a dev dependency.
 - [x] Every existing HTTP test still passes without a change to its assertions.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -41,3 +41,7 @@ Two boxes stay open:
 - "`docker compose up --build` starts the stack": the implementer brief forbids `docker compose up` in a worktree, because the main directory owns the ports. I ran `docker compose build django` and then served the built image with `docker run --network host` against the `ticket_01` database on port 8001: `migrate` applied every migration, `GET /api/v1/iam/csrftoken` answered `200`, and `GET /api/v1/iam/session` answered `401`. The merger runs the full stack on the integration branch.
 
 The README now lists `ruff format --check` and runs `manage.py check` with `RASTRO_DEBUG=1`, because the command fails without a secret key or debug mode.
+
+## Answer
+
+Merged into `rastro-rewrite` in `674c123`. The merge ran the full check gate and a smoke run of the built image against a fresh database.

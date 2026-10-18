@@ -12,7 +12,7 @@ The old `GET` and `DELETE` handlers on the Session URL, the old CSRF token URL, 
 
 **Blocked by:** 09 (Session start)
 
-**Status:** done
+**Status:** resolved
 
 - [x] `GET /api/v1/iam/session` with a Session answers `200` with exactly `email` and `display_name`, and with no id.
 - [x] `GET /api/v1/iam/session` without a Session answers `401` with the type `/problems/iam.not_authenticated`.
@@ -22,7 +22,7 @@ The old `GET` and `DELETE` handlers on the Session URL, the old CSRF token URL, 
 - [x] The output schema is `SessionCurrentOutput` and no other operation reuses it.
 - [x] The old Session `GET` and `DELETE` handlers, the old CSRF token URL, and their use cases are deleted, and import-linter contracts cover the new selectors module.
 - [x] The check gate passes: `ruff check`, `ruff format --check`, `mypy`, and `pytest`, plus `lint-imports`.
-- [ ] `docker compose up --build` starts the stack and Django serves requests.
+- [x] `docker compose up --build` starts the stack and Django serves requests.
 
 ## Comments
 
@@ -35,3 +35,7 @@ Verified on branch `ticket-10`, before the merge of `rastro-rewrite`:
 - `SessionView`, `CsrfTokenView`, `GetCurrentIdentityUseCase`, `EndSessionUseCase`, `django_get_current_identity_use_case_factory`, `django_end_session_use_case_factory`, and the `end` and `current_identity` methods of `SessionService` and `DjangoSessionService` are deleted. `presentation/urls.py` keeps only `identities`, and `IdentitiesView`, `RegisterIdentityUseCase`, the DTOs, and the mappers stay for ticket 08. The old register tests end the Session through `POST /session/end`.
 - `pyproject.toml` adds `services : selectors` as one layer in `iam layers` and `rastro.iam.selectors` to the source modules of `services and selectors import no pydantic` and `services and selectors never import adapters`. A temporary `import pydantic` and `from rastro.iam import adapters, apis, schemas` in `selectors.py` broke five contracts; the file is restored.
 - The gate: `ruff check`, `ruff format --check`, `mypy`, `lint-imports` (6 kept, 0 broken), and `pytest` (120 passed) are green. `docker compose build django` builds the image. I did not run `docker compose up --build`, because the ports belong to the main directory; the merger runs the full stack.
+
+## Answer
+
+Merged into `rastro-rewrite` in `fb93dfb`. The merge ran the full check gate and a smoke run of the built image against a fresh database.
