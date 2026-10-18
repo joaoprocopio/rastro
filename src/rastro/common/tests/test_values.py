@@ -1,16 +1,8 @@
-from dataclasses import dataclass
-
 import pydantic
 import pytest
 
-from rastro.common.values import InvalidValueError, StrValueObject
-
-
-@dataclass(frozen=True, slots=True)
-class Color(StrValueObject):
-    def __post_init__(self) -> None:
-        if self.value not in {"red", "blue"}:
-            raise InvalidValueError("sample.invalid_color")
+from rastro.common.tests.sample.values import Color
+from rastro.common.values import InvalidValueError
 
 
 class Paint(pydantic.BaseModel):

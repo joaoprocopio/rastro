@@ -5,7 +5,7 @@ from rastro.iam.application.dtos import (
     IdentityOutputDTO,
     RegisterIdentityInputDTO,
 )
-from rastro.iam.domain.errors import IncorrectCredentialsError
+from rastro.iam.errors import IncorrectCredentialsError
 from rastro.iam.domain.repository import IdentityRepository
 from rastro.iam.domain.services import PasswordHashingService, SessionService
 from rastro.iam.shared.mappers import OutputIdentityMapper
@@ -68,14 +68,14 @@ class AuthenticateUseCase(UseCase):
         identity = self.repository.get_by_email(input.email)
 
         if identity is None:
-            raise IncorrectCredentialsError("Incorrect email or password.")
+            raise IncorrectCredentialsError()
 
         verification = identity.verify_password(
             input.password, self.password_hashing_service
         )
 
         if not verification.is_correct:
-            raise IncorrectCredentialsError("Incorrect email or password.")
+            raise IncorrectCredentialsError()
 
         if verification.must_upgrade:
             self.repository.update_password(identity)
