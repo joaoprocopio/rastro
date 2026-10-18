@@ -1,6 +1,6 @@
 import pytest
 
-from rastro_shared_kernel.env import get_env, parse_booleanish, parse_csv
+from rastro.common.env import get_env, parse_booleanish, parse_csv
 
 
 def test_get_env(monkeypatch: pytest.MonkeyPatch) -> None:

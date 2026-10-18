@@ -6,7 +6,7 @@ from django.core.management.utils import get_random_secret_key
 
 from rastro.settings.sessions import *  # noqa: F403
 from rastro.settings.telemetry import *  # noqa: F403
-from rastro_shared_kernel.env import get_env, parse_booleanish, parse_csv
+from rastro.common.env import get_env, parse_booleanish, parse_csv
 
 if TYPE_CHECKING:
     import django_stubs_ext
