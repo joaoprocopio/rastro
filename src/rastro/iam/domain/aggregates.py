@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from rastro.iam.domain.services import PasswordHashingService, PasswordVerification
-from rastro.iam.domain.value_objects import (
+from rastro.iam.values import (
     DisplayName,
     Email,
     HashedPassword,
@@ -17,7 +17,7 @@ class IdentityAggregate(AggregateRoot):
     email: Email
     password: HashedPassword
     display_name: DisplayName
-    date_joined: datetime
+    created_at: datetime
     last_login: Optional[datetime]
     is_active: bool
     is_staff: bool

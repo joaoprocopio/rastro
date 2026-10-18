@@ -48,6 +48,11 @@ check_untyped_defs = true
 warn_return_any = true
 warn_unused_ignores = true
 
+# factory_boy ships py.typed, but its declarations have untyped __init__ methods.
+[[tool.mypy.overrides]]
+module = "rastro.*.tests.factories"
+disallow_untyped_calls = false
+
 [tool.django-stubs]
 django_settings_module = "rastro.settings.test"
 

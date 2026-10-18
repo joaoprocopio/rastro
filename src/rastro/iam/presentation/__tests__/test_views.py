@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from django.test import Client
 
-from rastro.iam.models import IdentityModel
+from rastro.iam.models import Identity
 
 if TYPE_CHECKING:
     from django.test.client import _MonkeyPatchedWSGIResponse
@@ -52,27 +52,27 @@ def test_register_signs_the_identity_in(client: Client, db: None) -> None:
     assert response.json() == {"display_name": "Ada", "email": "ada@example.com"}
 
 
-def test_authenticate_success(client: Client, identity: IdentityModel) -> None:
+def test_authenticate_success(client: Client, identity: Identity) -> None:
     response = _post_json(
         client,
         SESSION_URL,
-        {"email": identity.email, "password": "password"},
+        {"email": identity.email.value, "password": "password"},
     )
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {
-        "display_name": identity.display_name,
-        "email": identity.email,
+        "display_name": identity.display_name.value,
+        "email": identity.email.value,
     }
 
 
 def test_authenticate_wrong_password_and_unknown_email_are_identical(
-    client: Client, identity: IdentityModel
+    client: Client, identity: Identity
 ) -> None:
     wrong_password = _post_json(
         client,
         SESSION_URL,
-        {"email": identity.email, "password": "wrongpassword"},
+        {"email": identity.email.value, "password": "wrongpassword"},
     )
     unknown_email = _post_json(
         client,
@@ -88,16 +88,18 @@ def test_authenticate_wrong_password_and_unknown_email_are_identical(
 
 
 def test_current_identity_when_authenticated(
-    client: Client, identity: IdentityModel
+    client: Client, identity: Identity
 ) -> None:
-    _post_json(client, SESSION_URL, {"email": identity.email, "password": "password"})
+    _post_json(
+        client, SESSION_URL, {"email": identity.email.value, "password": "password"}
+    )
 
     response = client.get(SESSION_URL)
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {
-        "display_name": identity.display_name,
-        "email": identity.email,
+        "display_name": identity.display_name.value,
+        "email": identity.email.value,
     }
 
 
@@ -107,8 +109,10 @@ def test_current_identity_when_unauthenticated(client: Client, db: None) -> None
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_end_session(client: Client, identity: IdentityModel) -> None:
-    _post_json(client, SESSION_URL, {"email": identity.email, "password": "password"})
+def test_end_session(client: Client, identity: Identity) -> None:
+    _post_json(
+        client, SESSION_URL, {"email": identity.email.value, "password": "password"}
+    )
 
     end_response = client.delete(SESSION_URL)
 

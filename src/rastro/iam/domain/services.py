@@ -5,7 +5,7 @@ from rastro_base.service import Service
 
 if TYPE_CHECKING:  # prevents circular imports
     from rastro.iam.domain.aggregates import IdentityAggregate
-    from rastro.iam.domain.value_objects import HashedPassword, RawPassword
+    from rastro.iam.values import HashedPassword, RawPassword
 
 
 class PasswordVerification(NamedTuple):

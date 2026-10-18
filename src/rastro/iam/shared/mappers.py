@@ -1,20 +1,20 @@
 from rastro.iam.application.dtos import IdentityOutputDTO, IdentityPublicDTO
 from rastro.iam.domain.aggregates import IdentityAggregate
-from rastro.iam.domain.value_objects import DisplayName, Email, HashedPassword
-from rastro.iam.models import IdentityModel
+from rastro.iam.values import HashedPassword
+from rastro.iam.models import Identity
 from rastro_base.mapper import Mapper
 from rastro_shared_kernel.value_objects import Id
 
 
-class HydrateIdentityMapper(Mapper[IdentityModel, IdentityAggregate]):
+class HydrateIdentityMapper(Mapper[Identity, IdentityAggregate]):
     @staticmethod
-    def map(identity: IdentityModel) -> IdentityAggregate:
+    def map(identity: Identity) -> IdentityAggregate:
         return IdentityAggregate(
             id=Id(identity.pk),
-            email=Email(identity.email),
+            email=identity.email,
             password=HashedPassword(identity.password),
-            display_name=DisplayName(identity.display_name),
-            date_joined=identity.date_joined,
+            display_name=identity.display_name,
+            created_at=identity.created_at,
             last_login=identity.last_login,
             is_superuser=identity.is_superuser,
             is_staff=identity.is_staff,
@@ -22,15 +22,15 @@ class HydrateIdentityMapper(Mapper[IdentityModel, IdentityAggregate]):
         )
 
 
-class DehydrateIdentityMapper(Mapper[IdentityAggregate, IdentityModel]):
+class DehydrateIdentityMapper(Mapper[IdentityAggregate, Identity]):
     @staticmethod
-    def map(identity: IdentityAggregate) -> IdentityModel:
-        return IdentityModel(
+    def map(identity: IdentityAggregate) -> Identity:
+        return Identity(
             id=identity.id.root,
-            email=identity.email.root,
-            password=identity.password.root,
-            display_name=identity.display_name.root,
-            date_joined=identity.date_joined,
+            email=identity.email,
+            password=identity.password.value,
+            display_name=identity.display_name,
+            created_at=identity.created_at,
             last_login=identity.last_login,
             is_superuser=identity.is_superuser,
             is_staff=identity.is_staff,
@@ -63,7 +63,7 @@ class OutputIdentityMapper(Mapper[IdentityAggregate, IdentityOutputDTO]):
             id=source.id,
             email=source.email,
             display_name=source.display_name,
-            date_joined=source.date_joined,
+            created_at=source.created_at,
             last_login=source.last_login,
             is_superuser=source.is_superuser,
             is_staff=source.is_staff,
