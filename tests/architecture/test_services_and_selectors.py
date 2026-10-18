@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from pathlib import Path
 from types import ModuleType
 from typing import Any, Protocol
 
@@ -11,6 +10,7 @@ from tests.architecture.rules import (
     Role,
     django_conf_imports,
     logic_modules,
+    module_source,
     signature_violations,
 )
 
@@ -35,7 +35,9 @@ def test_no_service_or_selector_imports_django_conf() -> None:
         line
         for role in Role
         for module in logic_modules(role)
-        for line in django_conf_imports(source=_source(module), name=module.__name__)
+        for line in django_conf_imports(
+            source=module_source(module), name=module.__name__
+        )
     ]
 
     assert imports == []
@@ -175,11 +177,6 @@ def _module_with(role: Role, *functions: Callable[..., Any]) -> ModuleType:
         function.__module__ = module.__name__
         setattr(module, function.__name__, function)
     return module
-
-
-def _source(module: ModuleType) -> str:
-    assert module.__file__ is not None
-    return Path(module.__file__).read_text()
 
 
 def test_the_check_reports_an_import_of_django_conf() -> None:

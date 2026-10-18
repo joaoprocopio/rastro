@@ -3,6 +3,7 @@ import importlib
 import inspect
 import pkgutil
 import re
+import sys
 import typing
 from enum import StrEnum
 from pathlib import Path
@@ -15,6 +16,13 @@ import rastro
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)+$")
 RAW_TYPES = (str, dict)
+FORBIDDEN_VALIDATION_METHODS = (
+    "full_clean",
+    "clean_fields",
+    "validate_unique",
+    "validate_constraints",
+)
+COMMON_VALUES = "rastro.common.values"
 
 
 class Role(StrEnum):
@@ -36,6 +44,28 @@ def logic_modules(role: Role) -> list[ModuleType]:
     return modules
 
 
+def values_modules() -> list[ModuleType]:
+    return [
+        importlib.import_module(f"rastro.{app_dir.name}.values")
+        for app_dir in sorted(Path(rastro.__file__).parent.iterdir())
+        if (app_dir / "values.py").is_file()
+        and f"rastro.{app_dir.name}.values" != COMMON_VALUES
+    ]
+
+
+def rastro_sources() -> list[tuple[str, str]]:
+    root = Path(rastro.__file__).parent
+    return [
+        (_module_name(path, root), path.read_text())
+        for path in sorted(root.rglob("*.py"))
+    ]
+
+
+def module_source(module: ModuleType) -> str:
+    assert module.__file__ is not None
+    return Path(module.__file__).read_text()
+
+
 def signature_violations(module: ModuleType, role: Role) -> list[str]:
     violations: list[str] = []
     for name, function in _public_functions(module):
@@ -55,6 +85,56 @@ def django_conf_imports(*, source: str, name: str) -> list[str]:
         for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.Import | ast.ImportFrom) and _imports_django_conf(node)
     ]
+
+
+def validation_violations(*, source: str, name: str) -> list[str]:
+    violations: list[tuple[int, str]] = []
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in FORBIDDEN_VALIDATION_METHODS
+        ):
+            violations.append((node.lineno, f"calls {node.func.attr}()"))
+        elif isinstance(node, ast.ClassDef):
+            for item in node.body:
+                if (
+                    isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+                    and item.name == "clean"
+                ):
+                    violations.append((item.lineno, f"{node.name} defines clean()"))
+    return [f"{name}:{line}: {text}" for line, text in sorted(violations)]
+
+
+def foreign_imports(*, source: str, name: str) -> list[str]:
+    return [
+        f"{name}:{node.lineno}: {ast.unparse(node)}"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Import | ast.ImportFrom)
+        and not all(
+            _is_allowed_in_values(imported) for imported in _imported_names(node)
+        )
+    ]
+
+
+def _module_name(path: Path, root: Path) -> str:
+    parts = path.relative_to(root.parent).with_suffix("").parts
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(parts)
+
+
+def _imported_names(node: ast.Import | ast.ImportFrom) -> list[str]:
+    if isinstance(node, ast.Import):
+        return [alias.name for alias in node.names]
+    return [node.module or ""] if node.level == 0 else [""]
+
+
+def _is_allowed_in_values(imported: str) -> bool:
+    return (
+        imported == COMMON_VALUES
+        or imported.partition(".")[0] in sys.stdlib_module_names
+    )
 
 
 def _public_functions(module: ModuleType) -> list[tuple[str, Any]]:
