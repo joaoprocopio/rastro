@@ -10,6 +10,7 @@ from django.apps import apps
 from rastro.common import errors as common_errors
 from rastro.common.errors import ApplicationError
 from rastro.common.middleware import STATUS_BY_CODE
+from tests.architecture.helpers import module_with
 
 
 def _error_modules() -> list[ModuleType]:
@@ -55,14 +56,6 @@ def _repeated_codes(modules: Iterable[ModuleType]) -> dict[str, list[str]]:
     }
 
 
-def _module_with(name: str, **members: type) -> ModuleType:
-    module = ModuleType(name)
-    for member_name, member in members.items():
-        member.__module__ = name
-        setattr(module, member_name, member)
-    return module
-
-
 def test_no_error_code_repeats_across_apps() -> None:
     assert _repeated_codes(_error_modules()) == {}
 
@@ -89,8 +82,8 @@ def test_the_check_reports_a_code_that_two_apps_declare() -> None:
         code = "booking.taken"
 
     modules = [
-        _module_with("tests.booking.errors", BookingTakenError=BookingTakenError),
-        _module_with("tests.seating.errors", SeatTakenError=SeatTakenError),
+        module_with("tests.booking.errors", BookingTakenError),
+        module_with("tests.seating.errors", SeatTakenError),
     ]
 
     assert _repeated_codes(modules) == {
