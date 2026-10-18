@@ -19,5 +19,7 @@ class SessionStartInput(pydantic.BaseModel):
 
 
 class SessionCurrentOutput(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(from_attributes=True)
+
     email: Email
     display_name: DisplayName

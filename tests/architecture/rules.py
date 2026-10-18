@@ -11,6 +11,7 @@ from pathlib import Path
 from types import ModuleType, NoneType, UnionType
 from typing import Any
 
+import pydantic
 from django.http import HttpRequest
 from django.urls import URLPattern, URLResolver
 
@@ -53,6 +54,14 @@ def values_modules() -> list[ModuleType]:
         for app_dir in sorted(Path(rastro.__file__).parent.iterdir())
         if (app_dir / "values.py").is_file()
         and f"rastro.{app_dir.name}.values" != COMMON_VALUES
+    ]
+
+
+def app_modules(role: str) -> list[ModuleType]:
+    return [
+        importlib.import_module(f"rastro.{app_dir.name}.{role}")
+        for app_dir in sorted(Path(rastro.__file__).parent.iterdir())
+        if (app_dir / f"{role}.py").is_file()
     ]
 
 
@@ -154,11 +163,44 @@ def view_violations(view: Callable[..., Any]) -> list[str]:
     return violations
 
 
+def output_violations(module: ModuleType) -> list[str]:
+    return [
+        f"{module.__name__}.{name}: Output schema does not set from_attributes"
+        for name, member in vars(module).items()
+        if name.endswith("Output")
+        and isinstance(member, type)
+        and issubclass(member, pydantic.BaseModel)
+        and member.__module__ == module.__name__
+        and not member.model_config.get("from_attributes")
+    ]
+
+
+def output_construction_violations(*, source: str, name: str) -> list[str]:
+    calls = sorted(
+        (node.lineno, _callee_name(node))
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+    )
+    return [
+        f"{name}:{line}: builds {schema} field by field"
+        for line, schema in calls
+        if schema.endswith("Output")
+    ]
+
+
 def _module_name(path: Path, root: Path) -> str:
     parts = path.relative_to(root.parent).with_suffix("").parts
     if parts[-1] == "__init__":
         parts = parts[:-1]
     return ".".join(parts)
+
+
+def _callee_name(call: ast.Call) -> str:
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return ""
 
 
 def _imported_names(node: ast.Import | ast.ImportFrom) -> list[str]:
