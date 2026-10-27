@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from pydantic import SecretStr
 
 from rastro.auth.application.dtos import UserGetCurrentOutput
 from rastro.auth.application.use_cases import user_get_current
@@ -39,7 +40,10 @@ async def test_it_raises_not_authenticated_for_a_token_with_no_session(
 ) -> None:
     with pytest.raises(NotAuthenticatedError):
         await user_get_current(
-            SessionToken("unknown"), users=users, sessions=sessions, clock=clock
+            SessionToken(SecretStr("unknown")),
+            users=users,
+            sessions=sessions,
+            clock=clock,
         )
 
 

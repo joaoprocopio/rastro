@@ -1,4 +1,5 @@
 import pytest
+from pydantic import SecretStr
 
 from rastro.auth.application.dtos import UserRegisterInput
 from rastro.auth.application.use_cases import user_register
@@ -21,7 +22,7 @@ async def test_it_stores_a_new_user_with_the_next_id_and_the_hash(
         UserRegisterInput(
             email=Email("ada@x.com"),
             display_name=DisplayName("Ada"),
-            password=RawPassword("supersecret"),
+            password=RawPassword(SecretStr("supersecret")),
         ),
         users=users,
         password_hasher=password_hasher,
@@ -46,7 +47,7 @@ async def test_it_raises_email_in_use_for_an_email_that_a_user_holds(
             UserRegisterInput(
                 email=Email("Ana@X.com"),
                 display_name=DisplayName("Other Ana"),
-                password=RawPassword("supersecret"),
+                password=RawPassword(SecretStr("supersecret")),
             ),
             users=users,
             password_hasher=password_hasher,

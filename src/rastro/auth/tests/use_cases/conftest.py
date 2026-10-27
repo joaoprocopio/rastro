@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from pydantic import SecretStr
 
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.value_objects import (
@@ -40,7 +41,7 @@ async def session_token(
     ana: User, sessions: FakeSessionRepository, clock: FakeClock
 ) -> SessionToken:
     """The token of a Session of `ana` in `sessions`, one second from expiry."""
-    token = SessionToken("mine")
+    token = SessionToken(SecretStr("mine"))
     await sessions.add(
         Session(
             id=await sessions.next_id(),

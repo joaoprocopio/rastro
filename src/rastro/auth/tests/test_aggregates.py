@@ -1,6 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from pydantic import SecretStr
 
 from rastro.auth.domain.aggregates import PasswordCheck, Session, User
 from rastro.auth.domain.value_objects import (
@@ -14,7 +15,7 @@ from rastro.auth.tests.fakes import FakePasswordHasher
 from rastro.common.domain.value_objects import Id
 
 TEN_O_CLOCK = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-TOKEN = SessionToken("token")
+TOKEN = SessionToken(SecretStr("token"))
 
 
 @pytest.fixture
@@ -32,14 +33,17 @@ def test_a_session_is_not_active_from_the_moment_it_expires(session: Session) ->
     assert not session.is_active(at=TEN_O_CLOCK)
 
 
-def test_a_session_starts_with_the_digest_of_its_token_and_ends_14_days_later() -> None:
-    session = Session.start(id=Id(1), user_id=Id(2), token=TOKEN, at=TEN_O_CLOCK)
-
-    assert session == Session(
+def test_a_session_starts_with_its_token_digest_and_ends_a_lifetime_later() -> None:
+    session = Session.start(
         id=Id(1),
         user_id=Id(2),
-        token_hash=TOKEN.digest(),
-        expires_at=datetime(2026, 1, 15, 10, 0, tzinfo=UTC),
+        token=TOKEN,
+        at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+        lifetime=timedelta(hours=1),
+    )
+
+    assert session == Session(
+        id=Id(1), user_id=Id(2), token_hash=TOKEN.digest(), expires_at=TEN_O_CLOCK
     )
 
 
@@ -61,6 +65,9 @@ def test_verify_password_answers_whether_it_is_correct_and_needs_a_rehash(
         hashed_password=HashedPassword(hashed),
     )
 
-    assert user.verify_password(RawPassword(password), hasher=FakePasswordHasher()) == (
-        check
+    assert (
+        user.verify_password(
+            RawPassword(SecretStr(password)), hasher=FakePasswordHasher()
+        )
+        == check
     )

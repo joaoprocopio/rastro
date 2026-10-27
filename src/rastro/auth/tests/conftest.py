@@ -1,10 +1,10 @@
-import secrets
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 import httpx
 import pytest
 from fastapi import FastAPI
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
 
 from rastro.auth.domain.aggregates import Session, User
@@ -19,7 +19,6 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
-from rastro.auth.presentation.views import SESSION_COOKIE
 from rastro.settings import Settings
 
 
@@ -39,7 +38,9 @@ async def user(db_session: AsyncSession, password_hasher: PasswordHasher) -> Use
         id=await users.next_id(),
         email=Email("ana@example.com"),
         display_name=DisplayName("Ana"),
-        hashed_password=password_hasher.hash(password=RawPassword("password")),
+        hashed_password=password_hasher.hash(
+            password=RawPassword(SecretStr("password"))
+        ),
     )
     await users.add(user)
     await db_session.commit()
@@ -55,7 +56,7 @@ async def signed_in_client(
     csrf_token: str,
 ) -> AsyncIterator[httpx.AsyncClient]:
     # The Session goes straight into the repository, so no test pays for argon2.
-    token = SessionToken(secrets.token_urlsafe())
+    token = SessionToken.generate(nbytes=settings.session_token_bytes)
     sessions = SqlSessionRepository(db_session)
     await sessions.add(
         Session.start(
@@ -63,6 +64,7 @@ async def signed_in_client(
             user_id=user.id,
             token=token,
             at=datetime.now(UTC),
+            lifetime=settings.session_lifetime,
         )
     )
     await db_session.commit()
@@ -70,7 +72,10 @@ async def signed_in_client(
     async with httpx.AsyncClient(
         transport=transport,
         base_url="https://testserver",
-        cookies={SESSION_COOKIE: token.root, settings.csrf_cookie_name: csrf_token},
+        cookies={
+            settings.session_cookie_name: token.root.get_secret_value(),
+            settings.csrf_cookie_name: csrf_token,
+        },
         headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client
