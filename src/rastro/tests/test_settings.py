@@ -41,7 +41,7 @@ def test_env_example_loads(
 
     settings = Settings()
 
-    assert settings.postgres_url.get_secret_value().unicode_string() == (
+    assert str(settings.postgres_url.get_secret_value()) == (
         "postgresql+psycopg://postgres:postgres@localhost:5432/postgres"
     )
     assert settings.openapi_enabled is True

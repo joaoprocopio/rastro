@@ -80,7 +80,7 @@ async def user_get_current(
     user = await users.get_by_id(session.user_id)
     if user is None:
         # The foreign key deletes each Session with its User, so the User exists.
-        raise LookupError(f"No User with the id {session.user_id}.")
+        raise LookupError(f"No User with the id {session.user_id.root}.")
     return user_get_current_output_from_user(user)
 
 

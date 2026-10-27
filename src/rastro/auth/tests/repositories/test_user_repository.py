@@ -12,6 +12,7 @@ from rastro.auth.domain.aggregates import User
 from rastro.auth.domain.errors import EmailInUseError
 from rastro.auth.domain.value_objects import DisplayName, Email, HashedPassword
 from rastro.auth.infrastructure.repositories import SqlUserRepository
+from rastro.common.domain.value_objects import Id
 
 
 async def _ada(users: SqlUserRepository) -> User:
@@ -42,7 +43,7 @@ async def test_get_by_id_and_get_by_email_answer_none_for_an_unknown_user(
 ) -> None:
     users = SqlUserRepository(db_session)
 
-    assert await users.get_by_id(1) is None
+    assert await users.get_by_id(Id(1)) is None
     assert await users.get_by_email(Email("nobody@x.com")) is None
 
 
@@ -51,7 +52,10 @@ async def test_two_next_id_calls_return_two_different_ids(
 ) -> None:
     users = SqlUserRepository(db_session)
 
-    assert await users.next_id() != await users.next_id()
+    first, second = await users.next_id(), await users.next_id()
+
+    assert isinstance(first, Id)
+    assert first != second
 
 
 async def test_a_second_add_with_the_same_email_raises_email_in_use(
@@ -126,7 +130,24 @@ async def test_a_row_whose_email_breaks_its_value_object_fails_to_become_a_user(
     )
 
     with pytest.raises(pydantic.ValidationError):
-        await SqlUserRepository(db_session).get_by_id(1)
+        await SqlUserRepository(db_session).get_by_id(Id(1))
+
+
+async def test_a_row_with_the_id_0_fails_to_become_a_user(
+    db_session: AsyncSession,
+) -> None:
+    now = datetime.now(UTC)
+    await db_session.execute(
+        text(
+            "INSERT INTO auth_user"
+            " (id, email, display_name, hashed_password, created_at, updated_at)"
+            " VALUES (0, 'ana@x.com', 'Ana', 'fake$x', :now, :now)"
+        ),
+        {"now": now},
+    )
+
+    with pytest.raises(pydantic.ValidationError):
+        await SqlUserRepository(db_session).get_by_email(Email("ana@x.com"))
 
 
 async def test_add_leaves_created_at_and_updated_at_to_the_database(
@@ -143,7 +164,7 @@ async def test_add_leaves_created_at_and_updated_at_to_the_database(
             "SELECT created_at = now(), updated_at = now() FROM auth_user"
             " WHERE id = :id"
         ),
-        {"id": ada.id},
+        {"id": ada.id.root},
     )
     assert tuple(audit.one()) == (True, True)
 

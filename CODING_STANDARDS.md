@@ -62,7 +62,7 @@ An app creates a module when it has its first member. When a module grows too la
 
 Dependencies point inward. The domain imports no other layer, and the application imports only the domain. The infrastructure imports only the domain. The presentation imports the application and the domain, and only its `dependencies` module imports the infrastructure, to build adapters.
 
-`rastro/common/` holds the code that more than one app uses, in the same four layers: the bases in `domain`, `DTO` in `application`, `Row`, the engine factory, the module importer, and the repository helpers `next_id` and `existing_row` in `infrastructure`, and the problems, the CSRF check, and the database session and settings dependencies in `presentation`. `rastro.common.domain.schemas` holds `Schema` and `RootSchema`, the bases of the other bases. The `rastro` package itself holds only the wiring: `settings.py`, `app.py` (`create_app`), `main.py` (the process entry that `fastapi run` loads), `broker.py` (`create_broker`), `worker.py` (the process entry that `taskiq worker` loads), `telemetry.py`, and `migrations/`.
+`rastro/common/` holds the code that more than one app uses, in the same four layers: the bases and the shared value objects such as `Id` in `domain`, `DTO` in `application`, `Row`, the engine factory, the module importer, and the repository helpers `next_id` and `existing_row` in `infrastructure`, and the problems, the CSRF check, and the database session and settings dependencies in `presentation`. `rastro.common.domain.schemas` holds `Schema` and `RootSchema`, the bases of the other bases. The `rastro` package itself holds only the wiring: `settings.py`, `app.py` (`create_app`), `main.py` (the process entry that `fastapi run` loads), `broker.py` (`create_broker`), `worker.py` (the process entry that `taskiq worker` loads), `telemetry.py`, and `migrations/`.
 
 The test sample app in `rastro/common/tests/sample/` is the reference for the four layers. It holds the `Note` aggregate, the `Color` value object, the `NoteRepository` port, the use cases, `NoteRow`, its mappers, `SqlNoteRepository`, the views, and the tasks.
 
@@ -124,6 +124,10 @@ A rule that `StringConstraints` cannot express, for example NFKC normalization, 
 
 An edge parses a raw value with `<ValueObject>.model_validate(value)`, which accepts a raw string or a built value object, and a DTO field typed with a value object parses its JSON with no adapter code. Each value object is its own class, so mypy rejects a raw `str` or another value object in a use case argument.
 
+Every aggregate id is an `Id` from `rastro.common.domain.value_objects`, a `RootValueObject` over Pydantic's `PositiveInt`, so `User.id`, `Session.user_id`, and `Note.id` share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
+
+A value object equals only a value object of its own class, so `Id(1) == 1` is false. A test that compares an id with a column or a span attribute reads the `int` through `.root`.
+
 An enum is a `StrEnum` in the domain's `value_objects` module. A domain module imports only the standard library, `pydantic`, and other domain modules of rastro.
 
 ## The frontend never validates
@@ -163,9 +167,9 @@ A row is a plain SQLAlchemy 2 table with `Mapped` columns of primitive types, in
 
 A repository is an adapter class in the infrastructure's `repositories` module, one per aggregate, and its port lives in the domain's `ports` module. It receives the `AsyncSession` in its constructor, so the application layer never imports SQLAlchemy. Its methods follow Evans's names: `add`, `remove`, `update`, `get_by_id`, the other `get_by_*` lookups that use cases need, and `next_id`. A method takes the aggregate as its one positional argument, for example `notes.add(note)`.
 
-- `next_id` calls `next_id` from `rastro.common.infrastructure.repositories` with the row class. That function calls `nextval` on the sequence of the `id` column, so every aggregate has an `int` id from its creation. Postgres never returns one value to two sessions, and a rolled-back transaction leaves a gap.
+- `next_id` calls `next_id` from `rastro.common.infrastructure.repositories` with the column object as `column`, for example `next_id(db_session, column=NoteRow.id)`. That function reads the table and the column names from the column object, calls `nextval` on the sequence of that column, and returns an `Id`, so every aggregate has its id from its creation and a renamed column fails mypy. Postgres never returns one value to two sessions, and a rolled-back transaction leaves a gap.
 - `add` flushes, so that a constraint violation rises inside `add`.
-- `update` and `remove` load the row through `existing_row` from `rastro.common.infrastructure.repositories`, which raises `LookupError` when no row has the id. `merge` alone inserts a missing row, so `update` loads the row before it calls `merge`. The load reads the identity map when the use case read the aggregate in the same transaction.
+- `update` and `remove` load the row through `existing_row` from `rastro.common.infrastructure.repositories`, which receives an `Id` and raises `LookupError` when no row has the id. `merge` alone inserts a missing row, so `update` loads the row before it calls `merge`. The load reads the identity map when the use case read the aggregate in the same transaction.
 - `update` calls `merge` on the row that the mapper builds, and flushes. The mapper sets no audit column, so `merge` keeps `created_at` as stored, and `onupdate` sets `updated_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
@@ -177,7 +181,7 @@ A mapper from a row calls `model_validate` on each value object, because a row i
 
 ```python
 def note_from_row(row: NoteRow) -> Note:
-    return Note(id=row.id, color=Color.model_validate(row.color))
+    return Note(id=Id.model_validate(row.id), color=Color.model_validate(row.color))
 ```
 
 ### Migrate the rows with Alembic
@@ -401,7 +405,7 @@ Each layer has its own kind of test, and a test passes fakes as arguments or thr
 
 - **Domain tests** are pure and use no database and no fake. They check the normalization and rejection of each value object, with no input in the message of the `pydantic.ValidationError`, and each aggregate method. A domain method receives the time as a value, so the test passes a `datetime`.
 - **Use case tests** call each use case with the in-memory fakes of the app's tests package, for example `FakeNoteRepository` in `rastro/common/tests/fakes.py`, which holds its aggregates in a `dict` by id. A fake `update` raises `LookupError` for a missing id, as the real repository does. A use case test asserts the error class with `pytest.raises`.
-- **Repository tests** run each repository against the test database, inside the transaction that rolls back per test. They cover the mappers in both directions, `next_id`, the translation of a unique violation, the `LookupError` of `update` for a missing row, and a corrupted row that fails when it becomes an aggregate. A test reads back through a second session, so the first session's identity map hides nothing.
+- **Repository tests** run each repository against the test database, inside the transaction that rolls back per test. They cover the mappers in both directions, `next_id` and the `Id` that it returns, a row with the id `0`, the translation of a unique violation, the `LookupError` of `update` for a missing row, and a corrupted row that fails when it becomes an aggregate. A test reads back through a second session, so the first session's identity map hides nothing.
 - **View tests** cover the HTTP contract: status codes, bodies, headers, and cookies. A view test compares the literal JSON of each problem, because the literal is the contract that a client reads, and the view tests own the code of each rejection.
 - **Task tests** send the task through taskiq's in-memory broker and read its rows in the database.
 
