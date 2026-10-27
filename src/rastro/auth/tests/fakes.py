@@ -25,11 +25,11 @@ class FakePasswordHasher:
 
     def hash(self, *, password: RawPassword) -> HashedPassword:
         self.hashed.append(password)
-        return HashedPassword(f"{CURRENT_SCHEME}${password.root}")
+        return HashedPassword(f"{CURRENT_SCHEME}${password.root.get_secret_value()}")
 
     def verify(self, *, password: RawPassword, hashed: HashedPassword) -> bool:
         self.verified.append((password, hashed))
-        return hashed.root.partition("$")[2] == password.root
+        return hashed.root.partition("$")[2] == password.root.get_secret_value()
 
     def needs_rehash(self, *, hashed: HashedPassword) -> bool:
         return hashed.root.partition("$")[0] != CURRENT_SCHEME

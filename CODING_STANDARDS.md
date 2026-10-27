@@ -140,9 +140,10 @@ A use case is an `async def` function in the application's `use_cases` module, a
 
 - The name is `<entity>_<action>`, for example `user_register` or `note_create`.
 - The first argument is the Input DTO or value, when the operation has one. Every dependency follows as a required keyword-only argument typed with a port, so mypy finds every caller that a new dependency affects.
+- A configuration value follows the ports as a required keyword-only argument of its own type, for example `lifetime: timedelta` in `session_start`. The view reads the value from the settings and passes it, so the application and the domain never read `Settings`, and a test passes the value that it needs.
 - It returns an Output DTO, a value object, or nothing.
 - It reads the time from the `Clock` port and passes it to a domain method as a value, so a domain test passes a `datetime` and needs no fake clock.
-- It creates a random secret with `secrets` and returns it, for example the Session token of `session_start`. A port wraps only a source that a test must control, such as the clock, and a test reads a random value from the return value of the use case.
+- It creates a random secret with the `generate` method of the secret's value object and returns it, for example `SessionToken.generate(nbytes=token_bytes)` in `session_start`. A port wraps only a source that a test must control, such as the clock, and a test reads a random value from the return value of the use case.
 - It never calls `commit` or `rollback`, because the edge owns the transaction.
 - Every read goes through a use case and a repository that returns an aggregate, so a read has the same shape as a write.
 
@@ -200,7 +201,7 @@ async def note_create_view(
     await use_cases.note_create(notes=notes)
 ```
 
-An adapter that several apps use, for example an SMTP mailer, lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters and dependencies read `Settings`. A use case that needs a configuration value receives it through a port.
+An adapter that several apps use, for example an SMTP mailer, lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters, dependencies, and views read `Settings`. A use case that needs a configuration value receives it as a keyword-only argument, as the section on use cases states.
 
 
 ## Write views
@@ -235,19 +236,19 @@ The dependency reads `request.cookies` and returns a value object, or `None` whe
 
 A Session lives in the `auth_session` table, with `id`, `user_id`, `token_hash`, `created_at`, `updated_at`, and `expires_at`. The `Session` aggregate holds `id`, `user_id`, `token_hash`, and `expires_at`, and its rules read only these fields:
 
-- `Session.start(id=..., user_id=..., token=..., at=...)` stores `token.digest()`, the SHA-256 digest of the token as a `SessionTokenHash`, and sets `expires_at` to `SESSION_LIFETIME` after `at`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
-- `session.is_active(at=...)` answers whether `at` is before `expires_at`. A Session ends `SESSION_LIFETIME` after it starts, 14 days from `rastro/auth/domain/aggregates.py`, with no renewal on use.
+- `Session.start(id=..., user_id=..., token=..., at=..., lifetime=...)` stores `token.digest()`, the SHA-256 digest of the token as a `SessionTokenHash`, and sets `expires_at` to `at + lifetime`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
+- `session.is_active(at=...)` answers whether `at` is before `expires_at`. A Session ends one `RASTRO_SESSION_LIFETIME` after it starts, 14 days by default, with no renewal on use.
 - `User.verify_password(password, hasher=...)` returns `PasswordCheck(is_correct, needs_rehash)`. It calls only `verify` and `needs_rehash` on the hasher, and the use case decides the effect.
 
 `User.verify_password` types its `hasher` with the `PasswordHasher` port, and the ports module imports the aggregates, so `aggregates.py` imports the port under `if TYPE_CHECKING:`. Python 3.15 evaluates an annotation only when code reads it, and no code reads the annotations of a method at run time.
 
 The use cases read the time from the `Clock` port:
 
-- `session_start` gets the User by email and verifies the Credentials through `verify_password`. When `needs_rehash` is true, it assigns a new hash and calls `users.update`. It creates a Session token with `secrets.token_urlsafe(SESSION_TOKEN_BYTES)`, 32 random bytes, adds the Session, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
+- `session_start` gets the User by email and verifies the Credentials through `verify_password`. When `needs_rehash` is true, it assigns a new hash and calls `users.update`. It creates a Session token with `SessionToken.generate(nbytes=token_bytes)`, adds a Session that ends `lifetime` after `clock.now()`, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
 - For an unknown email, `session_start` verifies the password against `PasswordHasher.fixed_hash`, an argon2 hash of a random password, so the response takes as long as a wrong password. An unknown email and a wrong password raise the same `IncorrectCredentialsError`.
 - `user_get_current` and `session_end` raise `NotAuthenticatedError` with no token, with a token that no Session holds, and when `clock.now()` reaches `expires_at`. Otherwise `user_get_current` returns the User of the Session as `UserGetCurrentOutput`, and `session_end` removes the Session.
 
-`session_start_view` sets the token that the use case returns in the `rastro_session` cookie, which is `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of `SESSION_LIFETIME`. `session_end_view` deletes the cookie when the use case succeeds.
+`session_start_view` reads `AppSettings` and passes `session_lifetime` and `session_token_bytes` to `session_start`. It sets the token in the cookie named `session_cookie_name`, with the `HttpOnly`, `Secure`, and `SameSite` flags of the settings and a `Max-Age` of the lifetime. Under the defaults, the cookie is `rastro_session`, `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of 14 days. `session_end_view` deletes the cookie with the same name and flags when the use case succeeds, and `CurrentSessionToken` reads the cookie by the same name.
 
 ## Reject cross-site requests with a CSRF token
 

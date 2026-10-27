@@ -16,9 +16,6 @@ from rastro.common.domain.value_objects import Id
 if TYPE_CHECKING:
     from rastro.auth.domain.ports import PasswordHasher
 
-# A Session ends this long after it starts, with no renewal on use.
-SESSION_LIFETIME = timedelta(days=14)
-
 
 class PasswordCheck(NamedTuple):
     is_correct: bool
@@ -47,12 +44,20 @@ class Session(Aggregate):
     expires_at: datetime
 
     @classmethod
-    def start(cls, *, id: Id, user_id: Id, token: SessionToken, at: datetime) -> Self:
+    def start(
+        cls,
+        *,
+        id: Id,
+        user_id: Id,
+        token: SessionToken,
+        at: datetime,
+        lifetime: timedelta,
+    ) -> Self:
         return cls(
             id=id,
             user_id=user_id,
             token_hash=token.digest(),
-            expires_at=at + SESSION_LIFETIME,
+            expires_at=at + lifetime,
         )
 
     def is_active(self, *, at: datetime) -> bool:

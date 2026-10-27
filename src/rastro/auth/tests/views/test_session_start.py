@@ -13,6 +13,7 @@ from rastro.auth.domain.value_objects import HashedPassword
 from rastro.auth.infrastructure.models import SessionRow
 from rastro.auth.infrastructure.repositories import SqlUserRepository
 from rastro.common.presentation.views import CSRF_HEADER
+from rastro.settings import Settings
 
 PATH = "/api/v1/auth/session/start"
 CREDENTIALS = {"email": "ana@example.com", "password": "password"}
@@ -58,6 +59,20 @@ async def test_a_session_ends_a_fixed_time_after_it_starts(
     lifetime = timedelta(days=14)
     assert before + lifetime <= session.expires_at <= after + lifetime
     assert "Max-Age=1209600" in response.headers["Set-Cookie"]
+
+
+async def test_the_session_cookie_takes_its_name_lifetime_and_flags_from_the_settings(
+    client: httpx.AsyncClient, user: User, other_session_cookie: Settings
+) -> None:
+    response = await client.post(PATH, json=CREDENTIALS)
+
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    cookie = response.headers["Set-Cookie"]
+    assert cookie.startswith("other_session=")
+    assert "Max-Age=3600" in cookie
+    assert "HttpOnly" not in cookie
+    assert "Secure" not in cookie
+    assert "SameSite=strict" in cookie
 
 
 async def test_an_unknown_email_and_a_wrong_password_answer_the_same_problem(

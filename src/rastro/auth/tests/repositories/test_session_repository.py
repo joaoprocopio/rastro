@@ -1,10 +1,11 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from opentelemetry import trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from rastro.auth.domain.aggregates import Session, User
@@ -13,7 +14,7 @@ from rastro.auth.infrastructure.repositories import SqlSessionRepository
 from rastro.common.domain.value_objects import Id
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-TOKEN = SessionToken("token")
+TOKEN = SessionToken(SecretStr("token"))
 
 
 @pytest.fixture
@@ -25,7 +26,11 @@ def sessions(db_session: AsyncSession) -> SqlSessionRepository:
 async def session(sessions: SqlSessionRepository, user: User) -> Session:
     """A Session of `user` for `TOKEN`, which the test has not added yet."""
     return Session.start(
-        id=await sessions.next_id(), user_id=user.id, token=TOKEN, at=START
+        id=await sessions.next_id(),
+        user_id=user.id,
+        token=TOKEN,
+        at=START,
+        lifetime=timedelta(days=14),
     )
 
 
@@ -64,7 +69,7 @@ async def test_update_writes_every_field_of_the_session(
     sessionmaker: async_sessionmaker[AsyncSession],
 ) -> None:
     await sessions.add(session)
-    session.token_hash = SessionToken("other").digest()
+    session.token_hash = SessionToken(SecretStr("other")).digest()
     session.expires_at = datetime(2026, 2, 1, tzinfo=UTC)
 
     await sessions.update(session)

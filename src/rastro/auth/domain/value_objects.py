@@ -1,8 +1,9 @@
 import hashlib
+import secrets
 import unicodedata
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BeforeValidator, StringConstraints
+from pydantic import BeforeValidator, SecretStr, StringConstraints
 
 from rastro.common.domain.value_objects import RootValueObject
 
@@ -10,7 +11,6 @@ EMAIL_PATTERN = r"^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$"
 EMAIL_MAX_LENGTH = 254
 DISPLAY_NAME_MAX_LENGTH = 320
 RAW_PASSWORD_MIN_LENGTH = 8
-SESSION_TOKEN_BYTES = 32
 
 
 def _nfkc(value: object) -> object:
@@ -49,7 +49,7 @@ class DisplayName(
 
 class RawPassword(
     RootValueObject[
-        Annotated[str, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]
+        Annotated[SecretStr, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]
     ]
 ):
     pass
@@ -64,6 +64,11 @@ class SessionTokenHash(RootValueObject[bytes]):
     pass
 
 
-class SessionToken(RootValueObject[str]):
+class SessionToken(RootValueObject[SecretStr]):
+    @classmethod
+    def generate(cls, *, nbytes: int) -> Self:
+        return cls(SecretStr(secrets.token_urlsafe(nbytes)))
+
     def digest(self) -> SessionTokenHash:
-        return SessionTokenHash(hashlib.sha256(self.root.encode()).digest())
+        value = self.root.get_secret_value().encode()
+        return SessionTokenHash(hashlib.sha256(value).digest())

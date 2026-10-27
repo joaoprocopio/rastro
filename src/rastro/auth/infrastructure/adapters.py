@@ -18,12 +18,14 @@ class Argon2PasswordHasher:
         return self._fixed_hash
 
     def hash(self, *, password: RawPassword) -> HashedPassword:
-        return HashedPassword.model_validate(self._hasher.hash(password.root))
+        return HashedPassword.model_validate(
+            self._hasher.hash(password.root.get_secret_value())
+        )
 
     def verify(self, *, password: RawPassword, hashed: HashedPassword) -> bool:
         # Any other argon2 error means a corrupted hash, so it answers 500.
         try:
-            return self._hasher.verify(hashed.root, password.root)
+            return self._hasher.verify(hashed.root, password.root.get_secret_value())
         except argon2.exceptions.VerifyMismatchError:
             return False
 
