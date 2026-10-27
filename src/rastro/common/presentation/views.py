@@ -2,30 +2,33 @@ import secrets
 
 from fastapi import Request, Response
 
+from rastro.common.domain.value_objects import CsrfToken
+from rastro.common.presentation.dependencies import AppSettings
 from rastro.common.presentation.errors import CsrfFailedError
+from rastro.settings import Settings
 
-CSRF_COOKIE = "rastro_csrf"
-CSRF_HEADER = "X-CSRF-Token"
-CSRF_TOKEN_BYTES = 32
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
-def csrf_cookie_set(response: Response) -> None:
-    # Scripts read the token to send it back, so the cookie is not HttpOnly.
+def csrf_cookie_set(response: Response, *, settings: Settings) -> None:
+    token = CsrfToken.generate(nbytes=settings.csrf_token_bytes)
     response.set_cookie(
-        CSRF_COOKIE,
-        secrets.token_urlsafe(CSRF_TOKEN_BYTES),
-        secure=True,
-        samesite="lax",
+        settings.csrf_cookie_name,
+        token.root.get_secret_value(),
+        secure=settings.csrf_cookie_secure,
+        httponly=settings.csrf_cookie_httponly,
+        samesite=settings.csrf_cookie_samesite,
     )
 
 
-def csrf_check(request: Request) -> None:
+def csrf_check(request: Request, settings: AppSettings) -> None:
     if request.method in SAFE_METHODS:
         return
-    cookie = request.cookies.get(CSRF_COOKIE)
-    header = request.headers.get(CSRF_HEADER)
+    cookie = request.cookies.get(settings.csrf_cookie_name)
+    header = request.headers.get(settings.csrf_header_name)
     if not cookie or header is None:
         raise CsrfFailedError()
-    if not secrets.compare_digest(cookie.encode(), header.encode()):
+    expected = CsrfToken.model_validate(cookie).root.get_secret_value()
+    sent = CsrfToken.model_validate(header).root.get_secret_value()
+    if not secrets.compare_digest(expected.encode(), sent.encode()):
         raise CsrfFailedError()

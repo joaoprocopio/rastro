@@ -12,7 +12,6 @@ from rastro.auth.domain.aggregates import User
 from rastro.auth.domain.value_objects import HashedPassword
 from rastro.auth.infrastructure.models import SessionRow
 from rastro.auth.infrastructure.repositories import SqlUserRepository
-from rastro.common.presentation.views import CSRF_HEADER
 from rastro.settings import Settings
 
 PATH = "/api/v1/auth/session/start"
@@ -128,7 +127,7 @@ async def test_a_second_sign_in_starts_a_second_session(
 async def test_a_sign_in_without_the_csrf_token_starts_no_session(
     client: httpx.AsyncClient, user: User
 ) -> None:
-    del client.headers[CSRF_HEADER]
+    del client.headers["X-CSRF-Token"]
 
     response = await client.post(PATH, json=CREDENTIALS)
 

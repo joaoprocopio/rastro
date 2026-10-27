@@ -19,7 +19,6 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
-from rastro.common.presentation.views import CSRF_COOKIE, CSRF_HEADER
 from rastro.settings import Settings
 
 
@@ -51,10 +50,10 @@ async def user(db_session: AsyncSession, password_hasher: PasswordHasher) -> Use
 @pytest.fixture
 async def signed_in_client(
     app: FastAPI,
+    settings: Settings,
     db_session: AsyncSession,
     user: User,
     csrf_token: str,
-    settings: Settings,
 ) -> AsyncIterator[httpx.AsyncClient]:
     # The Session goes straight into the repository, so no test pays for argon2.
     token = SessionToken.generate(nbytes=settings.session_token_bytes)
@@ -75,8 +74,8 @@ async def signed_in_client(
         base_url="https://testserver",
         cookies={
             settings.session_cookie_name: token.root.get_secret_value(),
-            CSRF_COOKIE: csrf_token,
+            settings.csrf_cookie_name: csrf_token,
         },
-        headers={CSRF_HEADER: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client

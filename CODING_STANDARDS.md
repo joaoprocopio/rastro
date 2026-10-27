@@ -126,6 +126,8 @@ An edge parses a raw value with `<ValueObject>.model_validate(value)`, which acc
 
 Every aggregate id is an `Id` from `rastro.common.domain.value_objects`, a `RootValueObject` over Pydantic's `PositiveInt`, so `User.id`, `Session.user_id`, and `Note.id` share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
 
+A value object that holds a secret wraps a Pydantic `SecretStr`, so `repr` shows `**********` and a log line or a traceback never shows the secret. A secret is a value that lets its holder act: `RawPassword` and `SessionToken` in `rastro.auth.domain.value_objects`, and `CsrfToken` in `rastro.common.domain.value_objects`. Code reads the secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two values. A test builds a secret with `RawPassword(SecretStr("password"))`, because mypy types the constructor with the root type. `Email` and `DisplayName` stay plain, because a response sends them, and a `SecretStr` would send asterisks. A digest or a hash, for example `HashedPassword`, stays plain, because it lets no one act. A token value object has no format rule and builds a new token with `generate(nbytes=...)`, so a header or a cookie always parses, and a wrong token fails the check that compares it.
+
 A value object equals only a value object of its own class, so `Id(1) == 1` is false. A test that compares an id with a column reads the `int` through `.root`.
 
 An enum is a `StrEnum` in the domain's `value_objects` module. A domain module imports only the standard library, `pydantic`, and other domain modules of rastro.
@@ -252,9 +254,9 @@ The use cases read the time from the `Clock` port:
 
 ## Reject cross-site requests with a CSRF token
 
-rastro checks a double-submit cookie on every request that changes state, so another site cannot act as a User. `GET /api/v1/auth/csrf` answers `204` and sets a new random token, 32 bytes from `secrets.token_urlsafe`, in the `rastro_csrf` cookie on each call. The cookie is `Secure` and `SameSite=Lax` with no `Max-Age`, and it is not `HttpOnly`, because the frontend reads it and sends it back in the `X-CSRF-Token` header.
+rastro checks a double-submit cookie on every request that changes state, so another site cannot act as a User. `GET /api/v1/auth/csrf` answers `204` and sets a new `CsrfToken.generate(nbytes=settings.csrf_token_bytes)` in the CSRF cookie on each call. Under the default settings, the token has 32 random bytes, and the `rastro_csrf` cookie is `Secure` and `SameSite=Lax` with no `Max-Age`. The cookie is not `HttpOnly`, because the frontend reads it and sends it back in the `X-CSRF-Token` header.
 
-`csrf_check` in `rastro/common/presentation/views.py` runs on every method that is not `GET`, `HEAD`, or `OPTIONS`, including `register` and `session/start`. It raises `CsrfFailedError`, which answers `request.csrf_failed` with `403`, when the cookie is absent or empty, when the header is absent, or when the two differ. It compares the bytes with `secrets.compare_digest`. Each views module declares the check on its router, so a new app cannot forget it:
+`csrf_check` in `rastro/common/presentation/views.py` runs on every method that is not `GET`, `HEAD`, or `OPTIONS`, including `register` and `session/start`. It reads the cookie name and the header name from `AppSettings`, and parses the cookie and the header into `CsrfToken`. It raises `CsrfFailedError`, which answers `request.csrf_failed` with `403`, when the cookie is absent or empty, when the header is absent, or when the two differ. It compares the secret values with `secrets.compare_digest`. Each views module declares the check on its router, so a new app cannot forget it:
 
 ```python
 router = APIRouter(dependencies=[Depends(csrf_check)])
@@ -394,6 +396,8 @@ The `match` reads `ctx` only in the two length cases. No item shows the input va
 
 `RASTRO_SESSION_LIFETIME` reads an ISO 8601 duration, such as `P14D`, or a number of seconds. Each `SameSite` setting accepts only `lax`, `strict`, or `none`.
 
+A setting holds every value that an operator may change, for example a cookie name, a cookie flag, a header name, or a token size, so the operator changes it with no change to the code. A value that a standard fixes stays a constant, for example `SAFE_METHODS`, which the HTTP specification defines.
+
 `.env.example` lists every variable with its local value, and a settings test fails when a variable is missing from it. A new setting needs a field with a default and a line in `.env.example`. `compose.yaml` sets the values of the stack. Run a local command with the local values through `uv run --env-file .env.example`.
 
 `create_app` stores the settings on `app.state`, and the `AppSettings` alias in `rastro.common.presentation.dependencies` returns them to a view or a dependency. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
@@ -424,7 +428,7 @@ Tests run with `anyio` in auto mode, so an `async def` test needs no marker. The
 - `app` builds the app with the `sessionmaker` and the `broker`, and registers an `app.dependency_overrides` entry for every process-wide adapter, so no test runs a real one by accident. The `password_hasher` and `clock` factories return the fixtures of the same names. The repositories stay real. The `engine`, the `broker`, and the `app` go through the instrumentations of `rastro/telemetry.py`, so every test runs the production wiring.
 - `spans` is an `InMemorySpanExporter`, emptied at the start of the test, that receives every span the test produces. The session fixture `span_exporter` sets it on the global tracer provider, because a process sets that provider once.
 - `csrf_token` is a random CSRF token.
-- `client` is an `httpx.AsyncClient` with `ASGITransport` against `app`, with the base URL `https://testserver`. It sends `csrf_token` in the `rastro_csrf` cookie and the `X-CSRF-Token` header, so a test that posts passes the CSRF check. A CSRF test deletes the header or the cookie from the client. A test of a `500` builds its own transport with `raise_app_exceptions=False`.
+- `client` is an `httpx.AsyncClient` with `ASGITransport` against `app`, with the base URL `https://testserver`. It sends `csrf_token` in the CSRF cookie and the CSRF header that `settings` names, so a test that posts passes the CSRF check. A CSRF test deletes the header or the cookie from the client. A test of a `500` builds its own transport with `raise_app_exceptions=False`.
 
 The `auth` test package has these fixtures in `rastro/auth/tests/conftest.py`:
 

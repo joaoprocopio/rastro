@@ -111,5 +111,5 @@ async def session_end_view(
 
 
 @router.get("/csrf", status_code=HTTPStatus.NO_CONTENT)
-async def csrf_set_view(response: Response) -> None:
-    csrf_cookie_set(response)
+async def csrf_set_view(response: Response, settings: AppSettings) -> None:
+    csrf_cookie_set(response, settings=settings)

@@ -8,12 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession, async_sessionm
 
 from rastro.app import ERROR_STATUSES
 from rastro.common.presentation.problems import install_problem_handlers
-from rastro.common.presentation.views import CSRF_COOKIE, CSRF_HEADER
 from rastro.common.tests.sample.infrastructure.models import NoteRow, SampleRow
 from rastro.common.tests.sample.presentation.views import (
     ERROR_STATUSES as SAMPLE_ERROR_STATUSES,
 )
 from rastro.common.tests.sample.presentation.views import router
+from rastro.settings import Settings
 
 
 @pytest.fixture
@@ -48,14 +48,14 @@ def sample_app(app: FastAPI, sample_tables: None) -> FastAPI:
 
 @pytest.fixture
 async def sample_client(
-    sample_app: FastAPI, csrf_token: str
+    sample_app: FastAPI, settings: Settings, csrf_token: str
 ) -> AsyncIterator[httpx.AsyncClient]:
     # The 500 handler sends its response and then raises the exception again.
     transport = httpx.ASGITransport(app=sample_app, raise_app_exceptions=False)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="https://testserver",
-        cookies={CSRF_COOKIE: csrf_token},
-        headers={CSRF_HEADER: csrf_token},
+        cookies={settings.csrf_cookie_name: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client
