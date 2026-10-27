@@ -15,7 +15,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
-from pydantic import PostgresDsn
+from pydantic import PostgresDsn, Secret
 from sqlalchemy import Connection, NullPool, make_url, text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -47,11 +47,11 @@ def settings() -> Settings:
     # A variable in the environment overrides the local value of .env.example.
     local = Settings(_env_file=ROOT / ".env.example")
     # Each run owns its database, so parallel runs can share one Postgres server.
-    url = make_url(str(local.postgres_url)).set(
+    url = make_url(str(local.postgres_url.get_secret_value())).set(
         database=f"rastro_test_{uuid.uuid4().hex}"
     )
     # str() of a URL masks the password, so the copy renders it in full.
-    postgres_url = PostgresDsn(url.render_as_string(hide_password=False))
+    postgres_url = Secret(PostgresDsn(url.render_as_string(hide_password=False)))
     return local.model_copy(update={"postgres_url": postgres_url})
 
 
@@ -79,7 +79,7 @@ def _migrate(connection: Connection) -> None:
 
 @pytest.fixture(scope="session")
 async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
-    url = make_url(str(settings.postgres_url))
+    url = make_url(str(settings.postgres_url.get_secret_value()))
     server = create_async_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
