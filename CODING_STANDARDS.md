@@ -2,7 +2,7 @@
 
 These rules define how rastro code is structured. Other projects copy rastro's patterns, so every change follows these rules, and a change that breaks a rule on purpose updates this file in the same commit.
 
-Use the domain terms from `GLOSSARY.md` in code, tests, and docs. ADR 0001 records why rastro builds on FastAPI, SQLAlchemy 2, and taskiq, in four layers joined by hand-written mappers.
+Use the domain terms from `GLOSSARY.md` in code, tests, and docs. ADR 0001 records why rastro builds on FastAPI, SQLAlchemy 2, and taskiq, in four layers joined by hand-written mappers. The rules below apply ports and adapters, the tactical patterns of domain-driven design (aggregates, value objects, and repositories), and Fowler's Data Mapper.
 
 ## Validate at the edge, trust the core
 
@@ -103,7 +103,7 @@ Every Pydantic class in rastro subclasses a base of its kind, so it inherits one
 
 Each kind subclasses one of them:
 
-- `Aggregate` in `rastro.common.domain.aggregates` subclasses `Schema` with `frozen` off and `validate_assignment` on. A use case changes a field by assignment, and `note.id = "2"` raises `ValidationError` at once. An aggregate method exists only when a change protects a rule across fields. `Aggregate` overrides no equality, so two aggregates are equal when every field is equal.
+- `Aggregate` in `rastro.common.domain.aggregates` subclasses `Schema` with `frozen` off and `validate_assignment` on. A use case changes a field by assignment, and `note.id = "2"` raises `ValidationError` at once. An aggregate method exists only when a change protects a rule across fields. `Aggregate` overrides no equality, so two aggregates are equal when every field is equal. An aggregate refers to another aggregate only by its `Id`, for example `Session.user_id`, so a repository loads and writes one aggregate at a time.
 - `ValueObject` in `rastro.common.domain.value_objects` subclasses `Schema`, for a value object with several fields. Value objects stay frozen, so a value never changes under a reader.
 - `RootValueObject[T]` in `rastro.common.domain.value_objects` subclasses `RootSchema[T]`, for a value object with one value.
 - `DTO` in `rastro.common.application.dtos` subclasses `Schema`. It is the kind for every Input and Output of a use case, for the extensions of a request error, and for `Problem`.
@@ -171,6 +171,8 @@ async def note_create(*, notes: NoteRepository) -> None:
 A long parameter list is acceptable. Dependencies are never grouped into a bundle object, so the signature of each use case shows every dependency it uses.
 
 A step that several use cases share is a private function of the same module, whose name starts with `_`, for example `_active_session` for `session_get` and `session_end`. The architecture test of the use cases skips a private function, and a test reaches it only through the public use cases.
+
+An operation runs as one chain of calls: the view or the task calls the use case, and the use case calls its ports and returns its result. rastro has no separate read model, no domain event, and no command bus or mediator, so a reader follows each operation from the view to the repository through plain function calls.
 
 A port describes the business operation as it is today, not a provider that may come later. When a swap changes the flow, for example from a password check to an OpenID Connect provider such as Keycloak, the port changes with it, and an ADR records the change. Telemetry is not a port: application code uses the OpenTelemetry API, which already separates the API from the SDK.
 
