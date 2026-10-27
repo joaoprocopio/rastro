@@ -12,7 +12,7 @@ The `migrate` service runs the Alembic migrations. Then the API answers on `http
 
 ## Run the API locally
 
-`.env.example` holds the local value of every setting, and every setting is required:
+`.env.example` holds the local value of every setting. Only `RASTRO_POSTGRES_URL` has no default:
 
 ```shell
 docker compose up -d --wait postgres
@@ -38,4 +38,10 @@ uv run ruff format --check .
 uv run mypy .
 uv run lint-imports
 uv run pytest
+```
+
+`scripts/smoke.sh` builds the compose stack against a new database, calls every route of `/api/v1/auth/`, and then removes the database and the containers that it started. Run it when a change touches the compose file, the dockerfile, the migrations, or the settings. It needs port 8000 free:
+
+```shell
+./scripts/smoke.sh
 ```
