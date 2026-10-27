@@ -6,7 +6,7 @@ Add `Id` to the common domain's `value_objects` module. Type `User.id`, `Session
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] A domain test shows that `Id` rejects `0`, `-1`, `"1"`, and `True`, and accepts `1`.
 - [x] A repository test against Postgres shows that `next_id` returns an `Id`, and that two calls return two different ids.

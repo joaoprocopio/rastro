@@ -1,6 +1,6 @@
 # Apply the maintainer's review of the layered architecture
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 

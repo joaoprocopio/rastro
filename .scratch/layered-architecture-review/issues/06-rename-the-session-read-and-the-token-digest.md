@@ -6,13 +6,13 @@ Rename the use case, its Output DTO, its view, and its mapper as the spec lists.
 
 **Blocked by:** 03, 04, 05
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Every HTTP test passes with an unchanged assertion, and the JSON of `GET /api/v1/auth/session` does not change.
-- [ ] The migration test passes, and the `auth_session` table has a `hashed_token` column and no `token_hash` column.
-- [ ] A search of the source and the documentation for `user_get_current`, `UserGetCurrentOutput`, `SessionTokenHash`, and `token_hash` finds nothing.
-- [ ] `CODING_STANDARDS.md` states that an application mapper takes the name of its Output DTO, for example `session_get_output`.
-- [ ] Every check in the README passes.
+- [x] Every HTTP test passes with an unchanged assertion, and the JSON of `GET /api/v1/auth/session` does not change.
+- [x] The migration test passes, and the `auth_session` table has a `hashed_token` column and no `token_hash` column.
+- [x] A search of the source and the documentation for `user_get_current`, `UserGetCurrentOutput`, `SessionTokenHash`, and `token_hash` finds nothing.
+- [x] `CODING_STANDARDS.md` states that an application mapper takes the name of its Output DTO, for example `session_get_output`.
+- [x] Every check in the README passes.
 
 ## Comments
 

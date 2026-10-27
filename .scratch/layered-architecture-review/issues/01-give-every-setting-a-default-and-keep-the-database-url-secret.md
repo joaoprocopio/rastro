@@ -6,7 +6,7 @@ Declare every new setting with the default from the spec's table, and give the e
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] With only `RASTRO_POSTGRES_URL` set, the settings load, and each other setting equals its default from the spec.
 - [x] Without `RASTRO_POSTGRES_URL`, the process stops at startup, and the error names `RASTRO_POSTGRES_URL` and shows no value.
@@ -15,7 +15,7 @@ Declare every new setting with the default from the spec's table, and give the e
 - [x] Without `RASTRO_OPENAPI_ENABLED`, `GET /openapi.json` answers `404`.
 - [x] The settings dependency returns the settings that `create_app` received.
 - [x] `.env.example` lists every variable with its value.
-- [ ] `docker compose up` serves the app and the worker.
+- [x] `docker compose up` serves the app and the worker.
 - [x] Every check in the README passes.
 
 ## Comments
@@ -29,3 +29,7 @@ Declare every new setting with the default from the spec's table, and give the e
 - **The value of `RASTRO_DEPLOYMENT_ID` in `.env.example`.** It keeps `2f92ca37`, and `.env.example` writes the lifetime as `P14D` and the flags as `1` and `0`, like `RASTRO_OPENAPI_ENABLED`. Rejected: the default `local`, because the line already existed and the spec changes only the code default.
 - **The test that `.env.example` lists every variable.** `test_env_example_lists_every_variable` compares the names in `.env.example` with the aliases of `Settings.model_fields`, so a new field without a line fails. The parametrized test of every required variable goes away, and `test_every_setting_but_the_postgres_url_has_a_default` replaces it. Rejected: a test per variable that deletes it, because a deleted variable now takes its default.
 - **The compose acceptance criterion.** The agent did not run `docker compose up`. It ran `uvicorn rastro.main:app` and `taskiq worker rastro.worker:broker -w 1` with only `RASTRO_POSTGRES_URL` set: both started, `GET /openapi.json` answered `404`, and `GET /api/v1/auth/csrf` set the `rastro_csrf` cookie with `Secure` and `SameSite=lax`. `compose.yaml` keeps every value it set, so its services read the same settings as before.
+
+### Compose check
+
+`docker compose up --build` against the shared `postgres` database stopped in `migrate` with `Can't locate revision identified by '23f46a63b6b5'`. That database holds a revision that commit `d39ea2f` deleted, so the failure predates this ticket. Against a fresh database, `migrate` exited `0`, the API and the worker started, `GET /openapi.json` answered `404`, and register, `session/start`, `GET /session`, and `session/end` answered as the HTTP tests expect, with the default cookie names and flags.

@@ -6,7 +6,7 @@ Give `RawPassword` and `SessionToken` a `SecretStr` root, and add `SessionToken.
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Under the default settings, every Session HTTP test passes with an unchanged assertion.
 - [x] An HTTP test that overrides the settings with another cookie name, a lifetime of one hour, `secure=false`, and `samesite=strict` sees `session/start` set the cookie with that name, a `max_age` of `3600`, and those flags, and sees `session/end` delete the cookie with that name.

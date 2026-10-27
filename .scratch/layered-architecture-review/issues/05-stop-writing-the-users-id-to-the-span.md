@@ -6,12 +6,12 @@ Remove the helpers of the Session repository that write `user.id`, and the test 
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] A signed-in request to `GET /api/v1/auth/session` still produces its request span and its query spans, and no span holds the User's email.
-- [ ] The Session repository imports no OpenTelemetry module.
-- [ ] `CODING_STANDARDS.md` describes no `user.id` attribute and keeps the rule against personal data in a span.
-- [ ] Every check in the README passes.
+- [x] A signed-in request to `GET /api/v1/auth/session` still produces its request span and its query spans, and no span holds the User's email.
+- [x] The Session repository imports no OpenTelemetry module.
+- [x] `CODING_STANDARDS.md` describes no `user.id` attribute and keeps the rule against personal data in a span.
+- [x] Every check in the README passes.
 
 ## Comments
 

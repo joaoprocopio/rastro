@@ -6,13 +6,13 @@ Add `CsrfToken` to the common domain's `value_objects` module, with `generate(nb
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Under the default settings, every CSRF HTTP test passes with an unchanged assertion.
 - [x] An HTTP test that overrides the settings with another cookie name, another header name, `secure=false`, `httponly=true`, and `samesite=strict` sees `GET /api/v1/auth/csrf` set the cookie with that name and those flags, and a `POST` that sends the token in that header passes the check.
 - [x] A request with a malformed or missing CSRF header answers `{"type": "request.csrf_failed", "status": 403}`.
 - [x] A domain test shows that `CsrfToken.generate(nbytes=16)` returns a token of 22 characters, and that `repr` of a `CsrfToken` shows `**********`.
-- [ ] Every check in the README passes.
+- [x] Every check in the README passes.
 
 ## Comments
 
