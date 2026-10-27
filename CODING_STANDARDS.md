@@ -31,6 +31,8 @@ These rules follow from the split:
 
 Application code holds no fallback value for a state that it does not expect: no `or ""`, no `.get(key, {})`, and no `getattr(obj, name, None)` for an attribute that must exist. The code raises, and the error reaches the observability platform as a `500`. For example, the `405` handler raises when Starlette's exception has no `Allow` header, in place of an answer with an empty header, and the problem handlers raise when an error class has no row in the error-to-status table. A default stays only where the absence is a valid state. An optional field of a DTO is one example. A setting is another, because an operator who sets no variable runs with today's local value, so every setting has a default except `RASTRO_POSTGRES_URL`, which "Configure settings" keeps required.
 
+A state that the code does not expect raises a built-in exception whose message is a sentence that names the value, for example `LookupError(f"No User with the id {id.root}.")` in `existing_row`, or `RuntimeError("nextval returned no row.")` in `next_id`. It never raises a `BaseError`, because a `BaseError` is a rule that a client can break, and a broken invariant is a bug that answers `500`. Application code narrows a type with `if ... is None: raise`, never with `assert`, so the check stays when Python runs with `-O`. A test narrows with `assert`.
+
 ## Lay out an app in four layers
 
 Each app is one context, and its package name is its app label, for example `auth`. An app has four layer packages with fixed module names, so a reader finds a concept in any app at the same place:
@@ -75,7 +77,13 @@ Every piece of code takes one of four forms, so a reader can tell what a class d
 - **An adapter** is a class that implements a port and holds configuration or a resource, which it receives once, in its constructor. A repository receives the `AsyncSession`. A fake is an adapter class in the app's tests package.
 - **Everything else is a function**: a use case, a mapper, a view, a FastAPI dependency, and a task.
 
-A data type is always a class, never a module-level `Annotated` or `Literal` alias, because mypy cannot tell two aliases of one type apart and accepts a plain value for either. A constraint goes inside the class, for example `class TokenBytes(RootValueObject[Annotated[int, Field(ge=16, strict=False)]])`, and a fixed set of texts is a `StrEnum`. The one module-level alias is the FastAPI dependency alias, such as `DatabaseSession = Annotated[AsyncSession, Depends(...)]`, because FastAPI reads `Depends` only inside `Annotated`.
+An adapter takes the name of its technology and its port, for example `SqlUserRepository`, `Argon2PasswordHasher`, and `SystemClock`, and a fake takes the name `Fake<Port>`, for example `FakeClock`. An adapter keeps its state in private attributes, such as `self._db_session`. A fake keeps its state in public attributes, such as `users.users` and `password_hasher.hashed`, so a test reads what the use case wrote.
+
+A class whose construction follows a rule declares a classmethod named after the act, which receives every argument by keyword: `Session.start(...)` computes `expires_at` and the digest, `SessionToken.generate(nbytes=...)` and `CsrfToken.generate(nbytes=...)` create a random secret, and `Problem.from_error(...)` and `ValidationItem.from_error(...)` copy an error. The caller then never repeats the rule.
+
+A function or a method takes its subject as its one positional argument, and every other argument by keyword, so a call reads without the signature: `hasher.verify(password=..., hashed=...)`, `session.is_active(at=...)`, `next_id(db_session, column=NoteRow.id)`, and `install_problem_handlers(app, error_statuses=...)`. A function with no subject takes only keywords, such as `create_app(*, settings, sessionmaker, broker)`. A domain method that receives the time names the argument `at`.
+
+A data type is always a class, never a module-level `Annotated` or `Literal` alias, because mypy cannot tell two aliases of one type apart and accepts a plain value for either. A constraint goes inside the class, for example `class TokenBytes(RootValueObject[Annotated[int, Field(ge=16, strict=False)]])`, and a fixed set of texts is a `StrEnum`. Two module-level aliases stay. The FastAPI dependency alias, such as `DatabaseSession = Annotated[AsyncSession, Depends(...)]`, stays because FastAPI reads `Depends` only inside `Annotated`. A `type` statement that names the shape of a container, such as `type ErrorStatuses = Mapping[type[BaseError], HTTPStatus]`, stays because it holds no value that mypy must tell apart.
 
 A class inherits only from a framework base (`pydantic.BaseModel`, SQLAlchemy's `DeclarativeBase`, `Exception`, `typing.NamedTuple`) or from a rastro base that carries configuration or declaration rules, such as `Aggregate` or `Row`. An adapter does not inherit its `Protocol`, and the code uses no `abc.ABC`, so a fake and a real adapter have the same standing. mypy checks conformance where a dependency function returns the adapter as the port type:
 
@@ -124,6 +132,8 @@ class DisplayName(
 
 A rule that `StringConstraints` cannot express, for example NFKC normalization, is a `BeforeValidator` that only transforms the value and never raises, so every rejection keeps the code of the rule that failed. Put the `BeforeValidator` before `StringConstraints` in `Annotated`. In the other order, Pydantic checks `pattern` before it applies `to_lower`, so `Email` would reject `Ana@x.com`.
 
+A limit that a row column repeats is a module-level constant in the domain's `value_objects` module, for example `EMAIL_MAX_LENGTH`, and the row imports it for `String(EMAIL_MAX_LENGTH)`. The rule and the column then change in one place.
+
 An edge parses a raw value with `<ValueObject>.model_validate(value)`, which accepts a raw string or a built value object, and a DTO field typed with a value object parses its JSON with no adapter code. Each value object is its own class, so mypy rejects a raw `str` or another value object in a use case argument.
 
 Every aggregate id is an `Id` from `rastro.common.domain.value_objects`, a `RootValueObject` over Pydantic's `PositiveInt`, so `User.id`, `Session.user_id`, and `Note.id` share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
@@ -160,13 +170,15 @@ async def note_create(*, notes: NoteRepository) -> None:
 
 A long parameter list is acceptable. Dependencies are never grouped into a bundle object, so the signature of each use case shows every dependency it uses.
 
+A step that several use cases share is a private function of the same module, whose name starts with `_`, for example `_active_session` for `session_get` and `session_end`. The architecture test of the use cases skips a private function, and a test reaches it only through the public use cases.
+
 A port describes the business operation as it is today, not a provider that may come later. When a swap changes the flow, for example from a password check to an OpenID Connect provider such as Keycloak, the port changes with it, and an ADR records the change. Telemetry is not a port: application code uses the OpenTelemetry API, which already separates the API from the SDK.
 
 ## Declare rows and repositories
 
 A row is a plain SQLAlchemy 2 table with `Mapped` columns of primitive types, in the infrastructure's `models` module. Every row subclasses `Row` from `rastro.common.infrastructure.models`, a `DeclarativeBase` with no column, so each row declares its columns in its own body. The class takes the suffix `Row`, for example `NoteRow`. Each table name is `<app label>_<entity>`, for example `auth_user`. `user` is a reserved word in Postgres, so a hand-written `select * from user` returns the database user with no error.
 
-- The `id` column is `bigint generated by default as identity`, declared as `mapped_column(BigInteger, Identity(), primary_key=True)`. A foreign key is `bigint` and references the column object, for example `ForeignKey(UserRow.id)`, so a rename fails mypy.
+- The `id` column is `bigint generated by default as identity`, declared as `mapped_column(BigInteger, Identity(), primary_key=True)`. A foreign key is `bigint` and references the column object, for example `ForeignKey(UserRow.id)`, so a rename fails mypy. A foreign key column declares `index=True`, and `auth_session.user_id` declares `ondelete="CASCADE"`, so a removed User takes its Sessions with it.
 - `created_at` and `updated_at` are `DateTime(timezone=True)` with `server_default=func.now()`, and `updated_at` also sets `onupdate=func.now()`. Postgres sets them to the start time of the transaction, so no Python code reads a clock for audit data.
 - A unique constraint that a repository translates is a `UniqueConstraint` in `__table_args__` with an explicit name, for example `USER_EMAIL_KEY` in `rastro/auth/infrastructure/models.py`, so the repository and the migration read one name.
 
@@ -179,6 +191,8 @@ A repository is an adapter class in the infrastructure's `repositories` module, 
 - `update` and `remove` load the row through `existing_row` from `rastro.common.infrastructure.repositories`, which receives an `Id` and raises `LookupError` when no row has the id. `merge` alone inserts a missing row, so `update` loads the row before it calls `merge`. The load reads the identity map when the use case read the aggregate in the same transaction.
 - `update` calls `merge` on the row that the mapper builds, and flushes. The mapper sets no audit column, so `merge` keeps `created_at` as stored, and `onupdate` sets `updated_at`.
 - A `get_by_*` method returns the aggregate or `None`.
+
+A fake repository stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was, as the real repository does.
 
 ### Map between layers by hand
 
@@ -195,7 +209,7 @@ An application mapper takes the name of its Output DTO in snake case, for exampl
 
 ### Migrate the rows with Alembic
 
-Alembic migrates the database, with autogenerate from `Row.metadata`. `migrations/env.py` imports the `infrastructure.models` module of every app with `import_every_app_module` from `rastro.common.infrastructure.modules`, so a new app needs no edit there. Create a migration with `uv run --env-file .env.example alembic revision --autogenerate -m "<what changes>"`, and read it before you commit it. The test `test_the_migrations_create_every_table_of_the_models` fails when a row changes without a migration.
+Alembic migrates the database, with autogenerate from `Row.metadata`. `migrations/env.py` imports the `infrastructure.models` module of every app with `import_every_app_module` from `rastro.common.infrastructure.modules`, so a new app needs no edit there. Create a migration with `uv run --env-file .env.example alembic revision --autogenerate -m "<what changes>"`, and read it before you commit it. The message names the change and the table, for example `create auth_user`, and the `file_template` of `pyproject.toml` puts the date first in the file name, so the files sort in the order of their creation. The test `test_the_migrations_create_every_table_of_the_models` fails when a row changes without a migration.
 
 ## Build adapters in the presentation dependencies
 
@@ -211,10 +225,13 @@ async def note_create_view(
 
 An adapter that several apps use, for example an SMTP mailer, lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters, dependencies, and views read `Settings`. A use case that needs a configuration value receives it as a keyword-only argument, as the section on use cases states.
 
+A factory builds a new adapter on each call, except for an adapter that is costly to build and holds no request state. That factory is a `@functools.cache` function, so the process builds the adapter once: `password_hasher` computes the argon2 `fixed_hash` once per process. A factory that does no I/O is a plain `def`.
 
 ## Write views
 
-A view is an `async def` function in the presentation's `views` module that handles one operation, named `<entity>_<action>_view`, for example `session_start_view`. Each app's views module holds one `APIRouter`, and `create_app` includes it under `/api/v1/<app label>/`. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`, for example `GET /api/v1/auth/session`. The view reads its input from typed parameters, calls one use case, and returns its Output DTO or nothing. It holds no business logic. A view never calls the body of a task.
+A view is an `async def` function in the presentation's `views` module that handles one operation, named `<entity>_<action>_view`, for example `session_start_view`. Each app's views module holds one `APIRouter`, and `create_app` includes it under `/api/v1/<app label>/`. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`, for example `GET /api/v1/auth/session`. The view reads its input from typed parameters, calls one use case, and returns its Output DTO or nothing. It holds no business logic. A view never calls the body of a task. The views module imports the `use_cases` module and calls `use_cases.<name>`, so a parameter such as `clock` never hides a function of the same name.
+
+A views module holds its parts in this order: the `ERROR_STATUSES` table, the `router`, the private request dependencies with their aliases, and the views.
 
 Only the presentation layer uses FastAPI's `Depends`, so a use case runs the same in a view, a task, and a test. A dependency receives the database session through the `DatabaseSession` alias in `rastro.common.presentation.dependencies`:
 
@@ -238,7 +255,7 @@ A view reads a value outside the body, for example a cookie, through a dependenc
 CurrentSessionToken = Annotated[SessionToken | None, Depends(_session_token)]
 ```
 
-The dependency reads `request.cookies` and returns a value object, or `None` when the cookie is absent. It never declares a `Cookie`, `Query`, or `Header` parameter with a rule, because a parameter outside the body that fails validation answers `500`. The value object of such a value has no rule, so a bad value reaches the use case, and the use case answers it with its own error. For example, a token that no Session holds answers `auth.not_authenticated`.
+The dependency is a private function of the views module, beside its alias, for example `_session_token`, because it builds no adapter. The dependency reads `request.cookies` and returns a value object, or `None` when the cookie is absent. It never declares a `Cookie`, `Query`, or `Header` parameter with a rule, because a parameter outside the body that fails validation answers `500`. The value object of such a value has no rule, so a bad value reaches the use case, and the use case answers it with its own error. For example, a token that no Session holds answers `auth.not_authenticated`.
 
 ## Start, read, and end a Session
 
@@ -406,13 +423,25 @@ A setting holds every value that an operator may change, for example a cookie na
 
 `.env.example` lists every variable with its local value, and a settings test fails when a variable is missing from it. A new setting needs a field with a default and a line in `.env.example`. `compose.yaml` sets the values of the stack. Run a local command with the local values through `uv run --env-file .env.example`.
 
+Only a process entry and a test build `Settings()`. The process entries are `rastro/main.py`, `rastro/worker.py`, and `migrations/env.py`. Every factory receives the settings as an argument, for example `create_app(settings=...)`, `create_broker(settings)`, and `create_database_engine(settings)`, so a test builds each one with the settings of its own database.
+
 `create_app` stores the settings on `app.state`, and the `AppSettings` alias in `rastro.common.presentation.dependencies` returns them to a view or a dependency. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
 
 `RASTRO_OPENAPI_ENABLED` decides whether FastAPI publishes `/openapi.json`, `/docs`, and `/redoc`. It defaults to `false`, so a deployment that forgets the variable shows no route list. `.env.example` turns it on for local runs.
 
+## Write Python for mypy strict
+
+mypy runs in `strict` mode with `warn_unreachable`, so every function has full annotations, a test and a fixture included, and a test returns `-> None`. The code uses the syntax of Python 3.15:
+
+- A generic declares its type parameter in place, as in `class RootSchema[T]` and `existing_row[R: Row]`, with no `TypeVar`.
+- A union is `X | None`, with no `Optional` or `Union`.
+- An abstract container type comes from `collections.abc`, for example `AsyncIterator` and `Mapping`.
+- An import is absolute, from `rastro.`.
+- An HTTP status in application code is an `HTTPStatus` member, never a number.
+
 ## Test by layer
 
-Each layer has its own kind of test, and a test passes fakes as arguments or through `app.dependency_overrides`, so no test uses `mock.patch` or `monkeypatch` on an adapter:
+Each layer has its own kind of test, and a test passes fakes as arguments or through `app.dependency_overrides`, so no test uses `mock.patch` or `monkeypatch` on an adapter. A settings test is the one user of `monkeypatch`: it sets environment variables after the `empty_environment` or `postgres_url_only` fixture of `rastro/tests/conftest.py`. The kinds of test are:
 
 - **Domain tests** are pure and use no database and no fake. They check the normalization and rejection of each value object, with no input in the message of the `pydantic.ValidationError`, and each aggregate method. A domain method receives the time as a value, so the test passes a `datetime`.
 - **Use case tests** call each use case with the in-memory fakes of the app's tests package, for example `FakeNoteRepository` in `rastro/common/tests/fakes.py`, which holds its aggregates in a `dict` by id. A fake `update` raises `LookupError` for a missing id, as the real repository does. A use case test asserts the error class with `pytest.raises`.
@@ -445,6 +474,18 @@ The Session routes hash with argon2, so `rastro/auth/tests/views/conftest.py` ov
 
 The `auth` app tests each operation by layer: `tests/test_aggregates.py` calls the aggregate methods, `tests/use_cases/` calls a use case with `FakeUserRepository`, `FakeSessionRepository`, `FakePasswordHasher`, and `FakeClock`, and `tests/repositories/` runs `SqlUserRepository` and `SqlSessionRepository` on the `db_session` fixture. `tests/use_cases/conftest.py` holds `users`, `sessions`, `ana` (a User in `users`), and `session_token` (the token of a Session of `ana` in `sessions`, which expires one second after `clock.now()`).
 
+### Place and name a test
+
+A test lives beside the code that it covers:
+
+- The tests of an app live in `rastro/<app>/tests/`: `test_value_objects.py`, `test_aggregates.py`, `use_cases/test_<use case>.py`, `repositories/test_<aggregate>_repository.py`, and `views/test_<operation>.py`, for example `views/test_session_start.py`.
+- The tests of the wiring live in `rastro/tests/`: `test_app.py`, `test_settings.py`, and `test_migrations.py`.
+- The architecture tests live in `tests/architecture/`, outside the package.
+
+A test is an `async def` or a `def` whose name states the behaviour as a sentence, for example `test_an_email_in_use_is_a_conflict`. A blank line splits the setup and the call from the assertions. An input that several tests of a module share is a module-level constant, for example `PATH` and `VALID_BODY` in `views/test_user_register.py`. A module whose tests need a fixture only for its effect declares it once with `pytestmark = pytest.mark.usefixtures(...)`. A fixture whose state is not obvious from its name has a one-line docstring, for example `ana` in `use_cases/conftest.py`.
+
+An error class that a test declares takes a code with the prefix `tests`, for example `tests.limit_reached`. A test that needs a made-up domain, for example a module that an architecture check must report, uses the painting vocabulary of the sample app: `paint`, `wall`, and `brush`.
+
 Before you write a test, look in the app's `tests/conftest.py` for a fixture that builds the state the test needs, and ask for it by name. When a second test needs the same state, add a fixture to that `conftest.py`, and keep the test file free of setup helpers. A fixture that more than one app uses lives in the root `conftest.py`. A test that needs a variation of the shared state calls the factory in the test, so the fixture set stays small. Test classes are optional, so group tests in a class only when the group helps the reader.
 
 The test sample app in `rastro/common/tests/sample/` holds the four layers that a test of `rastro.common` needs, and its views and tasks call its use cases as the views and tasks of an app do. Its rows subclass `SampleRow`, an abstract `Row` with its own `MetaData`, so Alembic never migrates them, and the `sample_tables` fixture of `rastro/common/tests/conftest.py` creates them inside each test's transaction. The `sample_app` fixture includes the sample router and installs the problem handlers with the sample's error-to-status table merged into the table of `rastro/app.py`. The `note_count` fixture counts the `NoteRow` rows through a second session, so a test reads what a request or a task wrote, as the `auth` view tests read their rows. The worker never imports the sample tasks, because the sample is not an app of `rastro`.
@@ -465,3 +506,5 @@ Tools check these rules, and every change passes them before it merges, so a vio
   - No module of rastro declares a module-level `Annotated` or `Literal` alias, except an alias that holds `Depends`.
   - Only `rastro.common.presentation.problems` imports `pydantic.ValidationError` or `pydantic_core`, or reads `ValidationError` from the `pydantic` module under any alias, because import-linter cannot name a member or a submodule of an external package. Test modules are exempt from this check, so a value object test can expect `pydantic.ValidationError`.
   - The extensions of `Problem` and `ValidationItem` follow their rules, and no class is named `BaseModel`.
+
+Each architecture rule is a function in `tests/architecture/rules.py` that returns one string per violation, in the form `<module>:<line>: <source>`, so a failure names every place to fix. The test of the rule asserts that the list is empty. The test module also feeds the rule a made-up source and asserts each violation that it reports, and a rule that discovers modules asserts that it finds the modules of `auth` and of the sample app, so a broken rule cannot pass in silence.
