@@ -41,7 +41,7 @@ async def test_the_database_stores_the_hash_of_the_token_and_never_the_token(
     rows = (await db_session.execute(text("SELECT * FROM auth_session"))).all()
     assert len(rows) == 1
     assert rows[0].user_id == user.id.root
-    assert rows[0].token_hash == hashlib.sha256(token.encode()).digest()
+    assert rows[0].hashed_token == hashlib.sha256(token.encode()).digest()
     assert token not in "".join(str(value) for value in rows[0])
     assert len(base64.urlsafe_b64decode(f"{token}=")) == 32
 

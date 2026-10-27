@@ -60,7 +60,7 @@ class HashedPassword(RootValueObject[str]):
 
 
 # The SHA-256 digest of a Session token, so a leaked database starts no Session.
-class SessionTokenHash(RootValueObject[bytes]):
+class HashedSessionToken(RootValueObject[bytes]):
     pass
 
 
@@ -69,6 +69,6 @@ class SessionToken(RootValueObject[SecretStr]):
     def generate(cls, *, nbytes: int) -> Self:
         return cls(SecretStr(secrets.token_urlsafe(nbytes)))
 
-    def digest(self) -> SessionTokenHash:
+    def digest(self) -> HashedSessionToken:
         value = self.root.get_secret_value().encode()
-        return SessionTokenHash(hashlib.sha256(value).digest())
+        return HashedSessionToken(hashlib.sha256(value).digest())

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.errors import EmailInUseError
-from rastro.auth.domain.value_objects import Email, SessionTokenHash
+from rastro.auth.domain.value_objects import Email, HashedSessionToken
 from rastro.auth.infrastructure.mappers import (
     session_from_row,
     session_to_row,
@@ -87,8 +87,10 @@ class SqlSessionRepository:
         row = await self._db_session.get(SessionRow, id.root)
         return None if row is None else session_from_row(row)
 
-    async def get_by_token_hash(self, token_hash: SessionTokenHash) -> Session | None:
+    async def get_by_hashed_token(
+        self, hashed_token: HashedSessionToken
+    ) -> Session | None:
         row = await self._db_session.scalar(
-            select(SessionRow).where(SessionRow.token_hash == token_hash.root)
+            select(SessionRow).where(SessionRow.hashed_token == hashed_token.root)
         )
         return None if row is None else session_from_row(row)

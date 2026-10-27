@@ -44,7 +44,7 @@ async def test_correct_credentials_start_a_session_of_the_user_for_the_token(
         Id(1): Session(
             id=Id(1),
             user_id=ana.id,
-            token_hash=token.digest(),
+            hashed_token=token.digest(),
             expires_at=clock.now() + timedelta(hours=1),
         )
     }

@@ -21,7 +21,7 @@ TOKEN = SessionToken(SecretStr("token"))
 @pytest.fixture
 def session() -> Session:
     return Session(
-        id=Id(1), user_id=Id(2), token_hash=TOKEN.digest(), expires_at=TEN_O_CLOCK
+        id=Id(1), user_id=Id(2), hashed_token=TOKEN.digest(), expires_at=TEN_O_CLOCK
     )
 
 
@@ -43,7 +43,7 @@ def test_a_session_starts_with_its_token_digest_and_ends_a_lifetime_later() -> N
     )
 
     assert session == Session(
-        id=Id(1), user_id=Id(2), token_hash=TOKEN.digest(), expires_at=TEN_O_CLOCK
+        id=Id(1), user_id=Id(2), hashed_token=TOKEN.digest(), expires_at=TEN_O_CLOCK
     )
 
 

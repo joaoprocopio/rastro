@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, Request, Response
 
 from rastro.auth.application import use_cases
 from rastro.auth.application.dtos import (
+    SessionGetOutput,
     SessionStartInput,
-    UserGetCurrentOutput,
     UserRegisterInput,
 )
 from rastro.auth.domain.errors import (
@@ -82,13 +82,13 @@ async def session_start_view(
 
 
 @router.get("/session")
-async def user_get_current_view(
+async def session_get_view(
     token: CurrentSessionToken,
     users: Annotated[UserRepository, Depends(dependencies.user_repository)],
     sessions: Annotated[SessionRepository, Depends(dependencies.session_repository)],
     clock: Annotated[Clock, Depends(dependencies.clock)],
-) -> UserGetCurrentOutput:
-    return await use_cases.user_get_current(
+) -> SessionGetOutput:
+    return await use_cases.session_get(
         token, users=users, sessions=sessions, clock=clock
     )
 

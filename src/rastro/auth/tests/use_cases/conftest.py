@@ -46,7 +46,7 @@ async def session_token(
         Session(
             id=await sessions.next_id(),
             user_id=ana.id,
-            token_hash=token.digest(),
+            hashed_token=token.digest(),
             expires_at=clock.now() + timedelta(seconds=1),
         )
     )

@@ -187,6 +187,8 @@ def note_from_row(row: NoteRow) -> Note:
     return Note(id=Id.model_validate(row.id), color=Color.model_validate(row.color))
 ```
 
+An application mapper takes the name of its Output DTO in snake case, for example `session_get_output(user)` for `SessionGetOutput`. mypy already checks the type of the argument, so the name does not repeat it.
+
 ### Migrate the rows with Alembic
 
 Alembic migrates the database, with autogenerate from `Row.metadata`. `migrations/env.py` imports the `infrastructure.models` module of every app with `import_every_app_module` from `rastro.common.infrastructure.modules`, so a new app needs no edit there. Create a migration with `uv run --env-file .env.example alembic revision --autogenerate -m "<what changes>"`, and read it before you commit it. The test `test_the_migrations_create_every_table_of_the_models` fails when a row changes without a migration.
@@ -236,9 +238,9 @@ The dependency reads `request.cookies` and returns a value object, or `None` whe
 
 ## Start, read, and end a Session
 
-A Session lives in the `auth_session` table, with `id`, `user_id`, `token_hash`, `created_at`, `updated_at`, and `expires_at`. The `Session` aggregate holds `id`, `user_id`, `token_hash`, and `expires_at`, and its rules read only these fields:
+A Session lives in the `auth_session` table, with `id`, `user_id`, `hashed_token`, `created_at`, `updated_at`, and `expires_at`. The `Session` aggregate holds `id`, `user_id`, `hashed_token`, and `expires_at`, and its rules read only these fields:
 
-- `Session.start(id=..., user_id=..., token=..., at=..., lifetime=...)` stores `token.digest()`, the SHA-256 digest of the token as a `SessionTokenHash`, and sets `expires_at` to `at + lifetime`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
+- `Session.start(id=..., user_id=..., token=..., at=..., lifetime=...)` stores `token.digest()`, the SHA-256 digest of the token as a `HashedSessionToken`, and sets `expires_at` to `at + lifetime`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
 - `session.is_active(at=...)` answers whether `at` is before `expires_at`. A Session ends one `RASTRO_SESSION_LIFETIME` after it starts, 14 days by default, with no renewal on use.
 - `User.verify_password(password, hasher=...)` returns `PasswordCheck(is_correct, needs_rehash)`. It calls only `verify` and `needs_rehash` on the hasher, and the use case decides the effect.
 
@@ -248,7 +250,7 @@ The use cases read the time from the `Clock` port:
 
 - `session_start` gets the User by email and verifies the Credentials through `verify_password`. When `needs_rehash` is true, it assigns a new hash and calls `users.update`. It creates a Session token with `SessionToken.generate(nbytes=token_bytes)`, adds a Session that ends `lifetime` after `clock.now()`, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
 - For an unknown email, `session_start` verifies the password against `PasswordHasher.fixed_hash`, an argon2 hash of a random password, so the response takes as long as a wrong password. An unknown email and a wrong password raise the same `IncorrectCredentialsError`.
-- `user_get_current` and `session_end` raise `NotAuthenticatedError` with no token, with a token that no Session holds, and when `clock.now()` reaches `expires_at`. Otherwise `user_get_current` returns the User of the Session as `UserGetCurrentOutput`, and `session_end` removes the Session.
+- `session_get` and `session_end` raise `NotAuthenticatedError` with no token, with a token that no Session holds, and when `clock.now()` reaches `expires_at`. Otherwise `session_get` returns the User of the Session as `SessionGetOutput`, and `session_end` removes the Session.
 
 `session_start_view` reads `AppSettings` and passes `session_lifetime` and `session_token_bytes` to `session_start`. It sets the token in the cookie named `session_cookie_name`, with the `HttpOnly`, `Secure`, and `SameSite` flags of the settings and a `Max-Age` of the lifetime. Under the defaults, the cookie is `rastro_session`, `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of 14 days. `session_end_view` deletes the cookie with the same name and flags when the use case succeeds, and `CurrentSessionToken` reads the cookie by the same name.
 

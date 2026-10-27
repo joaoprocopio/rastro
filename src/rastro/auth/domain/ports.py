@@ -5,8 +5,8 @@ from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
+    HashedSessionToken,
     RawPassword,
-    SessionTokenHash,
 )
 from rastro.common.domain.value_objects import Id
 
@@ -51,6 +51,6 @@ class SessionRepository(Protocol):
 
     async def get_by_id(self, id: Id) -> Session | None: ...
 
-    async def get_by_token_hash(
-        self, token_hash: SessionTokenHash
+    async def get_by_hashed_token(
+        self, hashed_token: HashedSessionToken
     ) -> Session | None: ...

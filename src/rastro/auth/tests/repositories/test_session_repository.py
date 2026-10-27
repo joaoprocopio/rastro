@@ -30,7 +30,7 @@ async def session(sessions: SqlSessionRepository, user: User) -> Session:
     )
 
 
-async def test_get_by_id_and_get_by_token_hash_read_back_every_field_that_add_wrote(
+async def test_get_by_id_and_get_by_hashed_token_read_back_every_field_that_add_wrote(
     sessions: SqlSessionRepository,
     session: Session,
     sessionmaker: async_sessionmaker[AsyncSession],
@@ -41,16 +41,16 @@ async def test_get_by_id_and_get_by_token_hash_read_back_every_field_that_add_wr
     async with sessionmaker() as reader:
         assert await SqlSessionRepository(reader).get_by_id(session.id) == session
         assert (
-            await SqlSessionRepository(reader).get_by_token_hash(TOKEN.digest())
+            await SqlSessionRepository(reader).get_by_hashed_token(TOKEN.digest())
             == session
         )
 
 
-async def test_get_by_id_and_get_by_token_hash_answer_none_for_an_unknown_session(
+async def test_get_by_id_and_get_by_hashed_token_answer_none_for_an_unknown_session(
     sessions: SqlSessionRepository,
 ) -> None:
     assert await sessions.get_by_id(Id(1)) is None
-    assert await sessions.get_by_token_hash(TOKEN.digest()) is None
+    assert await sessions.get_by_hashed_token(TOKEN.digest()) is None
 
 
 async def test_two_next_id_calls_return_two_different_ids(
@@ -65,7 +65,7 @@ async def test_update_writes_every_field_of_the_session(
     sessionmaker: async_sessionmaker[AsyncSession],
 ) -> None:
     await sessions.add(session)
-    session.token_hash = SessionToken(SecretStr("other")).digest()
+    session.hashed_token = SessionToken(SecretStr("other")).digest()
     session.expires_at = datetime(2026, 2, 1, tzinfo=UTC)
 
     await sessions.update(session)
