@@ -29,7 +29,7 @@ These rules follow from the split:
 
 ## Raise in place of a fallback value
 
-Application code holds no fallback value for a state that it does not expect: no `or ""`, no `.get(key, {})`, and no `getattr(obj, name, None)` for an attribute that must exist. The code raises, and the error reaches the observability platform as a `500`. For example, the `405` handler raises when Starlette's exception has no `Allow` header, in place of an answer with an empty header, and the problem handlers raise when an error class has no row in the error-to-status table. A default stays only where the absence is a valid state of the domain, for example an optional field of a DTO.
+Application code holds no fallback value for a state that it does not expect: no `or ""`, no `.get(key, {})`, and no `getattr(obj, name, None)` for an attribute that must exist. The code raises, and the error reaches the observability platform as a `500`. For example, the `405` handler raises when Starlette's exception has no `Allow` header, in place of an answer with an empty header, and the problem handlers raise when an error class has no row in the error-to-status table. A default stays only where the absence is a valid state. An optional field of a DTO is one example. A setting is another, because an operator who sets no variable runs with today's local value, so every setting has a default except `RASTRO_POSTGRES_URL`, which "Configure settings" keeps required.
 
 ## Lay out an app in four layers
 
@@ -126,7 +126,7 @@ An edge parses a raw value with `<ValueObject>.model_validate(value)`, which acc
 
 Every aggregate id is an `Id` from `rastro.common.domain.value_objects`, a `RootValueObject` over Pydantic's `PositiveInt`, so `User.id`, `Session.user_id`, and `Note.id` share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
 
-A value object that holds a secret wraps a Pydantic `SecretStr`, so `repr` shows `**********` and a log line or a traceback never shows the secret. A secret is a value that lets its holder act: `RawPassword` and `SessionToken` in `rastro.auth.domain.value_objects`, and `CsrfToken` in `rastro.common.domain.value_objects`. Code reads the secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two values. A test builds a secret with `RawPassword(SecretStr("password"))`, because mypy types the constructor with the root type. `Email` and `DisplayName` stay plain, because a response sends them, and a `SecretStr` would send asterisks. A digest or a hash, for example `HashedPassword`, stays plain, because it lets no one act. A token value object has no format rule and builds a new token with `generate(nbytes=...)`, so a header or a cookie always parses, and a wrong token fails the check that compares it.
+A value object that holds a secret wraps a Pydantic `SecretStr`, so `repr` shows `**********` and a log line or a traceback never shows the secret. A secret is a value that lets its holder act: `RawPassword` and `SessionToken` in `rastro.auth.domain.value_objects`, and `CsrfToken` in `rastro.common.domain.value_objects`. Code reads the secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two values, and a test reads it to check the value, for example the length of a new token. A test builds a secret with `RawPassword(SecretStr("password"))`, because mypy types the constructor with the root type. `Email` and `DisplayName` stay plain, because a response sends them, and a `SecretStr` would send asterisks. A digest or a hash, for example `HashedPassword`, stays plain, because it lets no one act. A token value object subclasses `TokenValueObject` from `rastro.common.domain.value_objects`, so it has no format rule and builds a new token with `generate(nbytes=...)`. A header or a cookie then always parses, and a wrong token fails the check that compares it.
 
 A value object equals only a value object of its own class, so `Id(1) == 1` is false. A test that compares an id with a column reads the `int` through `.root`.
 
@@ -142,7 +142,7 @@ A use case is an `async def` function in the application's `use_cases` module, a
 
 - The name is `<entity>_<action>`, for example `user_register` or `note_create`.
 - The first argument is the Input DTO or value, when the operation has one. Every dependency follows as a required keyword-only argument typed with a port, so mypy finds every caller that a new dependency affects.
-- A configuration value follows the ports as a required keyword-only argument of its own type, for example `lifetime: timedelta` in `session_start`. The view reads the value from the settings and passes it, so the application and the domain never read `Settings`, and a test passes the value that it needs.
+- A configuration value follows the ports as a required keyword-only argument with the type of its setting, for example `lifetime: timedelta` and `token_bytes: int` in `session_start`. The view reads the value from the settings and passes it, so the application and the domain never read `Settings`, and a test passes the value that it needs.
 - It returns an Output DTO, a value object, or nothing.
 - It reads the time from the `Clock` port and passes it to a domain method as a value, so a domain test passes a `datetime` and needs no fake clock.
 - It creates a random secret with the `generate` method of the secret's value object and returns it, for example `SessionToken.generate(nbytes=token_bytes)` in `session_start`. A port wraps only a source that a test must control, such as the clock, and a test reads a random value from the return value of the use case.
@@ -187,7 +187,7 @@ def note_from_row(row: NoteRow) -> Note:
     return Note(id=Id.model_validate(row.id), color=Color.model_validate(row.color))
 ```
 
-An application mapper takes the name of its Output DTO in snake case, for example `session_get_output(user)` for `SessionGetOutput`. mypy already checks the type of the argument, so the name does not repeat it.
+An application mapper takes the name of its Output DTO in snake case, for example `session_get_output(user)` for `SessionGetOutput`. mypy already checks the type of the argument, so the name does not repeat it. An infrastructure mapper keeps its direction in its name, for example `note_from_row` and `note_to_row`, because its module converts both ways between one row and one aggregate, while each application mapper has one direction and one Output DTO.
 
 ### Migrate the rows with Alembic
 
@@ -256,7 +256,7 @@ The use cases read the time from the `Clock` port:
 
 ## Reject cross-site requests with a CSRF token
 
-rastro checks a double-submit cookie on every request that changes state, so another site cannot act as a User. `GET /api/v1/auth/csrf` answers `204` and sets a new `CsrfToken.generate(nbytes=settings.csrf_token_bytes)` in the CSRF cookie on each call. Under the default settings, the token has 32 random bytes, and the `rastro_csrf` cookie is `Secure` and `SameSite=Lax` with no `Max-Age`. The cookie is not `HttpOnly`, because the frontend reads it and sends it back in the `X-CSRF-Token` header.
+rastro checks a double-submit cookie on every request that changes state, so another site cannot act as a User. `GET /api/v1/auth/csrf` answers `204` and sets a new `CsrfToken.generate(nbytes=settings.csrf_token_bytes)` in the CSRF cookie on each call. Under the default settings, the token has 32 random bytes, and the `rastro_csrf` cookie is `Secure` and `SameSite=Lax` with no `Max-Age`. The default leaves out `HttpOnly`, because the frontend reads the cookie and sends its value back in the `X-CSRF-Token` header. `RASTRO_CSRF_COOKIE_HTTPONLY` adds the flag, as every cookie flag is a setting, and then no script reads the token from the cookie.
 
 `csrf_check` in `rastro/common/presentation/views.py` runs on every method that is not `GET`, `HEAD`, or `OPTIONS`, including `register` and `session/start`. It reads the cookie name and the header name from `AppSettings`, and parses the cookie and the header into `CsrfToken`. It raises `CsrfFailedError`, which answers `request.csrf_failed` with `403`, when the cookie is absent or empty, when the header is absent, or when the two differ. It compares the secret values with `secrets.compare_digest`. Each views module declares the check on its router, so a new app cannot forget it:
 
