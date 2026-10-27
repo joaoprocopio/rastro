@@ -6,9 +6,9 @@ from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    HashedSessionToken,
     RawPassword,
     SessionToken,
-    SessionTokenHash,
 )
 
 
@@ -110,7 +110,7 @@ def test_the_digest_of_a_session_token_is_its_sha256() -> None:
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     )
 
-    assert SessionToken(SecretStr("abc")).digest() == SessionTokenHash(expected)
+    assert SessionToken(SecretStr("abc")).digest() == HashedSessionToken(expected)
 
 
 def test_a_new_session_token_of_16_bytes_has_22_characters() -> None:

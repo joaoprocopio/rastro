@@ -5,9 +5,9 @@ from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    HashedSessionToken,
     RawPassword,
     SessionToken,
-    SessionTokenHash,
 )
 from rastro.common.domain.aggregates import Aggregate
 from rastro.common.domain.value_objects import Id
@@ -40,7 +40,7 @@ class User(Aggregate):
 class Session(Aggregate):
     id: Id
     user_id: Id
-    token_hash: SessionTokenHash
+    hashed_token: HashedSessionToken
     expires_at: datetime
 
     @classmethod
@@ -56,7 +56,7 @@ class Session(Aggregate):
         return cls(
             id=id,
             user_id=user_id,
-            token_hash=token.digest(),
+            hashed_token=token.digest(),
             expires_at=at + lifetime,
         )
 

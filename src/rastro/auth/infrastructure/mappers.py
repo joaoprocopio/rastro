@@ -3,7 +3,7 @@ from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
-    SessionTokenHash,
+    HashedSessionToken,
 )
 from rastro.auth.infrastructure.models import SessionRow, UserRow
 from rastro.common.domain.value_objects import Id
@@ -31,7 +31,7 @@ def session_from_row(row: SessionRow) -> Session:
     return Session(
         id=Id.model_validate(row.id),
         user_id=Id.model_validate(row.user_id),
-        token_hash=SessionTokenHash.model_validate(row.token_hash),
+        hashed_token=HashedSessionToken.model_validate(row.hashed_token),
         expires_at=row.expires_at,
     )
 
@@ -40,6 +40,6 @@ def session_to_row(session: Session) -> SessionRow:
     return SessionRow(
         id=session.id.root,
         user_id=session.user_id.root,
-        token_hash=session.token_hash.root,
+        hashed_token=session.hashed_token.root,
         expires_at=session.expires_at,
     )

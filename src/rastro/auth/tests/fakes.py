@@ -4,8 +4,8 @@ from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
+    HashedSessionToken,
     RawPassword,
-    SessionTokenHash,
 )
 from rastro.common.domain.value_objects import Id
 
@@ -90,12 +90,14 @@ class FakeSessionRepository:
         session = self.sessions.get(id)
         return None if session is None else session.model_copy()
 
-    async def get_by_token_hash(self, token_hash: SessionTokenHash) -> Session | None:
+    async def get_by_hashed_token(
+        self, hashed_token: HashedSessionToken
+    ) -> Session | None:
         return next(
             (
                 session.model_copy()
                 for session in self.sessions.values()
-                if session.token_hash == token_hash
+                if session.hashed_token == hashed_token
             ),
             None,
         )

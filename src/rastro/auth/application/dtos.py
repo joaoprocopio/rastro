@@ -13,6 +13,6 @@ class SessionStartInput(DTO):
     password: RawPassword
 
 
-class UserGetCurrentOutput(DTO):
+class SessionGetOutput(DTO):
     email: Email
     display_name: DisplayName

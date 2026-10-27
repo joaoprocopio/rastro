@@ -44,3 +44,24 @@ async def test_the_ids_and_the_foreign_key_are_bigint(engine: AsyncEngine) -> No
         ("auth_session", "user_id", "bigint", "NO"),
         ("auth_user", "id", "bigint", "YES"),
     ]
+
+
+async def test_the_session_table_stores_the_hashed_token(engine: AsyncEngine) -> None:
+    async with engine.connect() as connection:
+        columns = (
+            await connection.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns"
+                    " WHERE table_name = 'auth_session' ORDER BY ordinal_position"
+                )
+            )
+        ).scalars()
+
+    assert list(columns) == [
+        "id",
+        "user_id",
+        "hashed_token",
+        "created_at",
+        "updated_at",
+        "expires_at",
+    ]

@@ -37,7 +37,7 @@ class UserRow(Row):
 class SessionRow(Row):
     __tablename__ = "auth_session"
     __table_args__ = (
-        UniqueConstraint("token_hash", name="auth_session_token_hash_key"),
+        UniqueConstraint("hashed_token", name="auth_session_hashed_token_key"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -45,7 +45,7 @@ class SessionRow(Row):
         BigInteger, ForeignKey(UserRow.id, ondelete="CASCADE"), index=True
     )
     # The SHA-256 digest of the token, so a leaked database starts no Session.
-    token_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    hashed_token: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

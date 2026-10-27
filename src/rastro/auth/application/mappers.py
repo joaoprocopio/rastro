@@ -1,6 +1,6 @@
-from rastro.auth.application.dtos import UserGetCurrentOutput
+from rastro.auth.application.dtos import SessionGetOutput
 from rastro.auth.domain.aggregates import User
 
 
-def user_get_current_output_from_user(user: User) -> UserGetCurrentOutput:
-    return UserGetCurrentOutput(email=user.email, display_name=user.display_name)
+def session_get_output(user: User) -> SessionGetOutput:
+    return SessionGetOutput(email=user.email, display_name=user.display_name)
