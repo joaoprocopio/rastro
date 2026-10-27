@@ -1,5 +1,5 @@
 # Use a Python image with uv pre-installed
-FROM astral/uv:python3.14-trixie
+FROM astral/uv:python3.15-trixie
 
 # Install the project into `/app`
 WORKDIR /app
@@ -33,3 +33,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Reset the entrypoint, don't invoke `uv`
 ENTRYPOINT []
+
+# The entrypoint comes from [tool.fastapi] in pyproject.toml
+CMD ["fastapi", "run"]

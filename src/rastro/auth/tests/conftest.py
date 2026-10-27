@@ -1,0 +1,72 @@
+import secrets
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+
+import httpx
+import pytest
+from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
+
+from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.ports import PasswordHasher
+from rastro.auth.domain.value_objects import (
+    DisplayName,
+    Email,
+    RawPassword,
+    SessionToken,
+)
+from rastro.auth.infrastructure.repositories import (
+    SqlSessionRepository,
+    SqlUserRepository,
+)
+from rastro.auth.presentation.views import SESSION_COOKIE
+from rastro.common.presentation.views import CSRF_COOKIE, CSRF_HEADER
+
+
+@pytest.fixture
+async def db_session(connection: AsyncConnection) -> AsyncIterator[AsyncSession]:
+    # A commit or a rollback in the test becomes a savepoint, as in a request.
+    async with AsyncSession(
+        connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    ) as db_session:
+        yield db_session
+
+
+@pytest.fixture
+async def user(db_session: AsyncSession, password_hasher: PasswordHasher) -> User:
+    users = SqlUserRepository(db_session)
+    user = User(
+        id=await users.next_id(),
+        email=Email("ana@example.com"),
+        display_name=DisplayName("Ana"),
+        hashed_password=password_hasher.hash(password=RawPassword("password")),
+    )
+    await users.add(user)
+    await db_session.commit()
+    return user
+
+
+@pytest.fixture
+async def signed_in_client(
+    app: FastAPI, db_session: AsyncSession, user: User, csrf_token: str
+) -> AsyncIterator[httpx.AsyncClient]:
+    # The Session goes straight into the repository, so no test pays for argon2.
+    token = SessionToken(secrets.token_urlsafe())
+    sessions = SqlSessionRepository(db_session)
+    await sessions.add(
+        Session.start(
+            id=await sessions.next_id(),
+            user_id=user.id,
+            token=token,
+            at=datetime.now(UTC),
+        )
+    )
+    await db_session.commit()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="https://testserver",
+        cookies={SESSION_COOKIE: token.root, CSRF_COOKIE: csrf_token},
+        headers={CSRF_HEADER: csrf_token},
+    ) as client:
+        yield client

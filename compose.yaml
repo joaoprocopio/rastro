@@ -1,34 +1,60 @@
+name: rastro
+
+x-rastro-environment: &rastro-environment
+  RASTRO_OPENAPI_ENABLED: "0"
+
+  RASTRO_POSTGRES_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
+
+  RASTRO_ZEROMQ_PUBLISH_ADDRESS: "tcp://0.0.0.0:5555"
+  RASTRO_ZEROMQ_SUBSCRIBE_ADDRESS: "tcp://api:5555"
+
+  RASTRO_SERVICE_NAMESPACE: "rastro"
+  RASTRO_SERVICE_NAME: "rastro"
+  RASTRO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
+  RASTRO_DEPLOYMENT_ENVIRONMENT: "prod"
+  RASTRO_OTEL_GRPC_ENDPOINT: "otel:4317"
+
 services:
-  django:
+  migrate:
     build:
       context: .
       dockerfile: dockerfile
-    command: sh -c "python manage.py migrate && python manage.py collectstatic --no-input && gunicorn -w 8 rastro.wsgi --bind 0.0.0.0:8000"
-    environment:
-      RASTRO_DJANGO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
-      RASTRO_DJANGO_DEPLOYMENT_ENVIRONMENT: "prod"
-
-      RASTRO_DJANGO_OTEL_GRPC_ENDPOINT: "otel:4317"
-      RASTRO_DJANGO_OTEL_HTTP_ENDPOINT: "otel:4318"
-
-      RASTRO_DJANGO_SECRET_KEY: "019d4579758e762eb65db7ba3d7ceb81"
-      RASTRO_DJANGO_DEBUG: "0"
-
-      RASTRO_DJANGO_POSTGRES_DB: "postgres"
-      RASTRO_DJANGO_POSTGRES_USER: "postgres"
-      RASTRO_DJANGO_POSTGRES_PASSWORD: "postgres"
-      RASTRO_DJANGO_POSTGRES_HOST: "postgres"
-      RASTRO_DJANGO_POSTGRES_PORT: "5432"
+    command: alembic upgrade head
+    environment: *rastro-environment
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - type: volume
-        source: django_static
-        target: /app/src/static
+
+  api:
+    build:
+      context: .
+      dockerfile: dockerfile
+    environment: *rastro-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      # The exporters flush at exit, and with no collector the flush outlasts the stop timeout.
+      otel:
+        condition: service_started
     ports:
       - published: 8000
         target: 8000
+
+  worker:
+    build:
+      context: .
+      dockerfile: dockerfile
+    # ZeroMQ sends every task to every worker, so one worker runs each task once.
+    command: taskiq worker rastro.worker:broker -w 1
+    environment:
+      <<: *rastro-environment
+      # Grafana tells the spans of the worker from the spans of the API.
+      RASTRO_SERVICE_NAME: "rastro-worker"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      otel:
+        condition: service_started
 
   postgres:
     image: "postgres:latest"
@@ -128,4 +154,3 @@ volumes:
   postgres_data:
   grafana_data:
   clickhouse_data:
-  django_static:

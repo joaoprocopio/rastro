@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.11.2,<0.12"]
+requires = ["uv_build==0.13.1"]
 build-backend = "uv_build"
 
 [project]
@@ -7,50 +7,108 @@ name = "rastro"
 version = "1.0.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
-    "django-extensions>=4.1",
-    "django[argon2]>=6.0.3",
-    "gunicorn>=25.3.0",
+    "alembic>=1.20.1",
+    "argon2-cffi>=25.1.0",
+    "fastapi[standard-no-fastapi-cloud-cli]>=0.162.0",
     "opentelemetry-api>=1.40.0",
     "opentelemetry-exporter-otlp>=1.40.0",
-    "opentelemetry-instrumentation-django>=0.61b0",
+    "opentelemetry-instrumentation-fastapi>=0.66b1",
     "opentelemetry-instrumentation-logging>=0.61b0",
-    "opentelemetry-instrumentation-psycopg2>=0.64b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.66b1",
     "opentelemetry-sdk>=1.40.0",
-    "psycopg2>=2.9.11",
+    "psycopg[binary]>=3.3.6",
     "pydantic>=2.13.3",
+    "pydantic-settings>=2.16.1",
+    "sqlalchemy[asyncio]>=2.1.6",
+    "taskiq[opentelemetry,zmq]>=0.13.0",
 ]
 
 [dependency-groups]
 dev = [
-    "django-stubs-ext>=6.0.1",
-    "django-stubs[compatible-mypy]>=6.0.1",
-    "model-bakery>=1.23.4",
+    "httpx>=0.28.1",
+    "import-linter>=2.15",
+    "mypy>=2.4.0",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
-    "pytest-django>=4.12.0",
     "ruff>=0.15.13",
 ]
 
+[tool.fastapi]
+entrypoint = "rastro.main:app"
+
+[tool.alembic]
+script_location = "%(here)s/src/rastro/migrations"
+file_template = "%%(year)d_%%(month).2d_%%(day).2d_%%(rev)s_%%(slug)s"
+
 [tool.mypy]
 strict = true
-exclude = '(^|/)migrations/'
-plugins = ["mypy_django_plugin.main", "pydantic.mypy"]
+plugins = ["pydantic.mypy"]
 warn_unreachable = true
-no_implicit_optional = true
-strict_optional = true
-warn_no_return = true
 show_error_codes = true
-disallow_untyped_defs = true
-check_untyped_defs = true
-warn_return_any = true
-warn_unused_ignores = true
-
-[tool.django-stubs]
-django_settings_module = "rastro.settings"
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "rastro.settings"
-addopts = "-s --cov src/"
+addopts = "--cov src/"
+anyio_mode = "auto"
 
+[tool.ruff]
+# The specs quote code as written at the time, so ruff leaves them alone.
+extend-exclude = [".scratch"]
+
+[tool.ruff.lint]
+extend-select = ["TID251"]
+
+[tool.ruff.lint.flake8-bugbear]
+# A task declares a dependency as the default value of an argument.
+extend-immutable-calls = ["taskiq.TaskiqDepends"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fastapi.testclient".msg = "Use httpx.AsyncClient with ASGITransport, so a test runs on the app's event loop."
+"starlette.testclient".msg = "Use httpx.AsyncClient with ASGITransport, so a test runs on the app's event loop."
+
+[tool.importlinter]
+root_packages = ["rastro"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "the domain imports no other layer and no framework but pydantic"
+type = "forbidden"
+source_modules = ["rastro.**.domain"]
+forbidden_modules = [
+    "rastro.**.application",
+    "rastro.**.infrastructure",
+    "rastro.**.presentation",
+    "sqlalchemy",
+    "fastapi",
+    "starlette",
+    "taskiq",
+]
+
+[[tool.importlinter.contracts]]
+name = "the application imports no infrastructure, presentation, sqlalchemy, or fastapi"
+type = "forbidden"
+source_modules = ["rastro.**.application"]
+forbidden_modules = [
+    "rastro.**.infrastructure",
+    "rastro.**.presentation",
+    "sqlalchemy",
+    "fastapi",
+    "starlette",
+    "taskiq",
+]
+
+[[tool.importlinter.contracts]]
+name = "the infrastructure imports no application or presentation"
+type = "forbidden"
+source_modules = ["rastro.**.infrastructure"]
+forbidden_modules = ["rastro.**.application", "rastro.**.presentation"]
+
+[[tool.importlinter.contracts]]
+name = "only the dependencies of the presentation import the infrastructure"
+type = "forbidden"
+source_modules = ["rastro.**.presentation"]
+forbidden_modules = ["rastro.**.infrastructure"]
+ignore_imports = ["rastro.**.presentation.dependencies -> rastro.**.infrastructure.**"]
+# A view imports dependencies, which import the infrastructure to build adapters.
+allow_indirect_imports = true

@@ -5,13 +5,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python Debugger: Django",
+      "name": "Python Debugger: FastAPI",
       "type": "debugpy",
       "request": "launch",
-      "args": ["runserver", "--noreload"],
-      "django": true,
-      "autoStartBrowser": false,
-      "program": "${workspaceFolder}/manage.py"
+      "module": "fastapi",
+      "args": ["dev"],
+      "envFile": "${workspaceFolder}/.env.example"
     },
     {
       "name": "Python Debugger: Pytest",

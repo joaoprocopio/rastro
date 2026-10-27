@@ -59,11 +59,8 @@ cover/
 *.mo
 *.pot
 
-# Django stuff:
+# Logs:
 *.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
 
 # Flask stuff:
 instance/
@@ -175,4 +172,5 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
+.import_linter_cache/
 .claude/
