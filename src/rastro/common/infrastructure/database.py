@@ -9,7 +9,9 @@ from rastro.settings import Settings
 
 
 def create_database_engine(settings: Settings) -> AsyncEngine:
-    return create_async_engine(str(settings.postgres_url), pool_pre_ping=True)
+    return create_async_engine(
+        str(settings.postgres_url.get_secret_value()), pool_pre_ping=True
+    )
 
 
 def create_sessionmaker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

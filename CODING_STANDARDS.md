@@ -62,7 +62,7 @@ An app creates a module when it has its first member. When a module grows too la
 
 Dependencies point inward. The domain imports no other layer, and the application imports only the domain. The infrastructure imports only the domain. The presentation imports the application and the domain, and only its `dependencies` module imports the infrastructure, to build adapters.
 
-`rastro/common/` holds the code that more than one app uses, in the same four layers: the bases in `domain`, `DTO` in `application`, `Row`, the engine factory, the module importer, and the repository helpers `next_id` and `existing_row` in `infrastructure`, and the problems, the CSRF check, and the database session dependencies in `presentation`. `rastro.common.domain.schemas` holds `Schema` and `RootSchema`, the bases of the other bases. The `rastro` package itself holds only the wiring: `settings.py`, `app.py` (`create_app`), `main.py` (the process entry that `fastapi run` loads), `broker.py` (`create_broker`), `worker.py` (the process entry that `taskiq worker` loads), `telemetry.py`, and `migrations/`.
+`rastro/common/` holds the code that more than one app uses, in the same four layers: the bases in `domain`, `DTO` in `application`, `Row`, the engine factory, the module importer, and the repository helpers `next_id` and `existing_row` in `infrastructure`, and the problems, the CSRF check, and the database session and settings dependencies in `presentation`. `rastro.common.domain.schemas` holds `Schema` and `RootSchema`, the bases of the other bases. The `rastro` package itself holds only the wiring: `settings.py`, `app.py` (`create_app`), `main.py` (the process entry that `fastapi run` loads), `broker.py` (`create_broker`), `worker.py` (the process entry that `taskiq worker` loads), `telemetry.py`, and `migrations/`.
 
 The test sample app in `rastro/common/tests/sample/` is the reference for the four layers. It holds the `Note` aggregate, the `Color` value object, the `NoteRepository` port, the use cases, `NoteRow`, its mappers, `SqlNoteRepository`, the views, and the tasks.
 
@@ -383,13 +383,17 @@ The `match` reads `ctx` only in the two length cases. No item shows the input va
 
 ## Configure settings
 
-`Settings` in `rastro/settings.py` is a `pydantic-settings` class that reads environment variables, and each variable has the `RASTRO_` prefix, for example `RASTRO_POSTGRES_URL`. Every field is required and has no default, so a missing variable stops the process at startup, and the error names the variable, not the field. The error hides the values that it read, so a password never reaches a log.
+`Settings` in `rastro/settings.py` is a `pydantic-settings` class that reads environment variables, and each variable has the `RASTRO_` prefix, for example `RASTRO_POSTGRES_URL`. Every field except `postgres_url` has a default, so a local run needs only the database URL. A missing `RASTRO_POSTGRES_URL` or an invalid value stops the process at startup, and the error names the variable, not the field. The error hides the values that it read, so a password never reaches a log.
 
-`RASTRO_POSTGRES_URL` is a `PostgresDsn`, and its scheme names the SQLAlchemy driver, for example `postgresql+psycopg://postgres:postgres@localhost:5432/postgres`. A password with `@` or `/` needs percent-encoding in the URL. `compose.yaml` keeps the `POSTGRES_*` variables of the Postgres container, because the image reads them.
+`RASTRO_POSTGRES_URL` has no default, so no password sits in the code. Its field is a `Secret` around a `PostgresDsn` that accepts only the scheme `postgresql+psycopg`, for example `postgresql+psycopg://postgres:postgres@localhost:5432/postgres`, so `repr` of the settings hides the password and another driver fails at startup. The engine factory, the Alembic environment, and the root `conftest.py` read the URL with `get_secret_value()`. A password with `@` or `/` needs percent-encoding in the URL. `compose.yaml` keeps the `POSTGRES_*` variables of the Postgres container, because the image reads them.
 
-`compose.yaml` declares the values of the stack, and `.env.example` declares the local values, so both list every setting. A new setting needs a field, a line in `.env.example`, and a line in `compose.yaml`. Run a local command with the local values through `uv run --env-file .env.example`.
+`RASTRO_SESSION_LIFETIME` reads an ISO 8601 duration, such as `P14D`, or a number of seconds. Each `SameSite` setting accepts only `lax`, `strict`, or `none`.
 
-`RASTRO_OPENAPI_ENABLED` decides whether FastAPI publishes `/openapi.json`, `/docs`, and `/redoc`. The stack in `compose.yaml` turns it off, so production shows no route list unless someone turns it on.
+`.env.example` lists every variable with its local value, and a settings test fails when a variable is missing from it. A new setting needs a field with a default and a line in `.env.example`. `compose.yaml` sets the values of the stack. Run a local command with the local values through `uv run --env-file .env.example`.
+
+`create_app` stores the settings on `app.state`, and the `AppSettings` alias in `rastro.common.presentation.dependencies` returns them to a view or a dependency. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
+
+`RASTRO_OPENAPI_ENABLED` decides whether FastAPI publishes `/openapi.json`, `/docs`, and `/redoc`. It defaults to `false`, so a deployment that forgets the variable shows no route list. `.env.example` turns it on for local runs.
 
 ## Test by layer
 
