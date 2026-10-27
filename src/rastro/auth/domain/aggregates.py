@@ -10,6 +10,7 @@ from rastro.auth.domain.value_objects import (
     SessionTokenHash,
 )
 from rastro.common.domain.aggregates import Aggregate
+from rastro.common.domain.value_objects import Id
 
 # The ports module imports the aggregates, so the import runs only for mypy.
 if TYPE_CHECKING:
@@ -25,7 +26,7 @@ class PasswordCheck(NamedTuple):
 
 
 class User(Aggregate):
-    id: int
+    id: Id
     email: Email
     display_name: DisplayName
     hashed_password: HashedPassword
@@ -40,13 +41,13 @@ class User(Aggregate):
 
 
 class Session(Aggregate):
-    id: int
-    user_id: int
+    id: Id
+    user_id: Id
     token_hash: SessionTokenHash
     expires_at: datetime
 
     @classmethod
-    def start(cls, *, id: int, user_id: int, token: SessionToken, at: datetime) -> Self:
+    def start(cls, *, id: Id, user_id: Id, token: SessionToken, at: datetime) -> Self:
         return cls(
             id=id,
             user_id=user_id,

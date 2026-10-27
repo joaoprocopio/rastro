@@ -1,5 +1,6 @@
 import pytest
 
+from rastro.common.domain.value_objects import Id
 from rastro.common.tests.fakes import FakeNoteRepository
 from rastro.common.tests.sample.application.use_cases import note_create, note_reject
 from rastro.common.tests.sample.domain.aggregates import Note
@@ -17,7 +18,7 @@ async def test_note_create_adds_a_yellow_note_with_the_next_id(
 ) -> None:
     await note_create(notes=notes)
 
-    assert notes.notes == {1: Note(id=1, color=Color("yellow"))}
+    assert notes.notes == {Id(1): Note(id=Id(1), color=Color("yellow"))}
 
 
 async def test_note_reject_raises_note_rejected_error(

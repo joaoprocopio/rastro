@@ -4,6 +4,7 @@ import pydantic
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from rastro.common.domain.value_objects import Id
 from rastro.common.tests.sample.domain.aggregates import Note
 from rastro.common.tests.sample.domain.value_objects import Color
 from rastro.common.tests.sample.infrastructure.models import NoteRow
@@ -36,7 +37,7 @@ async def test_get_by_id_reads_back_every_field_that_add_wrote(
 async def test_get_by_id_answers_none_for_an_unknown_id(
     db_session: AsyncSession,
 ) -> None:
-    assert await SqlNoteRepository(db_session).get_by_id(1) is None
+    assert await SqlNoteRepository(db_session).get_by_id(Id(1)) is None
 
 
 async def test_two_next_id_calls_return_two_different_ids(
@@ -44,7 +45,11 @@ async def test_two_next_id_calls_return_two_different_ids(
 ) -> None:
     notes = SqlNoteRepository(db_session)
 
-    assert await notes.next_id() != await notes.next_id()
+    first, second = await notes.next_id(), await notes.next_id()
+
+    assert isinstance(first, Id)
+    assert isinstance(second, Id)
+    assert first != second
 
 
 async def test_a_row_that_breaks_its_value_object_fails_to_become_an_aggregate(
@@ -54,4 +59,4 @@ async def test_a_row_that_breaks_its_value_object_fails_to_become_an_aggregate(
     await db_session.flush()
 
     with pytest.raises(pydantic.ValidationError):
-        await SqlNoteRepository(db_session).get_by_id(1)
+        await SqlNoteRepository(db_session).get_by_id(Id(1))
