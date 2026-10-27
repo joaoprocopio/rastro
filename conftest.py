@@ -31,7 +31,6 @@ from rastro.app import create_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
 from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
-from rastro.common.presentation.views import CSRF_COOKIE, CSRF_HEADER
 from rastro.settings import Settings
 
 ROOT = Path(__file__).parent
@@ -165,12 +164,14 @@ def csrf_token() -> str:
 
 
 @pytest.fixture
-async def client(app: FastAPI, csrf_token: str) -> AsyncIterator[httpx.AsyncClient]:
+async def client(
+    app: FastAPI, settings: Settings, csrf_token: str
+) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="https://testserver",
-        cookies={CSRF_COOKIE: csrf_token},
-        headers={CSRF_HEADER: csrf_token},
+        cookies={settings.csrf_cookie_name: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client
