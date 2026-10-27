@@ -19,7 +19,7 @@ async def test_a_signed_in_request_span_carries_the_user_id_and_not_the_email(
     await signed_in_client.get("/api/v1/auth/session")
 
     attributes = _request_attributes(spans)
-    assert attributes["user.id"] == user.id
+    assert attributes["user.id"] == user.id.root
     assert "ana@example.com" not in str(attributes)
 
 
@@ -32,7 +32,7 @@ async def test_a_session_start_span_carries_the_user_id_and_not_the_email(
     )
 
     attributes = _request_attributes(spans)
-    assert attributes["user.id"] == user.id
+    assert attributes["user.id"] == user.id.root
     assert "ana@example.com" not in str(attributes)
 
 
@@ -41,7 +41,7 @@ async def test_a_session_end_span_carries_the_user_id(
 ) -> None:
     await signed_in_client.post("/api/v1/auth/session/end")
 
-    assert _request_attributes(spans)["user.id"] == user.id
+    assert _request_attributes(spans)["user.id"] == user.id.root
 
 
 async def test_a_request_without_a_session_carries_no_user_id(

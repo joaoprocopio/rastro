@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.value_objects import SessionToken
 from rastro.auth.infrastructure.repositories import SqlSessionRepository
+from rastro.common.domain.value_objects import Id
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 TOKEN = SessionToken("token")
@@ -47,7 +48,7 @@ async def test_get_by_id_and_get_by_token_hash_read_back_every_field_that_add_wr
 async def test_get_by_id_and_get_by_token_hash_answer_none_for_an_unknown_session(
     sessions: SqlSessionRepository,
 ) -> None:
-    assert await sessions.get_by_id(1) is None
+    assert await sessions.get_by_id(Id(1)) is None
     assert await sessions.get_by_token_hash(TOKEN.digest()) is None
 
 
@@ -117,4 +118,8 @@ async def test_add_read_and_remove_set_the_user_id_on_the_current_span(
         for span in spans.get_finished_spans()
         if span.name in {"add", "read", "remove"}
     }
-    assert user_ids == {"add": user.id, "read": user.id, "remove": user.id}
+    assert user_ids == {
+        "add": user.id.root,
+        "read": user.id.root,
+        "remove": user.id.root,
+    }
