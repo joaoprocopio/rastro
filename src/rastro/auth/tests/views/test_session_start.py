@@ -127,7 +127,7 @@ async def test_a_second_sign_in_starts_a_second_session(
 async def test_a_sign_in_without_the_csrf_token_starts_no_session(
     client: httpx.AsyncClient, user: User, settings: Settings
 ) -> None:
-    del client.headers[settings.csrf_header_name.root]
+    del client.headers[settings.csrf_header_name]
 
     response = await client.post(PATH, json=CREDENTIALS)
 

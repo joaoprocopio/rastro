@@ -73,9 +73,9 @@ async def signed_in_client(
         transport=transport,
         base_url="https://testserver",
         cookies={
-            settings.session_cookie_name.root: token.root.get_secret_value(),
-            settings.csrf_cookie_name.root: csrf_token,
+            settings.session_cookie_name: token.root.get_secret_value(),
+            settings.csrf_cookie_name: csrf_token,
         },
-        headers={settings.csrf_header_name.root: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client

@@ -55,7 +55,7 @@ async def sample_client(
     async with httpx.AsyncClient(
         transport=transport,
         base_url="https://testserver",
-        cookies={settings.csrf_cookie_name.root: csrf_token},
-        headers={settings.csrf_header_name.root: csrf_token},
+        cookies={settings.csrf_cookie_name: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client

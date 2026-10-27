@@ -19,7 +19,7 @@ async def test_a_post_without_the_header_fails(
     sample_client: httpx.AsyncClient,
     settings: Settings,
 ) -> None:
-    del sample_client.headers[settings.csrf_header_name.root]
+    del sample_client.headers[settings.csrf_header_name]
 
     response = await sample_client.post(PATH)
 
@@ -33,7 +33,7 @@ async def test_a_header_that_differs_from_the_cookie_fails(
     settings: Settings,
 ) -> None:
     response = await sample_client.post(
-        PATH, headers={settings.csrf_header_name.root: "other"}
+        PATH, headers={settings.csrf_header_name: "other"}
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
@@ -44,7 +44,7 @@ async def test_a_post_without_the_cookie_fails(
     sample_client: httpx.AsyncClient,
     settings: Settings,
 ) -> None:
-    sample_client.cookies.delete(settings.csrf_cookie_name.root)
+    sample_client.cookies.delete(settings.csrf_cookie_name)
 
     response = await sample_client.post(PATH)
 
@@ -56,8 +56,8 @@ async def test_an_empty_cookie_and_an_empty_header_fail(
     sample_client: httpx.AsyncClient,
     settings: Settings,
 ) -> None:
-    sample_client.cookies.set(settings.csrf_cookie_name.root, "")
-    sample_client.headers[settings.csrf_header_name.root] = ""
+    sample_client.cookies.set(settings.csrf_cookie_name, "")
+    sample_client.headers[settings.csrf_header_name] = ""
 
     response = await sample_client.post(PATH)
 
@@ -70,7 +70,7 @@ async def test_a_header_with_a_character_outside_ascii_fails(
     settings: Settings,
 ) -> None:
     response = await sample_client.post(
-        PATH, headers={settings.csrf_header_name.root.encode(): "tökén".encode()}
+        PATH, headers={settings.csrf_header_name.encode(): "tökén".encode()}
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
@@ -81,7 +81,7 @@ async def test_a_header_with_a_character_outside_ascii_fails(
 async def test_every_other_method_that_changes_state_needs_the_token(
     sample_client: httpx.AsyncClient, settings: Settings, method: str
 ) -> None:
-    del sample_client.headers[settings.csrf_header_name.root]
+    del sample_client.headers[settings.csrf_header_name]
 
     response = await sample_client.request(method, PATH)
 
@@ -93,8 +93,8 @@ async def test_every_other_method_that_changes_state_needs_the_token(
 async def test_a_safe_method_needs_no_token(
     sample_client: httpx.AsyncClient, settings: Settings, method: str
 ) -> None:
-    del sample_client.headers[settings.csrf_header_name.root]
-    sample_client.cookies.delete(settings.csrf_cookie_name.root)
+    del sample_client.headers[settings.csrf_header_name]
+    sample_client.cookies.delete(settings.csrf_cookie_name)
 
     response = await sample_client.request(method, PATH)
 

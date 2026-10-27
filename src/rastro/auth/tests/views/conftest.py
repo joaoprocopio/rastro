@@ -7,7 +7,7 @@ from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.domain.value_objects import SessionLifetime
 from rastro.auth.presentation import dependencies
 from rastro.common.presentation.dependencies import app_settings
-from rastro.settings import HttpName, SameSite, Settings
+from rastro.settings import SameSite, Settings
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def other_session_cookie_settings(app: FastAPI, settings: Settings) -> Settings:
     other = settings.model_copy(
         update={
             "session_lifetime": SessionLifetime(timedelta(hours=1)),
-            "session_cookie_name": HttpName("other_session"),
+            "session_cookie_name": "other_session",
             "session_cookie_secure": False,
             "session_cookie_httponly": False,
             "session_cookie_samesite": SameSite.STRICT,

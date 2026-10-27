@@ -1,12 +1,10 @@
 from datetime import timedelta
 from enum import StrEnum
-from typing import Annotated
 
-from pydantic import PostgresDsn, Secret, StringConstraints, UrlConstraints
+from pydantic import Field, PostgresDsn, Secret, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rastro.auth.domain.value_objects import SessionLifetime
-from rastro.common.domain.schemas import RootSchema
 from rastro.common.domain.value_objects import TokenBytes
 
 
@@ -21,11 +19,6 @@ class SameSite(StrEnum):
     LAX = "lax"
     STRICT = "strict"
     NONE = "none"
-
-
-# An empty cookie or header name matches no cookie and no header.
-class HttpName(RootSchema[Annotated[str, StringConstraints(min_length=1)]]):
-    pass
 
 
 def _variable(field: str) -> str:
@@ -55,16 +48,16 @@ class Settings(BaseSettings):
     otel_grpc_endpoint: str = "localhost:4317"
 
     session_lifetime: SessionLifetime = SessionLifetime(timedelta(days=14))
-    session_cookie_name: HttpName = HttpName("rastro_session")
+    session_cookie_name: str = Field("rastro_session", min_length=1)
     session_cookie_secure: bool = True
     session_cookie_httponly: bool = True
     session_cookie_samesite: SameSite = SameSite.LAX
     session_token_bytes: TokenBytes = TokenBytes(32)
 
-    csrf_cookie_name: HttpName = HttpName("rastro_csrf")
+    csrf_cookie_name: str = Field("rastro_csrf", min_length=1)
     csrf_cookie_secure: bool = True
     # Scripts read the token to send it back, so the default is not HttpOnly.
     csrf_cookie_httponly: bool = False
     csrf_cookie_samesite: SameSite = SameSite.LAX
     csrf_token_bytes: TokenBytes = TokenBytes(32)
-    csrf_header_name: HttpName = HttpName("X-CSRF-Token")
+    csrf_header_name: str = Field("X-CSRF-Token", min_length=1)

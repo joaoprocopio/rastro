@@ -5,7 +5,7 @@ import pytest
 
 from rastro.auth.domain.value_objects import SessionLifetime
 from rastro.common.domain.value_objects import TokenBytes
-from rastro.settings import HttpName, SameSite, Settings
+from rastro.settings import SameSite, Settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
@@ -47,17 +47,17 @@ def test_env_example_loads(
         ("deployment_environment", "dev"),
         ("otel_grpc_endpoint", "localhost:4317"),
         ("session_lifetime", SessionLifetime(timedelta(days=14))),
-        ("session_cookie_name", HttpName("rastro_session")),
+        ("session_cookie_name", "rastro_session"),
         ("session_cookie_secure", True),
         ("session_cookie_httponly", True),
         ("session_cookie_samesite", SameSite.LAX),
         ("session_token_bytes", TokenBytes(32)),
-        ("csrf_cookie_name", HttpName("rastro_csrf")),
+        ("csrf_cookie_name", "rastro_csrf"),
         ("csrf_cookie_secure", True),
         ("csrf_cookie_httponly", False),
         ("csrf_cookie_samesite", SameSite.LAX),
         ("csrf_token_bytes", TokenBytes(32)),
-        ("csrf_header_name", HttpName("X-CSRF-Token")),
+        ("csrf_header_name", "X-CSRF-Token"),
     ],
 )
 def test_a_setting_without_its_variable_takes_its_default(
