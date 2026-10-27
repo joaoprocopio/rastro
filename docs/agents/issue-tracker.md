@@ -5,7 +5,9 @@
 - **Label**: the `Status:` line of the ticket.
 - **Comment**: append it under `## Comments`, at the end of the ticket.
 - **Resolve**: the implementer sets `Status: resolved` in the last commit of its ticket, so the status merges with the code.
+- **Acceptance criterion**: the agent that verifies a criterion ticks its checkbox, so an empty checkbox marks a criterion that nobody verified.
 - **Close**: work ends when its PR to `main` is open. Open it with `gh pr create`, title it as a Conventional Commit (`refactor!: ...`), because the squash merge puts the title on `main`, and write the body with the `/pr` skill.
+- **Review**: the maintainer reviews on the PR. Read the comments on lines of code with `gh api repos/{owner}/{repo}/pulls/<n>/comments`, because `gh pr view --comments` shows only the conversation.
 
 ## Wayfinding operations
 
