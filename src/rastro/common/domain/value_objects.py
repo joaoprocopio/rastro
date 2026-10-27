@@ -18,7 +18,11 @@ class Id(RootValueObject[PositiveInt]):
     pass
 
 
-class CsrfToken(RootValueObject[SecretStr]):
+class TokenValueObject(RootValueObject[SecretStr]):
     @classmethod
     def generate(cls, *, nbytes: int) -> Self:
         return cls(SecretStr(secrets.token_urlsafe(nbytes)))
+
+
+class CsrfToken(TokenValueObject):
+    pass

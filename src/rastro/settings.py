@@ -12,12 +12,12 @@ PsycopgDsn = Annotated[
 SameSite = Literal["lax", "strict", "none"]
 
 
-def _seconds(value: object) -> object:
+def _digits_to_seconds(value: object) -> object:
     return int(value) if isinstance(value, str) and value.isdecimal() else value
 
 
 # Pydantic parses an ISO 8601 duration from text, but not a number of seconds.
-Duration = Annotated[timedelta, BeforeValidator(_seconds)]
+Duration = Annotated[timedelta, BeforeValidator(_digits_to_seconds)]
 
 
 def _variable(field: str) -> str:
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
 
     csrf_cookie_name: str = "rastro_csrf"
     csrf_cookie_secure: bool = True
-    # Scripts read the token to send it back, so the cookie is not HttpOnly.
+    # Scripts read the token to send it back, so the default is not HttpOnly.
     csrf_cookie_httponly: bool = False
     csrf_cookie_samesite: SameSite = "lax"
     csrf_token_bytes: int = 32

@@ -1,11 +1,10 @@
 import hashlib
-import secrets
 import unicodedata
-from typing import Annotated, Self
+from typing import Annotated
 
 from pydantic import BeforeValidator, SecretStr, StringConstraints
 
-from rastro.common.domain.value_objects import RootValueObject
+from rastro.common.domain.value_objects import RootValueObject, TokenValueObject
 
 EMAIL_PATTERN = r"^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$"
 EMAIL_MAX_LENGTH = 254
@@ -64,11 +63,7 @@ class HashedSessionToken(RootValueObject[bytes]):
     pass
 
 
-class SessionToken(RootValueObject[SecretStr]):
-    @classmethod
-    def generate(cls, *, nbytes: int) -> Self:
-        return cls(SecretStr(secrets.token_urlsafe(nbytes)))
-
+class SessionToken(TokenValueObject):
     def digest(self) -> HashedSessionToken:
         value = self.root.get_secret_value().encode()
         return HashedSessionToken(hashlib.sha256(value).digest())
