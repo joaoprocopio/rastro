@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, NamedTuple, Self
 
 from rastro.auth.domain.value_objects import (
@@ -7,6 +7,7 @@ from rastro.auth.domain.value_objects import (
     HashedPassword,
     HashedSessionToken,
     RawPassword,
+    SessionLifetime,
     SessionToken,
 )
 from rastro.common.domain.aggregates import Aggregate
@@ -51,7 +52,7 @@ class Session(Aggregate):
         user_id: Id,
         token: SessionToken,
         at: datetime,
-        lifetime: timedelta,
+        lifetime: SessionLifetime,
     ) -> Self:
         return cls(
             id=id,

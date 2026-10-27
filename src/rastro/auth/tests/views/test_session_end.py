@@ -28,7 +28,7 @@ async def test_ending_a_session_deletes_it_and_clears_the_cookie(
 
 
 async def test_ending_a_session_clears_the_cookie_named_in_the_settings(
-    signed_in_client: httpx.AsyncClient, other_session_cookie: Settings
+    signed_in_client: httpx.AsyncClient, other_session_cookie_settings: Settings
 ) -> None:
     token = signed_in_client.cookies["rastro_session"]
     signed_in_client.cookies.delete("rastro_session")

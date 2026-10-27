@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from rastro.auth.application.dtos import (
     SessionGetOutput,
     SessionStartInput,
@@ -18,7 +16,8 @@ from rastro.auth.domain.ports import (
     SessionRepository,
     UserRepository,
 )
-from rastro.auth.domain.value_objects import SessionToken
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
+from rastro.common.domain.value_objects import TokenBytes
 
 
 async def user_register(
@@ -46,8 +45,8 @@ async def session_start(
     sessions: SessionRepository,
     password_hasher: PasswordHasher,
     clock: Clock,
-    lifetime: timedelta,
-    token_bytes: int,
+    lifetime: SessionLifetime,
+    token_bytes: TokenBytes,
 ) -> SessionToken:
     user = await users.get_by_email(input.email)
     if user is None:

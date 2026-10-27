@@ -61,7 +61,7 @@ async def test_a_session_ends_a_fixed_time_after_it_starts(
 
 
 async def test_the_session_cookie_takes_its_name_lifetime_and_flags_from_the_settings(
-    client: httpx.AsyncClient, user: User, other_session_cookie: Settings
+    client: httpx.AsyncClient, user: User, other_session_cookie_settings: Settings
 ) -> None:
     response = await client.post(PATH, json=CREDENTIALS)
 
@@ -125,9 +125,9 @@ async def test_a_second_sign_in_starts_a_second_session(
 
 
 async def test_a_sign_in_without_the_csrf_token_starts_no_session(
-    client: httpx.AsyncClient, user: User
+    client: httpx.AsyncClient, user: User, settings: Settings
 ) -> None:
-    del client.headers["X-CSRF-Token"]
+    del client.headers[settings.csrf_header_name]
 
     response = await client.post(PATH, json=CREDENTIALS)
 

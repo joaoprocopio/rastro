@@ -1,4 +1,3 @@
-import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -7,24 +6,11 @@ import pytest
 from rastro.settings import Settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
-POSTGRES_URL = "postgresql+psycopg://postgres:hunter2-secret@localhost:5432/postgres"
 
 
 def _example_variables() -> dict[str, str]:
     lines = ENV_EXAMPLE.read_text().splitlines()
     return dict(line.split("=", 1) for line in lines if line)
-
-
-@pytest.fixture
-def empty_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in os.environ:
-        if name.startswith("RASTRO_"):
-            monkeypatch.delenv(name)
-
-
-@pytest.fixture
-def postgres_url_only(empty_environment: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("RASTRO_POSTGRES_URL", POSTGRES_URL)
 
 
 def test_env_example_lists_every_variable(empty_environment: None) -> None:
@@ -88,19 +74,76 @@ def test_every_setting_but_the_postgres_url_has_a_default() -> None:
     assert required == ["RASTRO_POSTGRES_URL"]
 
 
+def test_the_session_lifetime_reads_an_iso_8601_duration(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_SESSION_LIFETIME", "PT1H")
+
+    assert Settings().session_lifetime == timedelta(hours=1)
+
+
 @pytest.mark.parametrize(
-    ("value", "lifetime"),
-    [("P1D", timedelta(days=1)), ("3600", timedelta(hours=1))],
+    ("value", "error"),
+    [
+        ("PT0S", "greater_than"),
+        ("-PT1H", "greater_than"),
+        ("3600", "time_delta_parsing"),
+    ],
 )
-def test_the_session_lifetime_reads_a_duration_or_seconds(
-    postgres_url_only: None,
-    monkeypatch: pytest.MonkeyPatch,
-    value: str,
-    lifetime: timedelta,
+def test_a_session_lifetime_that_is_not_a_positive_duration_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, value: str, error: str
 ) -> None:
     monkeypatch.setenv("RASTRO_SESSION_LIFETIME", value)
 
-    assert Settings().session_lifetime == lifetime
+    with pytest.raises(
+        ValueError, match=rf"(?m)^RASTRO_SESSION_LIFETIME\n  .* \[type={error}\]"
+    ):
+        Settings()
+
+
+@pytest.mark.parametrize(
+    "name", ["RASTRO_SESSION_TOKEN_BYTES", "RASTRO_CSRF_TOKEN_BYTES"]
+)
+def test_a_token_size_of_16_bytes_loads(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.setenv(name, "16")
+
+    assert getattr(Settings(), name.removeprefix("RASTRO_").lower()) == 16
+
+
+@pytest.mark.parametrize(
+    "name", ["RASTRO_SESSION_TOKEN_BYTES", "RASTRO_CSRF_TOKEN_BYTES"]
+)
+def test_a_token_size_under_16_bytes_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.setenv(name, "15")
+
+    with pytest.raises(
+        ValueError,
+        match=rf"(?m)^{name}\n  .* \[type=greater_than_equal\]",
+    ):
+        Settings()
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "RASTRO_SESSION_COOKIE_NAME",
+        "RASTRO_CSRF_COOKIE_NAME",
+        "RASTRO_CSRF_HEADER_NAME",
+    ],
+)
+def test_an_empty_cookie_or_header_name_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.setenv(name, "")
+
+    with pytest.raises(
+        ValueError, match=rf"(?m)^{name}\n  .* \[type=string_too_short\]"
+    ):
+        Settings()
 
 
 @pytest.mark.parametrize(

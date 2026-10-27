@@ -22,7 +22,7 @@ def clock() -> Clock:
 
 
 @pytest.fixture
-def other_session_cookie(app: FastAPI, settings: Settings) -> Settings:
+def other_session_cookie_settings(app: FastAPI, settings: Settings) -> Settings:
     """Settings whose Session cookie differs from the default in every value."""
     other = settings.model_copy(
         update={

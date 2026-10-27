@@ -1,8 +1,11 @@
 from datetime import timedelta
 from typing import Annotated, Literal
 
-from pydantic import BeforeValidator, PostgresDsn, Secret, UrlConstraints
+from pydantic import PostgresDsn, Secret, StringConstraints, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from rastro.auth.domain.value_objects import SessionLifetime
+from rastro.common.domain.value_objects import TokenBytes
 
 # The scheme names the SQLAlchemy driver, so another driver fails at startup.
 PsycopgDsn = Annotated[
@@ -12,12 +15,8 @@ PsycopgDsn = Annotated[
 SameSite = Literal["lax", "strict", "none"]
 
 
-def _digits_to_seconds(value: object) -> object:
-    return int(value) if isinstance(value, str) and value.isdecimal() else value
-
-
-# Pydantic parses an ISO 8601 duration from text, but not a number of seconds.
-Duration = Annotated[timedelta, BeforeValidator(_digits_to_seconds)]
+# An empty cookie or header name matches no cookie and no header.
+HttpName = Annotated[str, StringConstraints(min_length=1)]
 
 
 def _variable(field: str) -> str:
@@ -46,17 +45,17 @@ class Settings(BaseSettings):
     deployment_environment: str = "dev"
     otel_grpc_endpoint: str = "localhost:4317"
 
-    session_lifetime: Duration = timedelta(days=14)
-    session_cookie_name: str = "rastro_session"
+    session_lifetime: SessionLifetime = timedelta(days=14)
+    session_cookie_name: HttpName = "rastro_session"
     session_cookie_secure: bool = True
     session_cookie_httponly: bool = True
     session_cookie_samesite: SameSite = "lax"
-    session_token_bytes: int = 32
+    session_token_bytes: TokenBytes = 32
 
-    csrf_cookie_name: str = "rastro_csrf"
+    csrf_cookie_name: HttpName = "rastro_csrf"
     csrf_cookie_secure: bool = True
     # Scripts read the token to send it back, so the default is not HttpOnly.
     csrf_cookie_httponly: bool = False
     csrf_cookie_samesite: SameSite = "lax"
-    csrf_token_bytes: int = 32
-    csrf_header_name: str = "X-CSRF-Token"
+    csrf_token_bytes: TokenBytes = 32
+    csrf_header_name: HttpName = "X-CSRF-Token"

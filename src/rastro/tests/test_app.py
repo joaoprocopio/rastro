@@ -1,4 +1,3 @@
-import os
 from http import HTTPStatus
 
 import httpx
@@ -34,15 +33,8 @@ async def test_the_openapi_pages_are_not_found_when_the_setting_is_off(
 
 
 async def test_the_openapi_schema_is_not_found_without_its_variable(
-    monkeypatch: pytest.MonkeyPatch,
+    postgres_url_only: None,
 ) -> None:
-    for name in os.environ:
-        if name.startswith("RASTRO_"):
-            monkeypatch.delenv(name)
-    monkeypatch.setenv(
-        "RASTRO_POSTGRES_URL",
-        "postgresql+psycopg://postgres:postgres@localhost:5432/postgres",
-    )
     app = create_app(
         settings=Settings(), sessionmaker=async_sessionmaker(), broker=InMemoryBroker()
     )

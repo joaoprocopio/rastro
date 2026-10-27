@@ -1,5 +1,3 @@
-import secrets
-
 from fastapi import Request, Response
 
 from rastro.common.domain.value_objects import CsrfToken
@@ -28,7 +26,7 @@ def csrf_check(request: Request, settings: AppSettings) -> None:
     header = request.headers.get(settings.csrf_header_name)
     if not cookie or header is None:
         raise CsrfFailedError()
-    expected = CsrfToken.model_validate(cookie).root.get_secret_value()
-    sent = CsrfToken.model_validate(header).root.get_secret_value()
-    if not secrets.compare_digest(expected.encode(), sent.encode()):
+    expected = CsrfToken.model_validate(cookie)
+    sent = CsrfToken.model_validate(header)
+    if not expected.matches(sent):
         raise CsrfFailedError()
