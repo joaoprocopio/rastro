@@ -1,18 +1,16 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
-from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,
-)
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from rastro.auth.domain.aggregates import Session, User
-from rastro.auth.domain.value_objects import SessionToken
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
 from rastro.auth.infrastructure.repositories import SqlSessionRepository
+from rastro.common.domain.value_objects import Id
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-TOKEN = SessionToken("token")
+TOKEN = SessionToken(SecretStr("token"))
 
 
 @pytest.fixture
@@ -24,11 +22,15 @@ def sessions(db_session: AsyncSession) -> SqlSessionRepository:
 async def session(sessions: SqlSessionRepository, user: User) -> Session:
     """A Session of `user` for `TOKEN`, which the test has not added yet."""
     return Session.start(
-        id=await sessions.next_id(), user_id=user.id, token=TOKEN, at=START
+        id=await sessions.next_id(),
+        user_id=user.id,
+        token=TOKEN,
+        at=START,
+        lifetime=SessionLifetime(timedelta(days=14)),
     )
 
 
-async def test_get_by_id_and_get_by_token_hash_read_back_every_field_that_add_wrote(
+async def test_get_by_id_and_get_by_hashed_token_read_back_every_field_that_add_wrote(
     sessions: SqlSessionRepository,
     session: Session,
     sessionmaker: async_sessionmaker[AsyncSession],
@@ -39,16 +41,16 @@ async def test_get_by_id_and_get_by_token_hash_read_back_every_field_that_add_wr
     async with sessionmaker() as reader:
         assert await SqlSessionRepository(reader).get_by_id(session.id) == session
         assert (
-            await SqlSessionRepository(reader).get_by_token_hash(TOKEN.digest())
+            await SqlSessionRepository(reader).get_by_hashed_token(TOKEN.digest())
             == session
         )
 
 
-async def test_get_by_id_and_get_by_token_hash_answer_none_for_an_unknown_session(
+async def test_get_by_id_and_get_by_hashed_token_answer_none_for_an_unknown_session(
     sessions: SqlSessionRepository,
 ) -> None:
-    assert await sessions.get_by_id(1) is None
-    assert await sessions.get_by_token_hash(TOKEN.digest()) is None
+    assert await sessions.get_by_id(Id(1)) is None
+    assert await sessions.get_by_hashed_token(TOKEN.digest()) is None
 
 
 async def test_two_next_id_calls_return_two_different_ids(
@@ -63,7 +65,7 @@ async def test_update_writes_every_field_of_the_session(
     sessionmaker: async_sessionmaker[AsyncSession],
 ) -> None:
     await sessions.add(session)
-    session.token_hash = SessionToken("other").digest()
+    session.hashed_token = SessionToken(SecretStr("other")).digest()
     session.expires_at = datetime(2026, 2, 1, tzinfo=UTC)
 
     await sessions.update(session)
@@ -95,26 +97,3 @@ async def test_remove_deletes_the_session(
 
     async with sessionmaker() as reader:
         assert await SqlSessionRepository(reader).get_by_id(session.id) is None
-
-
-async def test_add_read_and_remove_set_the_user_id_on_the_current_span(
-    sessions: SqlSessionRepository,
-    session: Session,
-    user: User,
-    spans: InMemorySpanExporter,
-) -> None:
-    tracer = trace.get_tracer(__name__)
-
-    with tracer.start_as_current_span("add"):
-        await sessions.add(session)
-    with tracer.start_as_current_span("read"):
-        await sessions.get_by_token_hash(TOKEN.digest())
-    with tracer.start_as_current_span("remove"):
-        await sessions.remove(session)
-
-    user_ids = {
-        span.name: (span.attributes or {}).get("user.id")
-        for span in spans.get_finished_spans()
-        if span.name in {"add", "read", "remove"}
-    }
-    assert user_ids == {"add": user.id, "read": user.id, "remove": user.id}

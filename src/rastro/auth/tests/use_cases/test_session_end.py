@@ -1,11 +1,12 @@
 from datetime import timedelta
 
 import pytest
+from pydantic import SecretStr
 
 from rastro.auth.application.use_cases import session_end
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.errors import NotAuthenticatedError
-from rastro.auth.domain.value_objects import SessionToken
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
 from rastro.auth.tests.fakes import FakeClock, FakeSessionRepository
 
 
@@ -18,8 +19,9 @@ async def test_it_ends_the_session_of_the_token_and_no_other(
     other = Session.start(
         id=await sessions.next_id(),
         user_id=ana.id,
-        token=SessionToken("other"),
+        token=SessionToken(SecretStr("other")),
         at=clock.now(),
+        lifetime=SessionLifetime(timedelta(seconds=1)),
     )
     await sessions.add(other)
 
@@ -41,7 +43,9 @@ async def test_it_raises_not_authenticated_for_a_token_with_no_session(
     sessions: FakeSessionRepository, clock: FakeClock, session_token: SessionToken
 ) -> None:
     with pytest.raises(NotAuthenticatedError):
-        await session_end(SessionToken("unknown"), sessions=sessions, clock=clock)
+        await session_end(
+            SessionToken(SecretStr("unknown")), sessions=sessions, clock=clock
+        )
 
     assert len(sessions.sessions) == 1
 

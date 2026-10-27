@@ -1,14 +1,19 @@
+from datetime import timedelta
+
 import pydantic
 import pytest
+from pydantic import SecretStr
 
 from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    HashedSessionToken,
     RawPassword,
+    SessionLifetime,
     SessionToken,
-    SessionTokenHash,
 )
+from rastro.common.domain.value_objects import TokenBytes
 
 
 def test_email_strips_spaces_and_lowercases_the_whole_address() -> None:
@@ -77,21 +82,24 @@ def test_display_name_rejects_321_characters() -> None:
 
 
 def test_raw_password_keeps_its_spaces() -> None:
-    assert RawPassword("  pass word  ").root == "  pass word  "
+    assert (
+        RawPassword.model_validate("  pass word  ").root.get_secret_value()
+        == "  pass word  "
+    )
 
 
 def test_raw_password_allows_8_characters() -> None:
-    assert RawPassword("12345678").root == "12345678"
+    assert RawPassword.model_validate("12345678").root.get_secret_value() == "12345678"
 
 
 def test_raw_password_rejects_7_characters() -> None:
     with pytest.raises(pydantic.ValidationError):
-        RawPassword("1234567")
+        RawPassword.model_validate("1234567")
 
 
 def test_a_rejected_password_keeps_the_input_out_of_the_message() -> None:
     with pytest.raises(pydantic.ValidationError) as excinfo:
-        RawPassword("hunter2")
+        RawPassword.model_validate("hunter2")
 
     assert "hunter2" not in str(excinfo.value)
 
@@ -106,4 +114,36 @@ def test_the_digest_of_a_session_token_is_its_sha256() -> None:
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     )
 
-    assert SessionToken("abc").digest() == SessionTokenHash(expected)
+    assert SessionToken(SecretStr("abc")).digest() == HashedSessionToken(expected)
+
+
+def test_a_new_session_token_of_16_bytes_has_22_characters() -> None:
+    token = SessionToken.generate(nbytes=TokenBytes(16))
+
+    assert len(token.root.get_secret_value()) == 22
+
+
+def test_two_new_session_tokens_differ() -> None:
+    assert SessionToken.generate(nbytes=TokenBytes(16)) != SessionToken.generate(
+        nbytes=TokenBytes(16)
+    )
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [RawPassword(SecretStr("hunter22")), SessionToken(SecretStr("abc"))],
+    ids=type,
+)
+def test_the_repr_of_a_secret_hides_its_value(
+    secret: RawPassword | SessionToken,
+) -> None:
+    assert "**********" in repr(secret)
+    assert secret.root.get_secret_value() not in repr(secret)
+
+
+@pytest.mark.parametrize("lifetime", [timedelta(0), timedelta(hours=-1)])
+def test_session_lifetime_rejects_a_duration_of_zero_or_less(
+    lifetime: timedelta,
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        SessionLifetime(lifetime)

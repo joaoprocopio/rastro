@@ -17,7 +17,9 @@ def _run(connection: Connection) -> None:
 
 async def _run_on_a_new_engine() -> None:
     settings = Settings()
-    engine = create_async_engine(str(settings.postgres_url), poolclass=pool.NullPool)
+    engine = create_async_engine(
+        str(settings.postgres_url.get_secret_value()), poolclass=pool.NullPool
+    )
     async with engine.connect() as connection:
         await connection.run_sync(_run)
     await engine.dispose()

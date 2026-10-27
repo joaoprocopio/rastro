@@ -7,7 +7,7 @@ from rastro.common.infrastructure.database import (
 )
 from rastro.settings import Settings
 
-# A missing variable stops the process here, and the error names it.
+# A missing or invalid variable stops the process here, and the error names it.
 settings = Settings()
 
 telemetry.instrument(settings=settings)

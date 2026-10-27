@@ -24,6 +24,7 @@ PRESENTATION = "presentation"
 DOMAIN = "domain"
 APPLICATION = "application"
 USE_CASES = "use_cases"
+ALIASED_FORMS = frozenset({"Annotated", "Literal"})
 
 
 def domain_modules() -> list[ModuleType]:
@@ -165,6 +166,42 @@ def depends_uses(*, source: str, name: str) -> list[str]:
         for node in ast.walk(tree)
         if isinstance(node, ast.stmt | ast.expr) and _uses_depends(node, fastapi_names)
     ]
+
+
+def type_aliases(*, source: str, name: str) -> list[str]:
+    return [
+        f"{name}:{node.lineno}: {ast.unparse(node)}"
+        for node in ast.parse(source).body
+        if (value := _alias_value(node)) is not None
+        and _subscripted_form(value) in ALIASED_FORMS
+        and not _mentions_depends(value)
+    ]
+
+
+def _alias_value(node: ast.stmt) -> ast.expr | None:
+    match node:
+        case ast.Assign(targets=[ast.Name()], value=value):
+            return value
+        case ast.AnnAssign(target=ast.Name(), value=value) | ast.TypeAlias(value=value):
+            return value
+    return None
+
+
+def _subscripted_form(node: ast.expr) -> str | None:
+    match node:
+        case ast.Subscript(value=ast.Name(id=form) | ast.Attribute(attr=form)):
+            return form
+    return None
+
+
+def _mentions_depends(node: ast.expr) -> bool:
+    return any(
+        isinstance(child, ast.Name)
+        and child.id == DEPENDS
+        or isinstance(child, ast.Attribute)
+        and child.attr == DEPENDS
+        for child in ast.walk(node)
+    )
 
 
 def is_use_case_module(name: str) -> bool:

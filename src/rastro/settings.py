@@ -1,5 +1,24 @@
-from pydantic import PostgresDsn
+from datetime import timedelta
+from enum import StrEnum
+
+from pydantic import PostgresDsn, Secret, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from rastro.auth.domain.value_objects import SessionLifetime
+from rastro.common.domain.value_objects import TokenBytes
+
+
+# The scheme names the SQLAlchemy driver, so another driver fails at startup.
+class PsycopgDsn(PostgresDsn):
+    _constraints = UrlConstraints(
+        host_required=True, allowed_schemes=["postgresql+psycopg"]
+    )
+
+
+class SameSite(StrEnum):
+    LAX = "lax"
+    STRICT = "strict"
+    NONE = "none"
 
 
 def _variable(field: str) -> str:
@@ -14,16 +33,31 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
 
-    openapi_enabled: bool
+    openapi_enabled: bool = False
 
-    # The scheme names the driver, for example postgresql+psycopg.
-    postgres_url: PostgresDsn
+    # No default, so no password sits in the code.
+    postgres_url: Secret[PsycopgDsn]
 
-    zeromq_publish_address: str
-    zeromq_subscribe_address: str
+    zeromq_publish_address: str = "tcp://127.0.0.1:5555"
+    zeromq_subscribe_address: str = "tcp://127.0.0.1:5555"
 
-    service_namespace: str
-    service_name: str
-    deployment_id: str
-    deployment_environment: str
-    otel_grpc_endpoint: str
+    service_namespace: str = "rastro"
+    service_name: str = "rastro"
+    deployment_id: str = "local"
+    deployment_environment: str = "dev"
+    otel_grpc_endpoint: str = "localhost:4317"
+
+    session_lifetime: SessionLifetime = SessionLifetime(timedelta(days=14))
+    session_cookie_name: str = "rastro_session"
+    session_cookie_secure: bool = True
+    session_cookie_httponly: bool = True
+    session_cookie_samesite: SameSite = SameSite.LAX
+    session_token_bytes: TokenBytes = TokenBytes(32)
+
+    csrf_cookie_name: str = "rastro_csrf"
+    csrf_cookie_secure: bool = True
+    # Scripts read the token to send it back, so the default is not HttpOnly.
+    csrf_cookie_httponly: bool = False
+    csrf_cookie_samesite: SameSite = SameSite.LAX
+    csrf_token_bytes: TokenBytes = TokenBytes(32)
+    csrf_header_name: str = "X-CSRF-Token"

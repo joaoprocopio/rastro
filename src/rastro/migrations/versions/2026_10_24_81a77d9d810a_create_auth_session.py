@@ -23,7 +23,7 @@ def upgrade() -> None:
         "auth_session",
         sa.Column("id", sa.BigInteger(), sa.Identity(always=False), nullable=False),
         sa.Column("user_id", sa.BigInteger(), nullable=False),
-        sa.Column("token_hash", sa.LargeBinary(), nullable=False),
+        sa.Column("hashed_token", sa.LargeBinary(), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["auth_user.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("token_hash", name="auth_session_token_hash_key"),
+        sa.UniqueConstraint("hashed_token", name="auth_session_hashed_token_key"),
     )
     op.create_index(
         op.f("ix_auth_session_user_id"), "auth_session", ["user_id"], unique=False

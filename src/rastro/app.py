@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -21,7 +21,7 @@ def create_app(
     broker: AsyncBroker,
 ) -> FastAPI:
     @asynccontextmanager
-    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         # The broker of a process that sends tasks opens its connection here.
         async with broker:
             yield
@@ -32,6 +32,7 @@ def create_app(
         openapi_url="/openapi.json" if settings.openapi_enabled else None,
         lifespan=lifespan,
     )
+    app.state.settings = settings
     app.state.sessionmaker = sessionmaker
     install_problem_handlers(app, error_statuses=ERROR_STATUSES)
     app.include_router(auth_router, prefix="/api/v1/auth")

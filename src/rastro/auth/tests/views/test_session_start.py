@@ -12,7 +12,7 @@ from rastro.auth.domain.aggregates import User
 from rastro.auth.domain.value_objects import HashedPassword
 from rastro.auth.infrastructure.models import SessionRow
 from rastro.auth.infrastructure.repositories import SqlUserRepository
-from rastro.common.presentation.views import CSRF_HEADER
+from rastro.settings import Settings
 
 PATH = "/api/v1/auth/session/start"
 CREDENTIALS = {"email": "ana@example.com", "password": "password"}
@@ -40,8 +40,8 @@ async def test_the_database_stores_the_hash_of_the_token_and_never_the_token(
     token = response.cookies["rastro_session"]
     rows = (await db_session.execute(text("SELECT * FROM auth_session"))).all()
     assert len(rows) == 1
-    assert rows[0].user_id == user.id
-    assert rows[0].token_hash == hashlib.sha256(token.encode()).digest()
+    assert rows[0].user_id == user.id.root
+    assert rows[0].hashed_token == hashlib.sha256(token.encode()).digest()
     assert token not in "".join(str(value) for value in rows[0])
     assert len(base64.urlsafe_b64decode(f"{token}=")) == 32
 
@@ -58,6 +58,20 @@ async def test_a_session_ends_a_fixed_time_after_it_starts(
     lifetime = timedelta(days=14)
     assert before + lifetime <= session.expires_at <= after + lifetime
     assert "Max-Age=1209600" in response.headers["Set-Cookie"]
+
+
+async def test_the_session_cookie_takes_its_name_lifetime_and_flags_from_the_settings(
+    client: httpx.AsyncClient, user: User, other_session_cookie_settings: Settings
+) -> None:
+    response = await client.post(PATH, json=CREDENTIALS)
+
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    cookie = response.headers["Set-Cookie"]
+    assert cookie.startswith("other_session=")
+    assert "Max-Age=3600" in cookie
+    assert "HttpOnly" not in cookie
+    assert "Secure" not in cookie
+    assert "SameSite=strict" in cookie
 
 
 async def test_an_unknown_email_and_a_wrong_password_answer_the_same_problem(
@@ -111,9 +125,9 @@ async def test_a_second_sign_in_starts_a_second_session(
 
 
 async def test_a_sign_in_without_the_csrf_token_starts_no_session(
-    client: httpx.AsyncClient, user: User
+    client: httpx.AsyncClient, user: User, settings: Settings
 ) -> None:
-    del client.headers[CSRF_HEADER]
+    del client.headers[settings.csrf_header_name]
 
     response = await client.post(PATH, json=CREDENTIALS)
 

@@ -29,7 +29,7 @@ These rules follow from the split:
 
 ## Raise in place of a fallback value
 
-Application code holds no fallback value for a state that it does not expect: no `or ""`, no `.get(key, {})`, and no `getattr(obj, name, None)` for an attribute that must exist. The code raises, and the error reaches the observability platform as a `500`. For example, the `405` handler raises when Starlette's exception has no `Allow` header, in place of an answer with an empty header, and the problem handlers raise when an error class has no row in the error-to-status table. A default stays only where the absence is a valid state of the domain, for example an optional field of a DTO.
+Application code holds no fallback value for a state that it does not expect: no `or ""`, no `.get(key, {})`, and no `getattr(obj, name, None)` for an attribute that must exist. The code raises, and the error reaches the observability platform as a `500`. For example, the `405` handler raises when Starlette's exception has no `Allow` header, in place of an answer with an empty header, and the problem handlers raise when an error class has no row in the error-to-status table. A default stays only where the absence is a valid state. An optional field of a DTO is one example. A setting is another, because an operator who sets no variable runs with today's local value, so every setting has a default except `RASTRO_POSTGRES_URL`, which "Configure settings" keeps required.
 
 ## Lay out an app in four layers
 
@@ -62,7 +62,7 @@ An app creates a module when it has its first member. When a module grows too la
 
 Dependencies point inward. The domain imports no other layer, and the application imports only the domain. The infrastructure imports only the domain. The presentation imports the application and the domain, and only its `dependencies` module imports the infrastructure, to build adapters.
 
-`rastro/common/` holds the code that more than one app uses, in the same four layers: the bases in `domain`, `DTO` in `application`, `Row`, the engine factory, the module importer, and the repository helpers `next_id` and `existing_row` in `infrastructure`, and the problems, the CSRF check, and the database session dependencies in `presentation`. `rastro.common.domain.schemas` holds `Schema` and `RootSchema`, the bases of the other bases. The `rastro` package itself holds only the wiring: `settings.py`, `app.py` (`create_app`), `main.py` (the process entry that `fastapi run` loads), `broker.py` (`create_broker`), `worker.py` (the process entry that `taskiq worker` loads), `telemetry.py`, and `migrations/`.
+`rastro/common/` holds the code that more than one app uses, in the same four layers: the bases and the shared value objects such as `Id` in `domain`, `DTO` in `application`, `Row`, the engine factory, the module importer, and the repository helpers `next_id` and `existing_row` in `infrastructure`, and the problems, the CSRF check, and the database session and settings dependencies in `presentation`. `rastro.common.domain.schemas` holds `Schema` and `RootSchema`, the bases of the other bases. The `rastro` package itself holds only the wiring: `settings.py`, `app.py` (`create_app`), `main.py` (the process entry that `fastapi run` loads), `broker.py` (`create_broker`), `worker.py` (the process entry that `taskiq worker` loads), `telemetry.py`, and `migrations/`.
 
 The test sample app in `rastro/common/tests/sample/` is the reference for the four layers. It holds the `Note` aggregate, the `Color` value object, the `NoteRepository` port, the use cases, `NoteRow`, its mappers, `SqlNoteRepository`, the views, and the tasks.
 
@@ -70,10 +70,12 @@ The test sample app in `rastro/common/tests/sample/` is the reference for the fo
 
 Every piece of code takes one of four forms, so a reader can tell what a class does from its kind:
 
-- **Data** is a class: an aggregate, a value object, a DTO, an error, or a row. A data class receives no dependency, and its methods read only its own fields and their arguments. A `typing.NamedTuple` is data only as the result of a domain method that holds several values and no rule, such as `PasswordCheck` from `User.verify_password`. No edge parses it, so it needs no Pydantic validation.
+- **Data** is a class: an aggregate, a value object, a DTO, an error, a row, or an enum. A data class receives no dependency, and its methods read only its own fields and their arguments. A `typing.NamedTuple` is data only as the result of a domain method that holds several values and no rule, such as `PasswordCheck` from `User.verify_password`. No edge parses it, so it needs no Pydantic validation.
 - **A port** is a `typing.Protocol` in the domain's `ports` module, for each dependency that the core swaps between production and tests. A hasher, a clock, and each repository are ports.
 - **An adapter** is a class that implements a port and holds configuration or a resource, which it receives once, in its constructor. A repository receives the `AsyncSession`. A fake is an adapter class in the app's tests package.
 - **Everything else is a function**: a use case, a mapper, a view, a FastAPI dependency, and a task.
+
+A data type is always a class, never a module-level `Annotated` or `Literal` alias, because mypy cannot tell two aliases of one type apart and accepts a plain value for either. A constraint goes inside the class, for example `class TokenBytes(RootValueObject[Annotated[int, Field(ge=16, strict=False)]])`, and a fixed set of texts is a `StrEnum`. The one module-level alias is the FastAPI dependency alias, such as `DatabaseSession = Annotated[AsyncSession, Depends(...)]`, because FastAPI reads `Depends` only inside `Annotated`.
 
 A class inherits only from a framework base (`pydantic.BaseModel`, SQLAlchemy's `DeclarativeBase`, `Exception`, `typing.NamedTuple`) or from a rastro base that carries configuration or declaration rules, such as `Aggregate` or `Row`. An adapter does not inherit its `Protocol`, and the code uses no `abc.ABC`, so a fake and a real adapter have the same standing. mypy checks conformance where a dependency function returns the adapter as the port type:
 
@@ -124,6 +126,14 @@ A rule that `StringConstraints` cannot express, for example NFKC normalization, 
 
 An edge parses a raw value with `<ValueObject>.model_validate(value)`, which accepts a raw string or a built value object, and a DTO field typed with a value object parses its JSON with no adapter code. Each value object is its own class, so mypy rejects a raw `str` or another value object in a use case argument.
 
+Every aggregate id is an `Id` from `rastro.common.domain.value_objects`, a `RootValueObject` over Pydantic's `PositiveInt`, so `User.id`, `Session.user_id`, and `Note.id` share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
+
+A value object that holds a secret wraps a Pydantic `SecretStr`, so `repr` shows `**********` and a log line or a traceback never shows the secret. A secret is a value that lets its holder act: `RawPassword` and `SessionToken` in `rastro.auth.domain.value_objects`, and `CsrfToken` in `rastro.common.domain.value_objects`. Code reads the secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two tokens inside `CsrfToken.matches`, and a test reads it to check the value, for example the length of a new token. A test builds a secret with `RawPassword(SecretStr("password"))`, because mypy types the constructor with the root type. `Email` and `DisplayName` stay plain, because a response sends them, and a `SecretStr` would send asterisks. A digest or a hash, for example `HashedPassword`, stays plain, because it lets no one act. A token value object subclasses `RootValueObject[SecretStr]` with no format rule and declares its own `generate(nbytes=...)`, which builds a new token. A header or a cookie then always parses, and a wrong token fails the check that compares it. `CsrfToken.matches` compares the two secrets as UTF-8 bytes with `secrets.compare_digest`, because `compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
+
+A configuration value with a rule is a value object too: `TokenBytes` in `rastro.common.domain.value_objects` holds an `int` of at least 16, and `SessionLifetime` in `rastro.auth.domain.value_objects` holds a `timedelta` greater than zero. Each declares `Field(strict=False)` on its root, because `Settings` parses it from the text of an environment variable. The settings, the use case, the aggregate, and `generate` pass the value object, and the code reads `.root` where it needs the number or the duration, so `TokenBytes(15)` fails wherever code builds it.
+
+A value object equals only a value object of its own class, so `Id(1) == 1` is false. A test that compares an id with a column reads the `int` through `.root`.
+
 An enum is a `StrEnum` in the domain's `value_objects` module. A domain module imports only the standard library, `pydantic`, and other domain modules of rastro.
 
 ## The frontend never validates
@@ -136,9 +146,10 @@ A use case is an `async def` function in the application's `use_cases` module, a
 
 - The name is `<entity>_<action>`, for example `user_register` or `note_create`.
 - The first argument is the Input DTO or value, when the operation has one. Every dependency follows as a required keyword-only argument typed with a port, so mypy finds every caller that a new dependency affects.
+- A configuration value follows the ports as a required keyword-only argument with the type of its setting, for example `lifetime: SessionLifetime` and `token_bytes: TokenBytes` in `session_start`. The view reads the value from the settings and passes it, so the application and the domain never read `Settings`, and a test passes the value that it needs.
 - It returns an Output DTO, a value object, or nothing.
 - It reads the time from the `Clock` port and passes it to a domain method as a value, so a domain test passes a `datetime` and needs no fake clock.
-- It creates a random secret with `secrets` and returns it, for example the Session token of `session_start`. A port wraps only a source that a test must control, such as the clock, and a test reads a random value from the return value of the use case.
+- It creates a random secret with the `generate` method of the secret's value object and returns it, for example `SessionToken.generate(nbytes=token_bytes)` in `session_start`. A port wraps only a source that a test must control, such as the clock, and a test reads a random value from the return value of the use case.
 - It never calls `commit` or `rollback`, because the edge owns the transaction.
 - Every read goes through a use case and a repository that returns an aggregate, so a read has the same shape as a write.
 
@@ -163,9 +174,9 @@ A row is a plain SQLAlchemy 2 table with `Mapped` columns of primitive types, in
 
 A repository is an adapter class in the infrastructure's `repositories` module, one per aggregate, and its port lives in the domain's `ports` module. It receives the `AsyncSession` in its constructor, so the application layer never imports SQLAlchemy. Its methods follow Evans's names: `add`, `remove`, `update`, `get_by_id`, the other `get_by_*` lookups that use cases need, and `next_id`. A method takes the aggregate as its one positional argument, for example `notes.add(note)`.
 
-- `next_id` calls `next_id` from `rastro.common.infrastructure.repositories` with the row class. That function calls `nextval` on the sequence of the `id` column, so every aggregate has an `int` id from its creation. Postgres never returns one value to two sessions, and a rolled-back transaction leaves a gap.
+- `next_id` calls `next_id` from `rastro.common.infrastructure.repositories` with the column object as `column`, for example `next_id(db_session, column=NoteRow.id)`. That function reads the table and the column names from the column object, calls `nextval` on the sequence of that column, and returns an `Id`, so every aggregate has its id from its creation and a renamed column fails mypy. Postgres never returns one value to two sessions, and a rolled-back transaction leaves a gap.
 - `add` flushes, so that a constraint violation rises inside `add`.
-- `update` and `remove` load the row through `existing_row` from `rastro.common.infrastructure.repositories`, which raises `LookupError` when no row has the id. `merge` alone inserts a missing row, so `update` loads the row before it calls `merge`. The load reads the identity map when the use case read the aggregate in the same transaction.
+- `update` and `remove` load the row through `existing_row` from `rastro.common.infrastructure.repositories`, which receives an `Id` and raises `LookupError` when no row has the id. `merge` alone inserts a missing row, so `update` loads the row before it calls `merge`. The load reads the identity map when the use case read the aggregate in the same transaction.
 - `update` calls `merge` on the row that the mapper builds, and flushes. The mapper sets no audit column, so `merge` keeps `created_at` as stored, and `onupdate` sets `updated_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
@@ -177,8 +188,10 @@ A mapper from a row calls `model_validate` on each value object, because a row i
 
 ```python
 def note_from_row(row: NoteRow) -> Note:
-    return Note(id=row.id, color=Color.model_validate(row.color))
+    return Note(id=Id.model_validate(row.id), color=Color.model_validate(row.color))
 ```
+
+An application mapper takes the name of its Output DTO in snake case, for example `session_get_output(user)` for `SessionGetOutput`. mypy already checks the type of the argument, so the name does not repeat it. An infrastructure mapper keeps its direction in its name, for example `note_from_row` and `note_to_row`, because its module converts both ways between one row and one aggregate, while each application mapper has one direction and one Output DTO.
 
 ### Migrate the rows with Alembic
 
@@ -196,7 +209,7 @@ async def note_create_view(
     await use_cases.note_create(notes=notes)
 ```
 
-An adapter that several apps use, for example an SMTP mailer, lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters and dependencies read `Settings`. A use case that needs a configuration value receives it through a port.
+An adapter that several apps use, for example an SMTP mailer, lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters, dependencies, and views read `Settings`. A use case that needs a configuration value receives it as a keyword-only argument, as the section on use cases states.
 
 
 ## Write views
@@ -229,27 +242,27 @@ The dependency reads `request.cookies` and returns a value object, or `None` whe
 
 ## Start, read, and end a Session
 
-A Session lives in the `auth_session` table, with `id`, `user_id`, `token_hash`, `created_at`, `updated_at`, and `expires_at`. The `Session` aggregate holds `id`, `user_id`, `token_hash`, and `expires_at`, and its rules read only these fields:
+A Session lives in the `auth_session` table, with `id`, `user_id`, `hashed_token`, `created_at`, `updated_at`, and `expires_at`. The `Session` aggregate holds `id`, `user_id`, `hashed_token`, and `expires_at`, and its rules read only these fields:
 
-- `Session.start(id=..., user_id=..., token=..., at=...)` stores `token.digest()`, the SHA-256 digest of the token as a `SessionTokenHash`, and sets `expires_at` to `SESSION_LIFETIME` after `at`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
-- `session.is_active(at=...)` answers whether `at` is before `expires_at`. A Session ends `SESSION_LIFETIME` after it starts, 14 days from `rastro/auth/domain/aggregates.py`, with no renewal on use.
+- `Session.start(id=..., user_id=..., token=..., at=..., lifetime=...)` stores `token.digest()`, the SHA-256 digest of the token as a `HashedSessionToken`, and sets `expires_at` to `at + lifetime`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
+- `session.is_active(at=...)` answers whether `at` is before `expires_at`. A Session ends one `RASTRO_SESSION_LIFETIME` after it starts, 14 days by default, with no renewal on use.
 - `User.verify_password(password, hasher=...)` returns `PasswordCheck(is_correct, needs_rehash)`. It calls only `verify` and `needs_rehash` on the hasher, and the use case decides the effect.
 
 `User.verify_password` types its `hasher` with the `PasswordHasher` port, and the ports module imports the aggregates, so `aggregates.py` imports the port under `if TYPE_CHECKING:`. Python 3.15 evaluates an annotation only when code reads it, and no code reads the annotations of a method at run time.
 
 The use cases read the time from the `Clock` port:
 
-- `session_start` gets the User by email and verifies the Credentials through `verify_password`. When `needs_rehash` is true, it assigns a new hash and calls `users.update`. It creates a Session token with `secrets.token_urlsafe(SESSION_TOKEN_BYTES)`, 32 random bytes, adds the Session, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
+- `session_start` gets the User by email and verifies the Credentials through `verify_password`. When `needs_rehash` is true, it assigns a new hash and calls `users.update`. It creates a Session token with `SessionToken.generate(nbytes=token_bytes)`, adds a Session that ends `lifetime` after `clock.now()`, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
 - For an unknown email, `session_start` verifies the password against `PasswordHasher.fixed_hash`, an argon2 hash of a random password, so the response takes as long as a wrong password. An unknown email and a wrong password raise the same `IncorrectCredentialsError`.
-- `user_get_current` and `session_end` raise `NotAuthenticatedError` with no token, with a token that no Session holds, and when `clock.now()` reaches `expires_at`. Otherwise `user_get_current` returns the User of the Session as `UserGetCurrentOutput`, and `session_end` removes the Session.
+- `session_get` and `session_end` raise `NotAuthenticatedError` with no token, with a token that no Session holds, and when `clock.now()` reaches `expires_at`. Otherwise `session_get` returns the User of the Session as `SessionGetOutput`, and `session_end` removes the Session.
 
-`session_start_view` sets the token that the use case returns in the `rastro_session` cookie, which is `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of `SESSION_LIFETIME`. `session_end_view` deletes the cookie when the use case succeeds.
+`session_start_view` reads `AppSettings` and passes `session_lifetime` and `session_token_bytes` to `session_start`. It sets the token in the cookie named `session_cookie_name`, with the `HttpOnly`, `Secure`, and `SameSite` flags of the settings and a `Max-Age` of the lifetime. Under the defaults, the cookie is `rastro_session`, `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of 14 days. `session_end_view` deletes the cookie with the same name and flags when the use case succeeds, and `CurrentSessionToken` reads the cookie by the same name.
 
 ## Reject cross-site requests with a CSRF token
 
-rastro checks a double-submit cookie on every request that changes state, so another site cannot act as a User. `GET /api/v1/auth/csrf` answers `204` and sets a new random token, 32 bytes from `secrets.token_urlsafe`, in the `rastro_csrf` cookie on each call. The cookie is `Secure` and `SameSite=Lax` with no `Max-Age`, and it is not `HttpOnly`, because the frontend reads it and sends it back in the `X-CSRF-Token` header.
+rastro checks a double-submit cookie on every request that changes state, so another site cannot act as a User. `GET /api/v1/auth/csrf` answers `204` and sets a new `CsrfToken.generate(nbytes=settings.csrf_token_bytes)` in the CSRF cookie on each call. Under the default settings, the token has 32 random bytes, and the `rastro_csrf` cookie is `Secure` and `SameSite=Lax` with no `Max-Age`. The default leaves out `HttpOnly`, because the frontend reads the cookie and sends its value back in the `X-CSRF-Token` header. `RASTRO_CSRF_COOKIE_HTTPONLY` adds the flag, as every cookie flag is a setting, and then no script reads the token from the cookie.
 
-`csrf_check` in `rastro/common/presentation/views.py` runs on every method that is not `GET`, `HEAD`, or `OPTIONS`, including `register` and `session/start`. It raises `CsrfFailedError`, which answers `request.csrf_failed` with `403`, when the cookie is absent or empty, when the header is absent, or when the two differ. It compares the bytes with `secrets.compare_digest`. Each views module declares the check on its router, so a new app cannot forget it:
+`csrf_check` in `rastro/common/presentation/views.py` runs on every method that is not `GET`, `HEAD`, or `OPTIONS`, including `register` and `session/start`. It reads the cookie name and the header name from `AppSettings`, and parses the cookie and the header into `CsrfToken`. It raises `CsrfFailedError`, which answers `request.csrf_failed` with `403`, when the cookie is absent or empty, when the header is absent, or when `CsrfToken.matches` finds that the two differ. Each views module declares the check on its router, so a new app cannot forget it:
 
 ```python
 router = APIRouter(dependencies=[Depends(csrf_check)])
@@ -284,7 +297,7 @@ The API binds the publish address, so it runs in one process: a second process c
 
 Every request, query, and task produces spans, which the collector writes to ClickHouse, where Grafana reads them. `rastro/telemetry.py` holds the wiring: `instrument` sets the OpenTelemetry providers and their exporters, and `instrument_app`, `instrument_engine`, and `instrument_broker` add the FastAPI, SQLAlchemy, and taskiq instrumentations. Each process entry calls `instrument` first and then the other three, as `rastro/main.py` and `rastro/worker.py` do, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_broker` stay free of telemetry, so a test builds them with no exporter.
 
-A span never holds personal data. The SQLAlchemy span keeps the statement with its placeholders and drops the parameters, so no email or password hash reaches ClickHouse. The FastAPI span keeps the method, the URL with its query string, the route, the status, the user agent, and the client address, and no other header and no body, so personal data never goes into a query string. A span names the User by `user.id`, never by email: `SqlSessionRepository` in `rastro/auth/infrastructure/repositories.py` sets `user.id` on the current span each time that it ties a Session to a User: in `add`, `update`, `remove`, and each `get_by_*` that finds a Session. A new route that reads the current User through `user_get_current` therefore needs no telemetry code.
+A span never holds personal data. The SQLAlchemy span keeps the statement with its placeholders and drops the parameters, so no email or password hash reaches ClickHouse. The FastAPI span keeps the method, the URL with its query string, the route, the status, the user agent, and the client address, and no other header and no body, so personal data never goes into a query string.
 
 Application code uses the OpenTelemetry API, `opentelemetry.trace`, and never the SDK. Only `rastro/telemetry.py` and the root `conftest.py` import the SDK. The taskiq middleware puts the trace context in the labels of each message, so the span of a task joins the trace of the request that sent it. The worker reports `RASTRO_SERVICE_NAME` as `rastro-worker` in the compose file, so Grafana tells its spans from the spans of the API.
 
@@ -383,13 +396,19 @@ The `match` reads `ctx` only in the two length cases. No item shows the input va
 
 ## Configure settings
 
-`Settings` in `rastro/settings.py` is a `pydantic-settings` class that reads environment variables, and each variable has the `RASTRO_` prefix, for example `RASTRO_POSTGRES_URL`. Every field is required and has no default, so a missing variable stops the process at startup, and the error names the variable, not the field. The error hides the values that it read, so a password never reaches a log.
+`Settings` in `rastro/settings.py` is a `pydantic-settings` class that reads environment variables, and each variable has the `RASTRO_` prefix, for example `RASTRO_POSTGRES_URL`. Every field except `postgres_url` has a default, so a local run needs only the database URL. A missing `RASTRO_POSTGRES_URL` or an invalid value stops the process at startup, and the error names the variable, not the field. The error hides the values that it read, so a password never reaches a log.
 
-`RASTRO_POSTGRES_URL` is a `PostgresDsn`, and its scheme names the SQLAlchemy driver, for example `postgresql+psycopg://postgres:postgres@localhost:5432/postgres`. A password with `@` or `/` needs percent-encoding in the URL. `compose.yaml` keeps the `POSTGRES_*` variables of the Postgres container, because the image reads them.
+`RASTRO_POSTGRES_URL` has no default, so no password sits in the code. Its field is a `Secret` around `PsycopgDsn`, a `PostgresDsn` subclass that accepts only the scheme `postgresql+psycopg`, for example `postgresql+psycopg://postgres:postgres@localhost:5432/postgres`, so `repr` of the settings hides the password and another driver fails at startup. The engine factory, the Alembic environment, and the root `conftest.py` read the URL with `get_secret_value()`. A password with `@` or `/` needs percent-encoding in the URL. `compose.yaml` keeps the `POSTGRES_*` variables of the Postgres container, because the image reads them.
 
-`compose.yaml` declares the values of the stack, and `.env.example` declares the local values, so both list every setting. A new setting needs a field, a line in `.env.example`, and a line in `compose.yaml`. Run a local command with the local values through `uv run --env-file .env.example`.
+`RASTRO_SESSION_LIFETIME` reads a duration greater than zero, such as the ISO 8601 `P14D` or `PT1H`, and Pydantic also parses `01:00:00`. A bare number of seconds, such as `3600`, stops the process at startup, and so do `PT0S` and `-PT1H`. `RASTRO_SESSION_TOKEN_BYTES` and `RASTRO_CSRF_TOKEN_BYTES` are at least 16, so no token is short enough to guess. Each `SameSite` setting is the `SameSite` `StrEnum` of `rastro/settings.py`, so it accepts only `lax`, `strict`, or `none`. A view passes a policy to Starlette through `.value`.
 
-`RASTRO_OPENAPI_ENABLED` decides whether FastAPI publishes `/openapi.json`, `/docs`, and `/redoc`. The stack in `compose.yaml` turns it off, so production shows no route list unless someone turns it on.
+A setting holds every value that an operator may change, for example a cookie name, a cookie flag, a header name, or a token size, so the operator changes it with no change to the code. A value that a standard fixes stays a constant, for example `SAFE_METHODS`, which the HTTP specification defines.
+
+`.env.example` lists every variable with its local value, and a settings test fails when a variable is missing from it. A new setting needs a field with a default and a line in `.env.example`. `compose.yaml` sets the values of the stack. Run a local command with the local values through `uv run --env-file .env.example`.
+
+`create_app` stores the settings on `app.state`, and the `AppSettings` alias in `rastro.common.presentation.dependencies` returns them to a view or a dependency. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
+
+`RASTRO_OPENAPI_ENABLED` decides whether FastAPI publishes `/openapi.json`, `/docs`, and `/redoc`. It defaults to `false`, so a deployment that forgets the variable shows no route list. `.env.example` turns it on for local runs.
 
 ## Test by layer
 
@@ -397,7 +416,7 @@ Each layer has its own kind of test, and a test passes fakes as arguments or thr
 
 - **Domain tests** are pure and use no database and no fake. They check the normalization and rejection of each value object, with no input in the message of the `pydantic.ValidationError`, and each aggregate method. A domain method receives the time as a value, so the test passes a `datetime`.
 - **Use case tests** call each use case with the in-memory fakes of the app's tests package, for example `FakeNoteRepository` in `rastro/common/tests/fakes.py`, which holds its aggregates in a `dict` by id. A fake `update` raises `LookupError` for a missing id, as the real repository does. A use case test asserts the error class with `pytest.raises`.
-- **Repository tests** run each repository against the test database, inside the transaction that rolls back per test. They cover the mappers in both directions, `next_id`, the translation of a unique violation, the `LookupError` of `update` for a missing row, and a corrupted row that fails when it becomes an aggregate. A test reads back through a second session, so the first session's identity map hides nothing.
+- **Repository tests** run each repository against the test database, inside the transaction that rolls back per test. They cover the mappers in both directions, `next_id` and the `Id` that it returns, a row with the id `0`, the translation of a unique violation, the `LookupError` of `update` for a missing row, and a corrupted row that fails when it becomes an aggregate. A test reads back through a second session, so the first session's identity map hides nothing.
 - **View tests** cover the HTTP contract: status codes, bodies, headers, and cookies. A view test compares the literal JSON of each problem, because the literal is the contract that a client reads, and the view tests own the code of each rejection.
 - **Task tests** send the task through taskiq's in-memory broker and read its rows in the database.
 
@@ -415,7 +434,7 @@ Tests run with `anyio` in auto mode, so an `async def` test needs no marker. The
 - `app` builds the app with the `sessionmaker` and the `broker`, and registers an `app.dependency_overrides` entry for every process-wide adapter, so no test runs a real one by accident. The `password_hasher` and `clock` factories return the fixtures of the same names. The repositories stay real. The `engine`, the `broker`, and the `app` go through the instrumentations of `rastro/telemetry.py`, so every test runs the production wiring.
 - `spans` is an `InMemorySpanExporter`, emptied at the start of the test, that receives every span the test produces. The session fixture `span_exporter` sets it on the global tracer provider, because a process sets that provider once.
 - `csrf_token` is a random CSRF token.
-- `client` is an `httpx.AsyncClient` with `ASGITransport` against `app`, with the base URL `https://testserver`. It sends `csrf_token` in the `rastro_csrf` cookie and the `X-CSRF-Token` header, so a test that posts passes the CSRF check. A CSRF test deletes the header or the cookie from the client. A test of a `500` builds its own transport with `raise_app_exceptions=False`.
+- `client` is an `httpx.AsyncClient` with `ASGITransport` against `app`, with the base URL `https://testserver`. It sends `csrf_token` in the CSRF cookie and the CSRF header that `settings` names, so a test that posts passes the CSRF check. A CSRF test deletes the header or the cookie from the client. A test of a `500` builds its own transport with `raise_app_exceptions=False`.
 
 The `auth` test package has these fixtures in `rastro/auth/tests/conftest.py`:
 
@@ -443,5 +462,6 @@ Tools check these rules, and every change passes them before it merges, so a vio
   - Every public function of an `application.use_cases` module is `async`, takes at most one positional argument, the Input, and takes every dependency as a keyword-only argument with no default.
   - Every error class of an `errors` module has a row in an error-to-status table, and the failure names each class that has none. `BaseError` rejects a missing code, a declared status, and a repeated code, and every code has the `<prefix>.<name>` form.
   - Every mapped class subclasses `Row`, and its table name starts with its app label.
+  - No module of rastro declares a module-level `Annotated` or `Literal` alias, except an alias that holds `Depends`.
   - Only `rastro.common.presentation.problems` imports `pydantic.ValidationError` or `pydantic_core`, or reads `ValidationError` from the `pydantic` module under any alias, because import-linter cannot name a member or a submodule of an external package. Test modules are exempt from this check, so a value object test can expect `pydantic.ValidationError`.
   - The extensions of `Problem` and `ValidationItem` follow their rules, and no class is named `BaseModel`.

@@ -1,16 +1,17 @@
 import hashlib
+import secrets
 import unicodedata
-from typing import Annotated
+from datetime import timedelta
+from typing import Annotated, Self
 
-from pydantic import BeforeValidator, StringConstraints
+from pydantic import BeforeValidator, Field, SecretStr, StringConstraints
 
-from rastro.common.domain.value_objects import RootValueObject
+from rastro.common.domain.value_objects import RootValueObject, TokenBytes
 
 EMAIL_PATTERN = r"^[a-z0-9_.+-]+@[a-z0-9-]+\.[a-z0-9-.]+$"
 EMAIL_MAX_LENGTH = 254
 DISPLAY_NAME_MAX_LENGTH = 320
 RAW_PASSWORD_MIN_LENGTH = 8
-SESSION_TOKEN_BYTES = 32
 
 
 def _nfkc(value: object) -> object:
@@ -49,8 +50,14 @@ class DisplayName(
 
 class RawPassword(
     RootValueObject[
-        Annotated[str, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]
+        Annotated[SecretStr, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]
     ]
+):
+    pass
+
+
+class SessionLifetime(
+    RootValueObject[Annotated[timedelta, Field(gt=timedelta(0), strict=False)]]
 ):
     pass
 
@@ -60,10 +67,15 @@ class HashedPassword(RootValueObject[str]):
 
 
 # The SHA-256 digest of a Session token, so a leaked database starts no Session.
-class SessionTokenHash(RootValueObject[bytes]):
+class HashedSessionToken(RootValueObject[bytes]):
     pass
 
 
-class SessionToken(RootValueObject[str]):
-    def digest(self) -> SessionTokenHash:
-        return SessionTokenHash(hashlib.sha256(self.root.encode()).digest())
+class SessionToken(RootValueObject[SecretStr]):
+    @classmethod
+    def generate(cls, *, nbytes: TokenBytes) -> Self:
+        return cls(SecretStr(secrets.token_urlsafe(nbytes.root)))
+
+    def digest(self) -> HashedSessionToken:
+        value = self.root.get_secret_value().encode()
+        return HashedSessionToken(hashlib.sha256(value).digest())
