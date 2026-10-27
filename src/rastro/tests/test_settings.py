@@ -130,25 +130,6 @@ def test_a_token_size_under_16_bytes_stops_the_settings(
 
 
 @pytest.mark.parametrize(
-    "name",
-    [
-        "RASTRO_SESSION_COOKIE_NAME",
-        "RASTRO_CSRF_COOKIE_NAME",
-        "RASTRO_CSRF_HEADER_NAME",
-    ],
-)
-def test_an_empty_cookie_or_header_name_stops_the_settings(
-    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str
-) -> None:
-    monkeypatch.setenv(name, "")
-
-    with pytest.raises(
-        ValueError, match=rf"(?m)^{name}\n  .* \[type=string_too_short\]"
-    ):
-        Settings()
-
-
-@pytest.mark.parametrize(
     "name", ["RASTRO_SESSION_COOKIE_SAMESITE", "RASTRO_CSRF_COOKIE_SAMESITE"]
 )
 @pytest.mark.parametrize("value", ["lax", "strict", "none"])

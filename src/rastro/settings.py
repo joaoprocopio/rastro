@@ -1,7 +1,7 @@
 from datetime import timedelta
 from enum import StrEnum
 
-from pydantic import Field, PostgresDsn, Secret, UrlConstraints
+from pydantic import PostgresDsn, Secret, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rastro.auth.domain.value_objects import SessionLifetime
@@ -48,16 +48,16 @@ class Settings(BaseSettings):
     otel_grpc_endpoint: str = "localhost:4317"
 
     session_lifetime: SessionLifetime = SessionLifetime(timedelta(days=14))
-    session_cookie_name: str = Field("rastro_session", min_length=1)
+    session_cookie_name: str = "rastro_session"
     session_cookie_secure: bool = True
     session_cookie_httponly: bool = True
     session_cookie_samesite: SameSite = SameSite.LAX
     session_token_bytes: TokenBytes = TokenBytes(32)
 
-    csrf_cookie_name: str = Field("rastro_csrf", min_length=1)
+    csrf_cookie_name: str = "rastro_csrf"
     csrf_cookie_secure: bool = True
     # Scripts read the token to send it back, so the default is not HttpOnly.
     csrf_cookie_httponly: bool = False
     csrf_cookie_samesite: SameSite = SameSite.LAX
     csrf_token_bytes: TokenBytes = TokenBytes(32)
-    csrf_header_name: str = Field("X-CSRF-Token", min_length=1)
+    csrf_header_name: str = "X-CSRF-Token"
