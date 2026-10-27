@@ -126,7 +126,7 @@ An edge parses a raw value with `<ValueObject>.model_validate(value)`, which acc
 
 Every aggregate id is an `Id` from `rastro.common.domain.value_objects`, a `RootValueObject` over Pydantic's `PositiveInt`, so `User.id`, `Session.user_id`, and `Note.id` share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
 
-A value object equals only a value object of its own class, so `Id(1) == 1` is false. A test that compares an id with a column or a span attribute reads the `int` through `.root`.
+A value object equals only a value object of its own class, so `Id(1) == 1` is false. A test that compares an id with a column reads the `int` through `.root`.
 
 An enum is a `StrEnum` in the domain's `value_objects` module. A domain module imports only the standard library, `pydantic`, and other domain modules of rastro.
 
@@ -288,7 +288,7 @@ The API binds the publish address, so it runs in one process: a second process c
 
 Every request, query, and task produces spans, which the collector writes to ClickHouse, where Grafana reads them. `rastro/telemetry.py` holds the wiring: `instrument` sets the OpenTelemetry providers and their exporters, and `instrument_app`, `instrument_engine`, and `instrument_broker` add the FastAPI, SQLAlchemy, and taskiq instrumentations. Each process entry calls `instrument` first and then the other three, as `rastro/main.py` and `rastro/worker.py` do, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_broker` stay free of telemetry, so a test builds them with no exporter.
 
-A span never holds personal data. The SQLAlchemy span keeps the statement with its placeholders and drops the parameters, so no email or password hash reaches ClickHouse. The FastAPI span keeps the method, the URL with its query string, the route, the status, the user agent, and the client address, and no other header and no body, so personal data never goes into a query string. A span names the User by `user.id`, never by email: `SqlSessionRepository` in `rastro/auth/infrastructure/repositories.py` sets `user.id` on the current span each time that it ties a Session to a User: in `add`, `update`, `remove`, and each `get_by_*` that finds a Session. A new route that reads the current User through `user_get_current` therefore needs no telemetry code.
+A span never holds personal data. The SQLAlchemy span keeps the statement with its placeholders and drops the parameters, so no email or password hash reaches ClickHouse. The FastAPI span keeps the method, the URL with its query string, the route, the status, the user agent, and the client address, and no other header and no body, so personal data never goes into a query string.
 
 Application code uses the OpenTelemetry API, `opentelemetry.trace`, and never the SDK. Only `rastro/telemetry.py` and the root `conftest.py` import the SDK. The taskiq middleware puts the trace context in the labels of each message, so the span of a task joins the trace of the request that sent it. The worker reports `RASTRO_SERVICE_NAME` as `rastro-worker` in the compose file, so Grafana tells its spans from the spans of the API.
 
