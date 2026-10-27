@@ -1,10 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from opentelemetry import trace
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
-    InMemorySpanExporter,
-)
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -101,30 +97,3 @@ async def test_remove_deletes_the_session(
 
     async with sessionmaker() as reader:
         assert await SqlSessionRepository(reader).get_by_id(session.id) is None
-
-
-async def test_add_read_and_remove_set_the_user_id_on_the_current_span(
-    sessions: SqlSessionRepository,
-    session: Session,
-    user: User,
-    spans: InMemorySpanExporter,
-) -> None:
-    tracer = trace.get_tracer(__name__)
-
-    with tracer.start_as_current_span("add"):
-        await sessions.add(session)
-    with tracer.start_as_current_span("read"):
-        await sessions.get_by_token_hash(TOKEN.digest())
-    with tracer.start_as_current_span("remove"):
-        await sessions.remove(session)
-
-    user_ids = {
-        span.name: (span.attributes or {}).get("user.id")
-        for span in spans.get_finished_spans()
-        if span.name in {"add", "read", "remove"}
-    }
-    assert user_ids == {
-        "add": user.id.root,
-        "read": user.id.root,
-        "remove": user.id.root,
-    }

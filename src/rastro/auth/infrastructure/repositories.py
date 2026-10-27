@@ -1,5 +1,3 @@
-from opentelemetry import trace
-from opentelemetry.semconv._incubating.attributes.user_attributes import USER_ID
 from psycopg.errors import UniqueViolation
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -73,37 +71,24 @@ class SqlSessionRepository:
     async def add(self, session: Session) -> None:
         self._db_session.add(session_to_row(session))
         await self._db_session.flush()
-        _trace_user(session)
 
     async def update(self, session: Session) -> None:
         await existing_row(self._db_session, SessionRow, session.id)
         await self._db_session.merge(session_to_row(session))
         await self._db_session.flush()
-        _trace_user(session)
 
     async def remove(self, session: Session) -> None:
         await self._db_session.delete(
             await existing_row(self._db_session, SessionRow, session.id)
         )
         await self._db_session.flush()
-        _trace_user(session)
 
     async def get_by_id(self, id: Id) -> Session | None:
         row = await self._db_session.get(SessionRow, id.root)
-        return None if row is None else _traced(session_from_row(row))
+        return None if row is None else session_from_row(row)
 
     async def get_by_token_hash(self, token_hash: SessionTokenHash) -> Session | None:
         row = await self._db_session.scalar(
             select(SessionRow).where(SessionRow.token_hash == token_hash.root)
         )
-        return None if row is None else _traced(session_from_row(row))
-
-
-def _trace_user(session: Session) -> None:
-    # A span names the User of its Session by id, never by email.
-    trace.get_current_span().set_attribute(USER_ID, session.user_id.root)
-
-
-def _traced(session: Session) -> Session:
-    _trace_user(session)
-    return session
+        return None if row is None else session_from_row(row)
