@@ -1,4 +1,7 @@
-from pydantic import PositiveInt
+import secrets
+from typing import Self
+
+from pydantic import PositiveInt, SecretStr
 
 from rastro.common.domain.schemas import RootSchema, Schema
 
@@ -13,3 +16,9 @@ class RootValueObject[T](RootSchema[T]):
 
 class Id(RootValueObject[PositiveInt]):
     pass
+
+
+class CsrfToken(RootValueObject[SecretStr]):
+    @classmethod
+    def generate(cls, *, nbytes: int) -> Self:
+        return cls(SecretStr(secrets.token_urlsafe(nbytes)))

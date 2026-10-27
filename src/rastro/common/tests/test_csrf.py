@@ -3,9 +3,9 @@ from http import HTTPStatus
 import httpx
 import pytest
 
-from rastro.common.presentation.views import CSRF_COOKIE, CSRF_HEADER
-
 PATH = "/sample/csrf"
+CSRF_COOKIE = "rastro_csrf"
+CSRF_HEADER = "X-CSRF-Token"
 CSRF_FAILED = {"type": "request.csrf_failed", "status": 403}
 
 
