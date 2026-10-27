@@ -11,19 +11,19 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 def csrf_cookie_set(response: Response, *, settings: Settings) -> None:
     token = CsrfToken.generate(nbytes=settings.csrf_token_bytes)
     response.set_cookie(
-        settings.csrf_cookie_name,
+        settings.csrf_cookie_name.root,
         token.root.get_secret_value(),
         secure=settings.csrf_cookie_secure,
         httponly=settings.csrf_cookie_httponly,
-        samesite=settings.csrf_cookie_samesite,
+        samesite=settings.csrf_cookie_samesite.value,
     )
 
 
 def csrf_check(request: Request, settings: AppSettings) -> None:
     if request.method in SAFE_METHODS:
         return
-    cookie = request.cookies.get(settings.csrf_cookie_name)
-    header = request.headers.get(settings.csrf_header_name)
+    cookie = request.cookies.get(settings.csrf_cookie_name.root)
+    header = request.headers.get(settings.csrf_header_name.root)
     if not cookie or header is None:
         raise CsrfFailedError()
     expected = CsrfToken.model_validate(cookie)

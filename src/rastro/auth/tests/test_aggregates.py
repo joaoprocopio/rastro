@@ -9,6 +9,7 @@ from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
     RawPassword,
+    SessionLifetime,
     SessionToken,
 )
 from rastro.auth.tests.fakes import FakePasswordHasher
@@ -39,7 +40,7 @@ def test_a_session_starts_with_its_token_digest_and_ends_a_lifetime_later() -> N
         user_id=Id(2),
         token=TOKEN,
         at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
-        lifetime=timedelta(hours=1),
+        lifetime=SessionLifetime(timedelta(hours=1)),
     )
 
     assert session == Session(

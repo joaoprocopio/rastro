@@ -6,7 +6,7 @@ from pydantic import SecretStr
 from rastro.auth.application.use_cases import session_end
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.errors import NotAuthenticatedError
-from rastro.auth.domain.value_objects import SessionToken
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
 from rastro.auth.tests.fakes import FakeClock, FakeSessionRepository
 
 
@@ -21,7 +21,7 @@ async def test_it_ends_the_session_of_the_token_and_no_other(
         user_id=ana.id,
         token=SessionToken(SecretStr("other")),
         at=clock.now(),
-        lifetime=timedelta(seconds=1),
+        lifetime=SessionLifetime(timedelta(seconds=1)),
     )
     await sessions.add(other)
 

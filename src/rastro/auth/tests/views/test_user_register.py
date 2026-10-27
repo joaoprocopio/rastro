@@ -141,7 +141,7 @@ async def test_a_get_is_a_problem_405(client: httpx.AsyncClient) -> None:
 async def test_a_registration_without_the_csrf_token_registers_no_user(
     client: httpx.AsyncClient, db_session: AsyncSession, settings: Settings
 ) -> None:
-    del client.headers[settings.csrf_header_name]
+    del client.headers[settings.csrf_header_name.root]
 
     response = await client.post(PATH, json=VALID_BODY)
 

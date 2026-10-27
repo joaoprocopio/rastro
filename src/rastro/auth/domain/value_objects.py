@@ -13,8 +13,6 @@ EMAIL_MAX_LENGTH = 254
 DISPLAY_NAME_MAX_LENGTH = 320
 RAW_PASSWORD_MIN_LENGTH = 8
 
-SessionLifetime = Annotated[timedelta, Field(gt=timedelta(0))]
-
 
 def _nfkc(value: object) -> object:
     return unicodedata.normalize("NFKC", value) if isinstance(value, str) else value
@@ -58,6 +56,12 @@ class RawPassword(
     pass
 
 
+class SessionLifetime(
+    RootValueObject[Annotated[timedelta, Field(gt=timedelta(0), strict=False)]]
+):
+    pass
+
+
 class HashedPassword(RootValueObject[str]):
     pass
 
@@ -70,7 +74,7 @@ class HashedSessionToken(RootValueObject[bytes]):
 class SessionToken(RootValueObject[SecretStr]):
     @classmethod
     def generate(cls, *, nbytes: TokenBytes) -> Self:
-        return cls(SecretStr(secrets.token_urlsafe(nbytes)))
+        return cls(SecretStr(secrets.token_urlsafe(nbytes.root)))
 
     def digest(self) -> HashedSessionToken:
         value = self.root.get_secret_value().encode()

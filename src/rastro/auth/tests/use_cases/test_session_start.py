@@ -7,17 +7,22 @@ from rastro.auth.application.dtos import SessionStartInput
 from rastro.auth.application.use_cases import session_start
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.errors import IncorrectCredentialsError
-from rastro.auth.domain.value_objects import Email, HashedPassword, RawPassword
+from rastro.auth.domain.value_objects import (
+    Email,
+    HashedPassword,
+    RawPassword,
+    SessionLifetime,
+)
 from rastro.auth.tests.fakes import (
     FakeClock,
     FakePasswordHasher,
     FakeSessionRepository,
     FakeUserRepository,
 )
-from rastro.common.domain.value_objects import Id
+from rastro.common.domain.value_objects import Id, TokenBytes
 
-LIFETIME = timedelta(hours=1)
-TOKEN_BYTES = 16
+LIFETIME = SessionLifetime(timedelta(hours=1))
+TOKEN_BYTES = TokenBytes(16)
 CORRECT = SessionStartInput(
     email=Email("ana@x.com"), password=RawPassword(SecretStr("password"))
 )

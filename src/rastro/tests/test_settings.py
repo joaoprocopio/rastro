@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from rastro.settings import Settings
+from rastro.auth.domain.value_objects import SessionLifetime
+from rastro.common.domain.value_objects import TokenBytes
+from rastro.settings import HttpName, SameSite, Settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
@@ -44,18 +46,18 @@ def test_env_example_loads(
         ("deployment_id", "local"),
         ("deployment_environment", "dev"),
         ("otel_grpc_endpoint", "localhost:4317"),
-        ("session_lifetime", timedelta(days=14)),
-        ("session_cookie_name", "rastro_session"),
+        ("session_lifetime", SessionLifetime(timedelta(days=14))),
+        ("session_cookie_name", HttpName("rastro_session")),
         ("session_cookie_secure", True),
         ("session_cookie_httponly", True),
-        ("session_cookie_samesite", "lax"),
-        ("session_token_bytes", 32),
-        ("csrf_cookie_name", "rastro_csrf"),
+        ("session_cookie_samesite", SameSite.LAX),
+        ("session_token_bytes", TokenBytes(32)),
+        ("csrf_cookie_name", HttpName("rastro_csrf")),
         ("csrf_cookie_secure", True),
         ("csrf_cookie_httponly", False),
-        ("csrf_cookie_samesite", "lax"),
-        ("csrf_token_bytes", 32),
-        ("csrf_header_name", "X-CSRF-Token"),
+        ("csrf_cookie_samesite", SameSite.LAX),
+        ("csrf_token_bytes", TokenBytes(32)),
+        ("csrf_header_name", HttpName("X-CSRF-Token")),
     ],
 )
 def test_a_setting_without_its_variable_takes_its_default(
@@ -79,7 +81,7 @@ def test_the_session_lifetime_reads_an_iso_8601_duration(
 ) -> None:
     monkeypatch.setenv("RASTRO_SESSION_LIFETIME", "PT1H")
 
-    assert Settings().session_lifetime == timedelta(hours=1)
+    assert Settings().session_lifetime == SessionLifetime(timedelta(hours=1))
 
 
 @pytest.mark.parametrize(
@@ -109,7 +111,7 @@ def test_a_token_size_of_16_bytes_loads(
 ) -> None:
     monkeypatch.setenv(name, "16")
 
-    assert getattr(Settings(), name.removeprefix("RASTRO_").lower()) == 16
+    assert getattr(Settings(), name.removeprefix("RASTRO_").lower()) == TokenBytes(16)
 
 
 @pytest.mark.parametrize(

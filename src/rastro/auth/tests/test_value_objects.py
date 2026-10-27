@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pydantic
 import pytest
 from pydantic import SecretStr
@@ -8,8 +10,10 @@ from rastro.auth.domain.value_objects import (
     HashedPassword,
     HashedSessionToken,
     RawPassword,
+    SessionLifetime,
     SessionToken,
 )
+from rastro.common.domain.value_objects import TokenBytes
 
 
 def test_email_strips_spaces_and_lowercases_the_whole_address() -> None:
@@ -114,13 +118,15 @@ def test_the_digest_of_a_session_token_is_its_sha256() -> None:
 
 
 def test_a_new_session_token_of_16_bytes_has_22_characters() -> None:
-    token = SessionToken.generate(nbytes=16)
+    token = SessionToken.generate(nbytes=TokenBytes(16))
 
     assert len(token.root.get_secret_value()) == 22
 
 
 def test_two_new_session_tokens_differ() -> None:
-    assert SessionToken.generate(nbytes=16) != SessionToken.generate(nbytes=16)
+    assert SessionToken.generate(nbytes=TokenBytes(16)) != SessionToken.generate(
+        nbytes=TokenBytes(16)
+    )
 
 
 @pytest.mark.parametrize(
@@ -133,3 +139,11 @@ def test_the_repr_of_a_secret_hides_its_value(
 ) -> None:
     assert "**********" in repr(secret)
     assert secret.root.get_secret_value() not in repr(secret)
+
+
+@pytest.mark.parametrize("lifetime", [timedelta(0), timedelta(hours=-1)])
+def test_session_lifetime_rejects_a_duration_of_zero_or_less(
+    lifetime: timedelta,
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        SessionLifetime(lifetime)

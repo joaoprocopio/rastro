@@ -1,7 +1,7 @@
 import pydantic
 import pytest
 
-from rastro.common.domain.value_objects import CsrfToken, Id
+from rastro.common.domain.value_objects import CsrfToken, Id, TokenBytes
 from rastro.common.tests.sample.application.dtos import PaintApplyInput
 from rastro.common.tests.sample.domain.value_objects import Color
 
@@ -58,7 +58,7 @@ def test_an_id_rejects_a_value_that_is_not_a_positive_integer(value: object) -> 
 
 
 def test_a_csrf_token_of_16_bytes_has_22_characters() -> None:
-    token = CsrfToken.generate(nbytes=16)
+    token = CsrfToken.generate(nbytes=TokenBytes(16))
 
     assert len(token.root.get_secret_value()) == 22
 
@@ -68,3 +68,12 @@ def test_a_csrf_token_hides_its_value_in_repr() -> None:
 
     assert "**********" in repr(token)
     assert "abc123" not in repr(token)
+
+
+def test_token_bytes_allows_16_bytes() -> None:
+    assert TokenBytes(16).root == 16
+
+
+def test_token_bytes_rejects_15_bytes() -> None:
+    with pytest.raises(pydantic.ValidationError):
+        TokenBytes(15)

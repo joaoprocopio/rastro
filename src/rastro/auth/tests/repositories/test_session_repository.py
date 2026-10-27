@@ -5,7 +5,7 @@ from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from rastro.auth.domain.aggregates import Session, User
-from rastro.auth.domain.value_objects import SessionToken
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
 from rastro.auth.infrastructure.repositories import SqlSessionRepository
 from rastro.common.domain.value_objects import Id
 
@@ -26,7 +26,7 @@ async def session(sessions: SqlSessionRepository, user: User) -> Session:
         user_id=user.id,
         token=TOKEN,
         at=START,
-        lifetime=timedelta(days=14),
+        lifetime=SessionLifetime(timedelta(days=14)),
     )
 
 

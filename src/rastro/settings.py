@@ -1,22 +1,31 @@
 from datetime import timedelta
-from typing import Annotated, Literal
+from enum import StrEnum
+from typing import Annotated
 
 from pydantic import PostgresDsn, Secret, StringConstraints, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rastro.auth.domain.value_objects import SessionLifetime
+from rastro.common.domain.schemas import RootSchema
 from rastro.common.domain.value_objects import TokenBytes
 
-# The scheme names the SQLAlchemy driver, so another driver fails at startup.
-PsycopgDsn = Annotated[
-    PostgresDsn, UrlConstraints(allowed_schemes=["postgresql+psycopg"])
-]
 
-SameSite = Literal["lax", "strict", "none"]
+# The scheme names the SQLAlchemy driver, so another driver fails at startup.
+class PsycopgDsn(PostgresDsn):
+    _constraints = UrlConstraints(
+        host_required=True, allowed_schemes=["postgresql+psycopg"]
+    )
+
+
+class SameSite(StrEnum):
+    LAX = "lax"
+    STRICT = "strict"
+    NONE = "none"
 
 
 # An empty cookie or header name matches no cookie and no header.
-HttpName = Annotated[str, StringConstraints(min_length=1)]
+class HttpName(RootSchema[Annotated[str, StringConstraints(min_length=1)]]):
+    pass
 
 
 def _variable(field: str) -> str:
@@ -45,17 +54,17 @@ class Settings(BaseSettings):
     deployment_environment: str = "dev"
     otel_grpc_endpoint: str = "localhost:4317"
 
-    session_lifetime: SessionLifetime = timedelta(days=14)
-    session_cookie_name: HttpName = "rastro_session"
+    session_lifetime: SessionLifetime = SessionLifetime(timedelta(days=14))
+    session_cookie_name: HttpName = HttpName("rastro_session")
     session_cookie_secure: bool = True
     session_cookie_httponly: bool = True
-    session_cookie_samesite: SameSite = "lax"
-    session_token_bytes: TokenBytes = 32
+    session_cookie_samesite: SameSite = SameSite.LAX
+    session_token_bytes: TokenBytes = TokenBytes(32)
 
-    csrf_cookie_name: HttpName = "rastro_csrf"
+    csrf_cookie_name: HttpName = HttpName("rastro_csrf")
     csrf_cookie_secure: bool = True
     # Scripts read the token to send it back, so the default is not HttpOnly.
     csrf_cookie_httponly: bool = False
-    csrf_cookie_samesite: SameSite = "lax"
-    csrf_token_bytes: TokenBytes = 32
-    csrf_header_name: HttpName = "X-CSRF-Token"
+    csrf_cookie_samesite: SameSite = SameSite.LAX
+    csrf_token_bytes: TokenBytes = TokenBytes(32)
+    csrf_header_name: HttpName = HttpName("X-CSRF-Token")

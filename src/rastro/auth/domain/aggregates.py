@@ -58,7 +58,7 @@ class Session(Aggregate):
             id=id,
             user_id=user_id,
             hashed_token=token.digest(),
-            expires_at=at + lifetime,
+            expires_at=at + lifetime.root,
         )
 
     def is_active(self, *, at: datetime) -> bool:
