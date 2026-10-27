@@ -39,9 +39,3 @@ uv run mypy .
 uv run lint-imports
 uv run pytest
 ```
-
-`scripts/smoke.sh` builds the compose stack against a new database, calls every route of `/api/v1/auth/`, and then removes the database and the containers that it started. Run it when a change touches the compose file, the dockerfile, the migrations, or the settings. It needs port 8000 free:
-
-```shell
-./scripts/smoke.sh
-```
