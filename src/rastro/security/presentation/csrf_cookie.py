@@ -1,8 +1,8 @@
 from fastapi import Request, Response
 
 from rastro.common.presentation.dependencies import AppSettings
-from rastro.csrf.domain.errors import CsrfFailedError
-from rastro.csrf.domain.value_objects import CsrfToken
+from rastro.security.domain.errors import CsrfFailedError
+from rastro.security.domain.value_objects import CsrfToken
 from rastro.settings import Settings
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})

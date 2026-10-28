@@ -16,7 +16,7 @@ The app `security` holds CSRF, CORS, and the frame headers, and the app `csrf` g
 
 Two HTTP changes are visible to a client:
 
-- A failed CSRF check answers `403` with the problem type `security.csrf_failed`. The `main` branch answers `request.csrf_failed`, so a client sees one change across PR #4.
+- A failed CSRF check answers `403` with the problem type `security.csrf_failed`. PR #4 merges into `main` first and answers `csrf.failed`, so a client sees `csrf.failed` become `security.csrf_failed`.
 - The route that sets the CSRF cookie moves from `GET /api/v1/csrf` to `GET /api/v1/security/csrf`, and the old path answers `404`.
 
 The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`, the CORS headers, and the frame headers keep their names, values, and defaults.
@@ -79,10 +79,10 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 
 ### 2. The middleware module and the wiring
 
-- The presentation `middleware` module of `security` holds `FRAME_HEADERS`, `CORS_METHODS`, `CORS_HEADERS`, and the function `frame_headers`.
+- The presentation `middleware` module of `security` holds `FRAME_HEADERS`, `CORS_METHODS`, `CORS_HEADERS`, and the functions `cors` and `frame_headers`. `cors` receives the ASGI app and the settings and returns the `CORSMiddleware`, so `create_app` registers it with `app.add_middleware(cors, settings=settings)`, and mypy rejects the call without `settings`.
 - `frame_headers` receives the ASGI app and returns an ASGI app that adds `FRAME_HEADERS` to the `http.response.start` message of each HTTP request and passes every other scope unchanged. Starlette 1.9 builds a middleware with `cls(app, *args, **kwargs)`, and its `_MiddlewareFactory` protocol accepts a function. A run of the function in a scratch script added both headers to a `200` and a `404`, and `mypy --strict` passed.
-- The module of `create_app` imports `csrf_check`, `frame_headers`, `CORS_METHODS`, `CORS_HEADERS`, the router, and `ERROR_STATUSES` from `security`, and registers each one on its own line, as it does today. A function such as `install_security(app, settings)` is rejected, because FastAPI copies the app's dependencies into a route when a router adds it, so a call after an `include_router` leaves that router's routes without the CSRF check and raises no error.
-- The module of `create_app` keeps no constant and no class.
+- The module of `create_app` imports `csrf_check`, `cors`, `frame_headers`, the router, and `ERROR_STATUSES` from `security`, and registers each one on its own line, as it does today. A function such as `install_security(app, settings)` is rejected, because FastAPI copies the app's dependencies into a route when a router adds it, so a call after an `include_router` leaves that router's routes without the CSRF check and raises no error.
+- The module of `create_app` keeps no class, and its only constant is the merged `ERROR_STATUSES`, so `create_app` and the architecture test of the error codes read the same table.
 
 ### 3. `CorsOrigin`
 
@@ -98,7 +98,7 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 
 - `preserve_empty_path=True` keeps `http://localhost:5173` with no trailing slash. Without it, Pydantic writes `http://localhost:5173/`, and `CORSMiddleware` matches no browser `Origin`.
 - The run showed the behaviour that the operator gets. `HTTP://LOCALHOST:5173` becomes `http://localhost:5173`, and `https://x.com:443` becomes `https://x.com`. `localhost:5173`, `ftp://x.com`, and `http://localhost:99999` fail. `http://localhost:5173/` and `http://localhost:5173/path` load unchanged, and the browser then blocks the frontend.
-- `create_app` passes `[str(origin) for origin in settings.cors_allowed_origins]` to `CORSMiddleware`.
+- `cors` passes `[str(origin) for origin in settings.cors_allowed_origins]` to `CORSMiddleware`.
 - The regular expression and the `CorsOrigin` value object in `common` go away.
 
 ### 4. Import rules
@@ -115,15 +115,15 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 - The sentences that name the `csrf` app name the `security` app: the `CsrfToken` paragraph, the router paragraph with the route `GET /api/v1/security/csrf`, and the settings paragraph, which places the frame headers and the CORS constants in the `middleware` module of `security`.
 - The settings paragraph states that a configuration type that only the settings read, for example `PsycopgDsn` or `CorsOrigin`, lives in the settings module.
 
-ADR 0003 is rewritten in place, with a new file name such as `0003-security-is-an-app-and-create-app-runs-the-csrf-check.md`. The `main` branch holds ADR 0003 but no `csrf` app, so the old decision never reached code on `main`. The new text records:
+ADR 0003 is rewritten in place, with a new file name such as `0003-security-is-an-app-and-create-app-runs-the-csrf-check.md`. The new text records:
 
 - the `security` app with CSRF, CORS, and the frame headers, and the CSRF check in `create_app`
 - the rejected option of a `csrf` app alone, because CORS reads the CSRF header name and the CORS and frame-header code now exists
 - the rejected option of a module beside `create_app` in the `rastro` package, because the middleware and the header constants are HTTP behaviour and not wiring, and CORS reads the CSRF header name
 - the rejected options that ADR 0003 already lists and that still hold: one CSRF module in `common`, CSRF across the fixed modules of `common`, a middleware for the check, and a check on each router
-- the consequence that the problem type changes from `request.csrf_failed` to `security.csrf_failed` and the route moves to `GET /api/v1/security/csrf`
+- the consequence that the problem type changes from `csrf.failed` to `security.csrf_failed` and the route moves from `GET /api/v1/csrf` to `GET /api/v1/security/csrf`
 
-The body of PR #4 drops the "Blast Radius" sentence that describes what `CorsOrigin` rejects, and names the new problem type and route.
+PR #4 merges into `main` first with its body unchanged. The body of PR #6, which stacks on PR #4, names the new problem type, the new route, and the risk of an origin with a path.
 
 ## Testing Decisions
 

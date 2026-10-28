@@ -39,7 +39,7 @@ def test_every_error_answers_the_status_of_the_contract() -> None:
         "auth.incorrect_credentials": 401,
         "auth.not_authenticated": 401,
         "common_sample.note_rejected": 409,
-        "csrf.failed": 403,
+        "security.csrf_failed": 403,
         "request.validation_failed": 422,
         "request.field_required": 422,
         "request.invalid_type": 422,

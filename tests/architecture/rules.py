@@ -25,7 +25,6 @@ DOMAIN = "domain"
 APPLICATION = "application"
 USE_CASES = "use_cases"
 ALIASED_FORMS = frozenset({"Annotated", "Literal"})
-# create_app declares the CSRF check for every route.
 WIRING = "rastro.app"
 
 

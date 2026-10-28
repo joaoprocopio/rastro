@@ -6,7 +6,7 @@ import pytest
 from rastro.settings import Settings
 
 PATH = "/sample/csrf"
-CSRF_FAILED = {"type": "csrf.failed", "status": 403}
+CSRF_FAILED = {"type": "security.csrf_failed", "status": 403}
 
 
 async def test_a_matching_token_passes(sample_client: httpx.AsyncClient) -> None:

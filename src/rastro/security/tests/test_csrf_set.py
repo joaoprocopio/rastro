@@ -2,12 +2,13 @@ import base64
 from http import HTTPStatus
 
 import httpx
+import pytest
 from fastapi import FastAPI
 
 from rastro.common.presentation.dependencies import app_settings
 from rastro.settings import SameSite, Settings
 
-PATH = "/api/v1/csrf"
+PATH = "/api/v1/security/csrf"
 # The sample router runs the CSRF check on this command.
 SAMPLE_COMMAND = "/sample/csrf"
 
@@ -41,10 +42,11 @@ async def test_each_request_sets_a_new_token(
     )
 
 
-async def test_the_old_auth_route_is_not_found(
-    sample_client: httpx.AsyncClient,
+@pytest.mark.parametrize("old_path", ["/api/v1/auth/csrf", "/api/v1/csrf"])
+async def test_an_old_route_is_not_found(
+    sample_client: httpx.AsyncClient, old_path: str
 ) -> None:
-    response = await sample_client.get("/api/v1/auth/csrf")
+    response = await sample_client.get(old_path)
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {"type": "request.not_found", "status": 404}
@@ -74,7 +76,7 @@ async def test_the_token_of_the_cookie_without_the_header_fails(
     response = await sample_client.post(SAMPLE_COMMAND)
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    assert response.json() == {"type": "csrf.failed", "status": 403}
+    assert response.json() == {"type": "security.csrf_failed", "status": 403}
 
 
 async def test_the_settings_choose_the_csrf_cookie_and_header(

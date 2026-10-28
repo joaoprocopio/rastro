@@ -114,8 +114,11 @@ ignore_imports = ["rastro.**.presentation.dependencies -> rastro.**.infrastructu
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
-name = "only the wiring imports the csrf app"
+name = "only the wiring imports the security app"
 type = "forbidden"
 source_modules = ["rastro.*"]
-forbidden_modules = ["rastro.csrf"]
-ignore_imports = ["rastro.app -> rastro.csrf.**", "rastro.csrf.** -> rastro.csrf.**"]
+forbidden_modules = ["rastro.security"]
+ignore_imports = [
+    "rastro.app -> rastro.security.**",
+    "rastro.security.** -> rastro.security.**",
+]
