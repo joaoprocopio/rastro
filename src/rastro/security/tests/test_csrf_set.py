@@ -53,13 +53,11 @@ async def test_an_old_route_is_not_found(
 
 
 async def test_the_token_of_the_cookie_lets_a_post_through(
-    sample_client: httpx.AsyncClient, settings: Settings
+    cookieless_client: httpx.AsyncClient, settings: Settings
 ) -> None:
-    sample_client.cookies.clear()
-    del sample_client.headers[settings.csrf_header_name]
-    token = (await sample_client.get(PATH)).cookies[settings.csrf_cookie_name]
+    token = (await cookieless_client.get(PATH)).cookies[settings.csrf_cookie_name]
 
-    response = await sample_client.post(
+    response = await cookieless_client.post(
         SAMPLE_COMMAND, headers={settings.csrf_header_name: token}
     )
 
@@ -67,20 +65,18 @@ async def test_the_token_of_the_cookie_lets_a_post_through(
 
 
 async def test_the_token_of_the_cookie_without_the_header_fails(
-    sample_client: httpx.AsyncClient, settings: Settings
+    cookieless_client: httpx.AsyncClient,
 ) -> None:
-    sample_client.cookies.clear()
-    del sample_client.headers[settings.csrf_header_name]
-    await sample_client.get(PATH)
+    await cookieless_client.get(PATH)
 
-    response = await sample_client.post(SAMPLE_COMMAND)
+    response = await cookieless_client.post(SAMPLE_COMMAND)
 
     assert response.status_code == HTTPStatus.FORBIDDEN
     assert response.json() == {"type": "security.csrf_failed", "status": 403}
 
 
 async def test_the_settings_choose_the_csrf_cookie_and_header(
-    sample_app: FastAPI, sample_client: httpx.AsyncClient, settings: Settings
+    sample_app: FastAPI, cookieless_client: httpx.AsyncClient, settings: Settings
 ) -> None:
     sample_app.dependency_overrides[app_settings] = lambda: settings.model_copy(
         update={
@@ -91,12 +87,12 @@ async def test_the_settings_choose_the_csrf_cookie_and_header(
             "csrf_cookie_samesite": SameSite.STRICT,
         }
     )
-    sample_client.cookies.clear()
-    sample_client.headers.clear()
 
-    response = await sample_client.get(PATH)
+    response = await cookieless_client.get(PATH)
     token = response.cookies["other_csrf"]
-    after = await sample_client.post(SAMPLE_COMMAND, headers={"X-Other-CSRF": token})
+    after = await cookieless_client.post(
+        SAMPLE_COMMAND, headers={"X-Other-CSRF": token}
+    )
 
     cookie = response.headers["Set-Cookie"]
     assert cookie.startswith("other_csrf=")
