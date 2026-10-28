@@ -17,3 +17,5 @@
 The third criterion stays unticked. The module of `create_app` defines no class and no header constant, but it keeps `ERROR_STATUSES`, the merged error-to-status table. `CODING_STANDARDS.md` states that `rastro/app.py` merges the tables, and the root `conftest.py` and `tests/architecture/test_error_codes.py` import the merged table, so the move of `ERROR_STATUSES` needs its own decision.
 
 The maintainer kept `ERROR_STATUSES` in `rastro/app.py`, because each app declares its table, the wiring imports each table by name, and the architecture test reads the same table that `create_app` installs.
+
+The maintainer moved the construction of `CORSMiddleware` into a function `cors` in the `middleware` module, so `create_app` registers it with `app.add_middleware(cors, settings=settings)` and imports no CORS constant.

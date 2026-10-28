@@ -79,9 +79,9 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 
 ### 2. The middleware module and the wiring
 
-- The presentation `middleware` module of `security` holds `FRAME_HEADERS`, `CORS_METHODS`, `CORS_HEADERS`, and the function `frame_headers`.
+- The presentation `middleware` module of `security` holds `FRAME_HEADERS`, `CORS_METHODS`, `CORS_HEADERS`, and the functions `cors` and `frame_headers`. `cors` receives the ASGI app and the settings and returns the `CORSMiddleware`, so `create_app` registers it with `app.add_middleware(cors, settings=settings)`, and mypy rejects the call without `settings`.
 - `frame_headers` receives the ASGI app and returns an ASGI app that adds `FRAME_HEADERS` to the `http.response.start` message of each HTTP request and passes every other scope unchanged. Starlette 1.9 builds a middleware with `cls(app, *args, **kwargs)`, and its `_MiddlewareFactory` protocol accepts a function. A run of the function in a scratch script added both headers to a `200` and a `404`, and `mypy --strict` passed.
-- The module of `create_app` imports `csrf_check`, `frame_headers`, `CORS_METHODS`, `CORS_HEADERS`, the router, and `ERROR_STATUSES` from `security`, and registers each one on its own line, as it does today. A function such as `install_security(app, settings)` is rejected, because FastAPI copies the app's dependencies into a route when a router adds it, so a call after an `include_router` leaves that router's routes without the CSRF check and raises no error.
+- The module of `create_app` imports `csrf_check`, `cors`, `frame_headers`, the router, and `ERROR_STATUSES` from `security`, and registers each one on its own line, as it does today. A function such as `install_security(app, settings)` is rejected, because FastAPI copies the app's dependencies into a route when a router adds it, so a call after an `include_router` leaves that router's routes without the CSRF check and raises no error.
 - The module of `create_app` keeps no class, and its only constant is the merged `ERROR_STATUSES`, so `create_app` and the architecture test of the error codes read the same table.
 
 ### 3. `CorsOrigin`
@@ -98,7 +98,7 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 
 - `preserve_empty_path=True` keeps `http://localhost:5173` with no trailing slash. Without it, Pydantic writes `http://localhost:5173/`, and `CORSMiddleware` matches no browser `Origin`.
 - The run showed the behaviour that the operator gets. `HTTP://LOCALHOST:5173` becomes `http://localhost:5173`, and `https://x.com:443` becomes `https://x.com`. `localhost:5173`, `ftp://x.com`, and `http://localhost:99999` fail. `http://localhost:5173/` and `http://localhost:5173/path` load unchanged, and the browser then blocks the frontend.
-- `create_app` passes `[str(origin) for origin in settings.cors_allowed_origins]` to `CORSMiddleware`.
+- `cors` passes `[str(origin) for origin in settings.cors_allowed_origins]` to `CORSMiddleware`.
 - The regular expression and the `CorsOrigin` value object in `common` go away.
 
 ### 4. Import rules
