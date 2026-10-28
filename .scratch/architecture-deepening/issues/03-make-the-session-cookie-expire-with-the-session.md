@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given a User with correct Credentials, when the client starts a Session, then the response is `204` with no body, and the cookie's `Expires` equals the `expires_at` of the stored Session.
-- [ ] Given settings with a Session lifetime of 1 hour, when the client starts a Session, then the cookie's `Expires` is 1 hour after the start, and the cookie keeps the name and flags from the settings.
-- [ ] A use case test asserts that `session_start` returns a `SessionStartOutput` whose `expires_at` equals the clock's time plus the lifetime.
-- [ ] The Session cookie module reads no lifetime setting.
-- [ ] The checks in `README.md` pass.
+- [x] Given a User with correct Credentials, when the client starts a Session, then the response is `204` with no body, and the cookie's `Expires` equals the `expires_at` of the stored Session.
+- [x] Given settings with a Session lifetime of 1 hour, when the client starts a Session, then the cookie's `Expires` is 1 hour after the start, and the cookie keeps the name and flags from the settings.
+- [x] A use case test asserts that `session_start` returns a `SessionStartOutput` whose `expires_at` equals the clock's time plus the lifetime.
+- [x] The Session cookie module reads no lifetime setting.
+- [x] The checks in `README.md` pass.

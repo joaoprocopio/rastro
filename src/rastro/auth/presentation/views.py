@@ -58,7 +58,7 @@ async def session_start_view(
     settings: AppSettings,
     response: Response,
 ) -> None:
-    token = await use_cases.session_start(
+    output = await use_cases.session_start(
         body,
         users=users,
         sessions=sessions,
@@ -67,7 +67,7 @@ async def session_start_view(
         lifetime=settings.session_lifetime,
         token_bytes=settings.session_token_bytes,
     )
-    session_cookie_set(response, token, settings=settings)
+    session_cookie_set(response, output, settings=settings)
 
 
 @router.get("/session")
