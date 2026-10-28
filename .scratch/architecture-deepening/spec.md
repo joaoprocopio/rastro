@@ -119,7 +119,7 @@ Each ticket runs the checks in `README.md` before it is done.
 
 ## Out of Scope
 
-- A task that deletes the Sessions whose lifetime has run out with no client to end them. Its ticket is `.scratch/expired-session-cleanup/issues/01-delete-expired-sessions.md`.
+- A task that deletes the Sessions whose lifetime has run out with no client to end them. Its ticket is `.scratch/ideas/0001-delete-expired-sessions.md`.
 - One registration call per app in `create_app`. The architecture test already finds an error class with no status row, so the gain is small, and the change touches ADR 0001.
 - An architecture test that lists every Pydantic error type that the declared constraints can raise. The view tests that the standards require for each rejection find a missing case through the `500`.
 - A change of the Session lifetime, the cookie names, or the cookie flags.

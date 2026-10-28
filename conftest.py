@@ -31,7 +31,7 @@ from rastro.app import create_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
 from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
-from rastro.common.tests.adapter import Adapter
+from rastro.common.tests.adapter import RepositoryKind
 from rastro.settings import Settings
 
 ROOT = Path(__file__).parent
@@ -136,10 +136,10 @@ async def reader(
         yield reader
 
 
-@pytest.fixture(params=list(Adapter))
-def adapter(request: pytest.FixtureRequest) -> Adapter:
+@pytest.fixture(params=list(RepositoryKind))
+def adapter(request: pytest.FixtureRequest) -> RepositoryKind:
     """The adapter of a repository behaviour test, and only `SQL` opens the database."""
-    return Adapter(request.param)
+    return RepositoryKind(request.param)
 
 
 @pytest.fixture

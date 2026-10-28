@@ -2,7 +2,7 @@ from collections.abc import Callable
 from enum import StrEnum
 
 
-class Adapter(StrEnum):
+class RepositoryKind(StrEnum):
     """The adapter that a repository behaviour test runs."""
 
     FAKE = "fake"
@@ -11,7 +11,7 @@ class Adapter(StrEnum):
     def pick[F, S](self, *, fake: Callable[[], F], sql: Callable[[], S]) -> F | S:
         """Build only the chosen repository, so the fake case opens no database."""
         match self:
-            case Adapter.FAKE:
+            case RepositoryKind.FAKE:
                 return fake()
-            case Adapter.SQL:
+            case RepositoryKind.SQL:
                 return sql()

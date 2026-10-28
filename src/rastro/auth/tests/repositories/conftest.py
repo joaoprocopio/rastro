@@ -8,11 +8,11 @@ from rastro.auth.infrastructure.repositories import (
     SqlUserRepository,
 )
 from rastro.auth.tests.fakes import FakeSessionRepository, FakeUserRepository
-from rastro.common.tests.adapter import Adapter
+from rastro.common.tests.adapter import RepositoryKind
 
 
 @pytest.fixture
-def users(adapter: Adapter, request: pytest.FixtureRequest) -> UserRepository:
+def users(adapter: RepositoryKind, request: pytest.FixtureRequest) -> UserRepository:
     return adapter.pick(
         fake=FakeUserRepository,
         sql=lambda: SqlUserRepository(request.getfixturevalue("db_session")),
@@ -21,7 +21,7 @@ def users(adapter: Adapter, request: pytest.FixtureRequest) -> UserRepository:
 
 @pytest.fixture
 def read_users(
-    adapter: Adapter, users: UserRepository, request: pytest.FixtureRequest
+    adapter: RepositoryKind, users: UserRepository, request: pytest.FixtureRequest
 ) -> UserRepository:
     """The repository that reads back what `users` wrote."""
     return adapter.pick(
@@ -31,7 +31,9 @@ def read_users(
 
 
 @pytest.fixture
-def sessions(adapter: Adapter, request: pytest.FixtureRequest) -> SessionRepository:
+def sessions(
+    adapter: RepositoryKind, request: pytest.FixtureRequest
+) -> SessionRepository:
     return adapter.pick(
         fake=FakeSessionRepository,
         sql=lambda: SqlSessionRepository(request.getfixturevalue("db_session")),
@@ -40,7 +42,7 @@ def sessions(adapter: Adapter, request: pytest.FixtureRequest) -> SessionReposit
 
 @pytest.fixture
 def read_sessions(
-    adapter: Adapter, sessions: SessionRepository, request: pytest.FixtureRequest
+    adapter: RepositoryKind, sessions: SessionRepository, request: pytest.FixtureRequest
 ) -> SessionRepository:
     """The repository that reads back what `sessions` wrote."""
     return adapter.pick(

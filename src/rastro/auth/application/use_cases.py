@@ -88,19 +88,19 @@ async def session_get(
 async def session_end(
     token: SessionToken | None, *, sessions: SessionRepository
 ) -> None:
-    await sessions.remove(await _session(token, sessions=sessions))
+    await sessions.remove(await _stored_session(token, sessions=sessions))
 
 
 async def _active_session(
     token: SessionToken | None, *, sessions: SessionRepository, clock: Clock
 ) -> Session:
-    session = await _session(token, sessions=sessions)
+    session = await _stored_session(token, sessions=sessions)
     if not session.is_active(at=clock.now()):
         raise NotAuthenticatedError()
     return session
 
 
-async def _session(
+async def _stored_session(
     token: SessionToken | None, *, sessions: SessionRepository
 ) -> Session:
     if token is None:

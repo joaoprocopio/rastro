@@ -11,7 +11,7 @@ from rastro.auth.domain.ports import UserRepository
 from rastro.auth.domain.value_objects import Email
 from rastro.auth.infrastructure.repositories import SqlUserRepository
 from rastro.common.domain.value_objects import Id
-from rastro.common.tests.adapter import Adapter
+from rastro.common.tests.adapter import RepositoryKind
 
 INSERT_USER = text(
     "INSERT INTO auth_user"
@@ -21,9 +21,9 @@ INSERT_USER = text(
 
 
 @pytest.fixture
-def adapter() -> Adapter:
+def adapter() -> RepositoryKind:
     """The tests of this module run only on Postgres."""
-    return Adapter.SQL
+    return RepositoryKind.SQL
 
 
 async def test_a_row_whose_email_breaks_its_value_object_fails_to_become_a_user(
