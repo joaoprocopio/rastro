@@ -4,9 +4,9 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] No port, Sql adapter, or fake declares `SessionRepository.update`, `SessionRepository.get_by_id`, or `UserRepository.remove`.
-- [ ] A repository test that read a Session through `get_by_id` reads it through `get_by_hashed_token`, and every other repository test still passes.
-- [ ] `CODING_STANDARDS.md` holds no list of Evans's method names, and its rules for `next_id`, `add`, `update`, `remove`, and `get_by_*` stay.
-- [ ] The checks in `README.md` pass.
+- [x] No port, Sql adapter, or fake declares `SessionRepository.update`, `SessionRepository.get_by_id`, or `UserRepository.remove`.
+- [x] A repository test that read a Session through `get_by_id` reads it through `get_by_hashed_token`, and every other repository test still passes.
+- [x] `CODING_STANDARDS.md` holds no list of Evans's method names, and its rules for `next_id`, `add`, `update`, `remove`, and `get_by_*` stay.
+- [x] The checks in `README.md` pass.

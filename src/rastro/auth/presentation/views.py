@@ -58,7 +58,7 @@ async def session_start_view(
     settings: AppSettings,
     response: Response,
 ) -> None:
-    token = await use_cases.session_start(
+    output = await use_cases.session_start(
         body,
         users=users,
         sessions=sessions,
@@ -67,7 +67,7 @@ async def session_start_view(
         lifetime=settings.session_lifetime,
         token_bytes=settings.session_token_bytes,
     )
-    session_cookie_set(response, token, settings=settings)
+    session_cookie_set(response, output, settings=settings)
 
 
 @router.get("/session")
@@ -86,11 +86,10 @@ async def session_get_view(
 async def session_end_view(
     token: CurrentSessionToken,
     sessions: Annotated[SessionRepository, Depends(dependencies.session_repository)],
-    clock: Annotated[Clock, Depends(dependencies.clock)],
     settings: AppSettings,
     response: Response,
 ) -> None:
-    await use_cases.session_end(token, sessions=sessions, clock=clock)
+    await use_cases.session_end(token, sessions=sessions)
     session_cookie_delete(response, settings=settings)
 
 

@@ -103,19 +103,6 @@ async def test_update_of_a_user_with_no_row_raises_lookup_error_and_adds_no_row(
         assert await SqlUserRepository(reader).get_by_id(ada.id) is None
 
 
-async def test_remove_deletes_the_user(
-    db_session: AsyncSession, sessionmaker: async_sessionmaker[AsyncSession]
-) -> None:
-    users = SqlUserRepository(db_session)
-    ada = await _ada(users)
-    await users.add(ada)
-
-    await users.remove(ada)
-
-    async with sessionmaker() as reader:
-        assert await SqlUserRepository(reader).get_by_id(ada.id) is None
-
-
 async def test_a_row_whose_email_breaks_its_value_object_fails_to_become_a_user(
     db_session: AsyncSession,
 ) -> None:

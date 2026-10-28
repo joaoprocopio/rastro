@@ -35,7 +35,7 @@ async def test_correct_credentials_start_a_session_of_the_user_for_the_token(
     clock: FakeClock,
     ana: User,
 ) -> None:
-    token = await session_start(
+    output = await session_start(
         CORRECT,
         users=users,
         sessions=sessions,
@@ -49,10 +49,31 @@ async def test_correct_credentials_start_a_session_of_the_user_for_the_token(
         Id(1): Session(
             id=Id(1),
             user_id=ana.id,
-            hashed_token=token.digest(),
+            hashed_token=output.token.digest(),
             expires_at=clock.now() + timedelta(hours=1),
         )
     }
+
+
+async def test_the_output_holds_the_token_and_ends_a_lifetime_after_the_clock(
+    users: FakeUserRepository,
+    sessions: FakeSessionRepository,
+    password_hasher: FakePasswordHasher,
+    clock: FakeClock,
+    ana: User,
+) -> None:
+    output = await session_start(
+        CORRECT,
+        users=users,
+        sessions=sessions,
+        password_hasher=password_hasher,
+        clock=clock,
+        lifetime=LIFETIME,
+        token_bytes=TOKEN_BYTES,
+    )
+
+    assert sessions.sessions[Id(1)].hashed_token == output.token.digest()
+    assert output.expires_at == clock.now() + timedelta(hours=1)
 
 
 async def test_the_token_has_the_number_of_bytes_that_the_use_case_receives(
@@ -62,7 +83,7 @@ async def test_the_token_has_the_number_of_bytes_that_the_use_case_receives(
     clock: FakeClock,
     ana: User,
 ) -> None:
-    token = await session_start(
+    output = await session_start(
         CORRECT,
         users=users,
         sessions=sessions,
@@ -73,7 +94,7 @@ async def test_the_token_has_the_number_of_bytes_that_the_use_case_receives(
     )
 
     # 16 bytes in URL-safe base64 with no padding.
-    assert len(token.root.get_secret_value()) == 22
+    assert len(output.token.root.get_secret_value()) == 22
 
 
 async def test_each_session_gets_a_new_token(
@@ -102,7 +123,7 @@ async def test_each_session_gets_a_new_token(
         token_bytes=TOKEN_BYTES,
     )
 
-    assert first != second
+    assert first.token != second.token
 
 
 async def test_a_correct_sign_in_stores_a_new_hash_for_an_outdated_one(
