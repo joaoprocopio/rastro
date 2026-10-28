@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from taskiq import InMemoryBroker
 
 from rastro.app import create_app
-from rastro.common.domain.value_objects import CorsOrigin
-from rastro.settings import Settings
+from rastro.settings import CorsOrigin, Settings
 
 POSTGRES_URL = "postgresql+psycopg://postgres:hunter2-secret@localhost:5432/postgres"
 

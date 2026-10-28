@@ -1,5 +1,5 @@
 from rastro.common.domain.value_objects import TokenBytes
-from rastro.csrf.domain.value_objects import CsrfToken
+from rastro.security.domain.value_objects import CsrfToken
 
 
 def test_a_csrf_token_of_16_bytes_has_22_characters() -> None:

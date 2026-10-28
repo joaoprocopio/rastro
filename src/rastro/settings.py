@@ -1,17 +1,24 @@
 from datetime import timedelta
 from enum import StrEnum
 
-from pydantic import PostgresDsn, Secret, UrlConstraints
+from pydantic import HttpUrl, PostgresDsn, Secret, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rastro.auth.domain.value_objects import SessionLifetime
-from rastro.common.domain.value_objects import CorsOrigin, TokenBytes
+from rastro.common.domain.value_objects import TokenBytes
 
 
 # The scheme names the SQLAlchemy driver, so another driver fails at startup.
 class PsycopgDsn(PostgresDsn):
     _constraints = UrlConstraints(
         host_required=True, allowed_schemes=["postgresql+psycopg"]
+    )
+
+
+# A browser sends an origin with no trailing slash, so the empty path stays empty.
+class CorsOrigin(HttpUrl):
+    _constraints = UrlConstraints(
+        allowed_schemes=["http", "https"], host_required=True, preserve_empty_path=True
     )
 
 

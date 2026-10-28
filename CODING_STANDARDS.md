@@ -31,7 +31,7 @@ A broken invariant raises a built-in exception whose message names the value, fo
 
 ## Lay out an app in four layers
 
-Each app is one bounded context, and its package name is its app label, for example `auth`. An app has four layer packages with fixed module names, so a reader finds a concept at the same place in any app:
+Each app is one bounded context, and its package name is its app label, for example `auth`. A name is a whole word or a common abbreviation, for example `auth` or `csrf`, and never a numeronym such as `s6y`, because a reader cannot expand a numeronym without a dictionary. An app has four layer packages with fixed module names, so a reader finds a concept at the same place in any app:
 
 ```text
 <app>/
@@ -52,6 +52,7 @@ Each app is one bounded context, and its package name is its app label, for exam
   presentation/
     dependencies.py    # the FastAPI dependency that builds each adapter
     views.py           # the router, the views, and the error-to-status table
+    middleware.py      # the middleware and the constants for add_middleware
     tasks.py           # the taskiq tasks
   tests/
 ```
@@ -79,7 +80,7 @@ A data type is always a class, never a module-level `Annotated` or `Literal` ali
 
 ## Write Pydantic classes
 
-Every Pydantic class subclasses the rastro base of its kind (`Aggregate`, `ValueObject`, `RootValueObject`, or `DTO`) and inherits one strict configuration. No class is named `BaseModel`, so `BaseModel` always means Pydantic's class. Two flags of that configuration carry a reason. `extra="forbid"` rejects an unknown key, so a misspelled optional field fails in place of a silent drop. `hide_input_in_errors` keeps the input out of a `ValidationError` message, so a password or an email never reaches a log.
+Every Pydantic class outside the settings module subclasses the rastro base of its kind (`Aggregate`, `ValueObject`, `RootValueObject`, or `DTO`) and inherits one strict configuration. No class is named `BaseModel`, so `BaseModel` always means Pydantic's class. Two flags of that configuration carry a reason. `extra="forbid"` rejects an unknown key, so a misspelled optional field fails in place of a silent drop. `hide_input_in_errors` keeps the input out of a `ValidationError` message, so a password or an email never reaches a log.
 
 An aggregate method exists only when a change protects a rule across fields. Otherwise a use case assigns the field, and `validate_assignment` checks the value. An aggregate refers to another aggregate only by its `Id`, so a repository loads and writes one aggregate at a time.
 
@@ -93,11 +94,11 @@ A limit that a row column repeats is a module-level constant in `value_objects`,
 
 Every aggregate id is an `Id`, so all ids share one type, and a row with the id `0` fails when it becomes an aggregate. A future id kind that Python generates, for example a ULID, gets its own value object beside `Id`.
 
-A configuration value with a rule is a value object too, for example `TokenBytes`, so an invalid value fails wherever code builds it. The settings, the use case, and the aggregate pass the value object, and only the code that needs the number reads `.root`.
+A configuration value with a rule that domain code reads is a value object too, for example `TokenBytes`, so an invalid value fails wherever code builds it. The settings, the use case, and the aggregate pass the value object, and only the code that needs the number reads `.root`.
 
 A value object that holds a secret wraps a `SecretStr`, so a log line or a traceback shows `**********`. A secret is a value that lets its holder act, such as a password or a token. A digest stays plain, because it lets no one act, and so does a value that a response sends, such as `Email`. Code reads a secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two tokens, and a test reads it to check the value. A Session stores only the digest of its Session token, so a leaked database starts no Session.
 
-A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives in the value objects of the `csrf` app, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
+A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives in the value objects of the `security` app, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
 
 A value object equals only a value object of its own class, so `Id(1) == 1` is false.
 
@@ -163,7 +164,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it sends a task with `<task>.kiq(...)`. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
-Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/app.py` imports the `csrf` app, and an import-linter contract forbids every other app to import it. The `csrf` app owns CSRF: its router serves `GET /api/v1/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
+Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/app.py` imports the `security` app, and an import-linter contract forbids every other module of rastro to import it. The `security` app owns CSRF: its router serves `GET /api/v1/security/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
 A views module holds its parts in this order: `ERROR_STATUSES`, the `router`, the private request dependencies, and the views. It calls `use_cases.<name>` through the module, so a parameter such as `clock` never hides a function of the same name.
 
@@ -208,9 +209,9 @@ The presentation layer chooses each status. Each app's `views` module declares a
 
 ## Configure settings
 
-A setting holds every value that an operator may change, for example a cookie name, a cookie flag, a token size, or the allowed CORS origins. A value that a standard fixes stays a constant, for example `SAFE_METHODS`, the CORS methods and headers that the frontend needs, or the frame headers `X-Frame-Options` and `Content-Security-Policy` in `rastro/app.py`, which `create_app` adds to each response. Every setting has a default except `RASTRO_POSTGRES_URL`, so no password sits in the code. A password with `@` or `/` needs percent-encoding in that URL. `RASTRO_OPENAPI_ENABLED` is off by default, so a deployment that forgets the variable shows no route list.
+A setting holds every value that an operator may change, for example a cookie name, a cookie flag, a token size, or the allowed CORS origins. A value that a standard fixes stays a constant, for example `SAFE_METHODS`, the CORS methods and headers that the frontend needs, or the frame headers `X-Frame-Options` and `Content-Security-Policy`. The frame headers and the CORS constants sit in the `middleware` module of the `security` app, and `create_app` adds the frame headers to each response. Every setting has a default except `RASTRO_POSTGRES_URL`, so no password sits in the code. A password with `@` or `/` needs percent-encoding in that URL. `RASTRO_OPENAPI_ENABLED` is off by default, so a deployment that forgets the variable shows no route list.
 
-A new setting needs a field with a default and a line in `.env.example`. Only a process entry and a test build `Settings()`, and every factory receives the settings as an argument, so a test builds each one with the settings of its own database. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
+A new setting needs a field with a default and a line in `.env.example`. A configuration type that only the settings read, for example `PsycopgDsn` or `CorsOrigin`, subclasses the Pydantic type it narrows and lives in the settings module, and a type that domain code reads, for example `TokenBytes`, lives in its app. Only a process entry and a test build `Settings()`, and every factory receives the settings as an argument, so a test builds each one with the settings of its own database. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
 
 ## Write Python for mypy strict
 

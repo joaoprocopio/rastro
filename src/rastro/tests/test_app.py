@@ -6,9 +6,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from taskiq import InMemoryBroker, TaskiqEvents
 
 from rastro.app import create_app
-from rastro.common.domain.value_objects import CorsOrigin
 from rastro.common.presentation.dependencies import AppSettings
-from rastro.settings import Settings
+from rastro.settings import CorsOrigin, Settings
 
 OPENAPI_PAGES = ["/openapi.json", "/docs", "/redoc"]
 FRONTEND_ORIGIN = "http://localhost:5173"
@@ -118,6 +117,22 @@ async def test_a_preflight_from_an_allowed_origin_allows_credentials_and_the_csr
     assert "X-CSRF-Token" in response.headers["access-control-allow-headers"]
 
 
+@pytest.mark.parametrize(
+    "cors_allowed_origins", [[CorsOrigin("HTTP://LOCALHOST:5173")]]
+)
+async def test_a_preflight_matches_an_origin_that_the_settings_write_in_uppercase(
+    cors_client: httpx.AsyncClient, settings: Settings
+) -> None:
+    response = await cors_client.options(
+        "/api/v1/auth/session",
+        headers=_preflight_headers(
+            origin=FRONTEND_ORIGIN, header=settings.csrf_header_name
+        ),
+    )
+
+    assert response.headers["access-control-allow-origin"] == FRONTEND_ORIGIN
+
+
 async def test_a_preflight_allows_a_csrf_header_renamed_by_the_settings(
     settings: Settings,
 ) -> None:
@@ -148,32 +163,32 @@ async def test_a_preflight_allows_a_csrf_header_renamed_by_the_settings(
 async def test_a_request_from_an_origin_outside_the_list_gets_no_cors_origin(
     cors_client: httpx.AsyncClient,
 ) -> None:
-    response = await cors_client.get("/api/v1/csrf", headers={"Origin": OTHER_ORIGIN})
+    response = await cors_client.get(
+        "/api/v1/security/csrf", headers={"Origin": OTHER_ORIGIN}
+    )
 
     assert response.status_code == HTTPStatus.NO_CONTENT
     assert "access-control-allow-origin" not in response.headers
 
 
-async def test_a_success_blocks_frames(client: httpx.AsyncClient) -> None:
-    response = await client.get("/api/v1/csrf")
-
-    assert response.is_success
-    assert {name: response.headers.get(name) for name in FRAME_HEADERS} == FRAME_HEADERS
-
-
-async def test_a_failed_csrf_check_blocks_frames(
-    client: httpx.AsyncClient, settings: Settings
+@pytest.mark.parametrize(
+    ("method", "path", "status"),
+    [
+        ("GET", "/api/v1/security/csrf", HTTPStatus.NO_CONTENT),
+        ("POST", "/api/v1/auth/session/end", HTTPStatus.FORBIDDEN),
+        ("GET", "/api/v1/missing", HTTPStatus.NOT_FOUND),
+    ],
+)
+async def test_every_response_blocks_frames(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    method: str,
+    path: str,
+    status: HTTPStatus,
 ) -> None:
     del client.headers[settings.csrf_header_name]
 
-    response = await client.post("/api/v1/auth/session/end")
+    response = await client.request(method, path)
 
-    assert response.status_code == HTTPStatus.FORBIDDEN
-    assert {name: response.headers.get(name) for name in FRAME_HEADERS} == FRAME_HEADERS
-
-
-async def test_a_missing_route_blocks_frames(client: httpx.AsyncClient) -> None:
-    response = await client.get("/api/v1/missing")
-
-    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.status_code == status
     assert {name: response.headers.get(name) for name in FRAME_HEADERS} == FRAME_HEADERS

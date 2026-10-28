@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 from rastro.auth.domain.value_objects import SessionLifetime
-from rastro.common.domain.value_objects import CorsOrigin, TokenBytes
-from rastro.settings import SameSite, Settings
+from rastro.common.domain.value_objects import TokenBytes
+from rastro.settings import CorsOrigin, SameSite, Settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
@@ -212,15 +212,33 @@ def test_a_list_of_cors_origins_loads(
 
 @pytest.mark.parametrize(
     "origin",
-    ["http://localhost:5173/", "http://localhost:5173/app", "localhost:5173", ""],
+    ["http://localhost:5173", "http://localhost:5173/", "http://localhost:5173/path"],
 )
-def test_a_cors_origin_with_a_path_or_no_scheme_stops_the_settings(
+def test_a_cors_origin_loads_unchanged(
     postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, origin: str
 ) -> None:
     monkeypatch.setenv("RASTRO_CORS_ALLOWED_ORIGINS", f'["{origin}"]')
 
-    with pytest.raises(
-        ValueError,
-        match=r"(?m)^RASTRO_CORS_ALLOWED_ORIGINS\.0\n  .* \[type=string_pattern_mismatch\]",
-    ):
+    assert [str(loaded) for loaded in Settings().cors_allowed_origins] == [origin]
+
+
+def test_a_cors_origin_loads_without_the_default_port_of_its_scheme(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_CORS_ALLOWED_ORIGINS", '["https://x.com:443"]')
+
+    assert [str(loaded) for loaded in Settings().cors_allowed_origins] == [
+        "https://x.com"
+    ]
+
+
+@pytest.mark.parametrize(
+    "origin", ["localhost:5173", "ftp://x.com", "http://localhost:99999"]
+)
+def test_a_cors_origin_with_no_scheme_another_scheme_or_a_bad_port_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, origin: str
+) -> None:
+    monkeypatch.setenv("RASTRO_CORS_ALLOWED_ORIGINS", f'["{origin}"]')
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_CORS_ALLOWED_ORIGINS\.0\n  "):
         Settings()
