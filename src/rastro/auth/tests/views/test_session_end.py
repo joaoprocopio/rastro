@@ -65,7 +65,7 @@ async def test_ending_with_a_token_that_no_session_holds_is_not_authenticated(
     assert response.json() == NOT_AUTHENTICATED
 
 
-async def test_ending_a_session_past_its_expiry_is_not_authenticated(
+async def test_ending_a_session_past_its_expiry_deletes_it_and_clears_the_cookie(
     signed_in_client: httpx.AsyncClient, db_session: AsyncSession
 ) -> None:
     await db_session.execute(
@@ -75,7 +75,9 @@ async def test_ending_a_session_past_its_expiry_is_not_authenticated(
 
     response = await signed_in_client.post(PATH)
 
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert response.json() == NOT_AUTHENTICATED
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    cookie = response.headers["Set-Cookie"]
+    assert cookie.startswith('rastro_session="";')
+    assert "Max-Age=0" in cookie
     count = await db_session.scalar(select(func.count()).select_from(SessionRow))
-    assert count == 1
+    assert count == 0

@@ -131,7 +131,7 @@ A row subclasses `Row`, takes the suffix `Row`, and has `Mapped` columns of prim
 - `created_at` and `updated_at` use `server_default=func.now()`, and `updated_at` also uses `onupdate`, so no Python code reads a clock for audit data.
 - A unique constraint that a repository translates has an explicit name in `__table_args__`, so the repository and the migration read one name.
 
-A repository is one adapter per aggregate, and it receives the `AsyncSession` in its constructor, so the application never imports SQLAlchemy. Its methods use Evans's names: `add`, `remove`, `update`, `get_by_*`, and `next_id`. The repository methods follow these rules:
+A repository is one adapter per aggregate, and it receives the `AsyncSession` in its constructor, so the application never imports SQLAlchemy. Its methods follow these rules:
 
 - `next_id` takes the id from the column's sequence, so every aggregate has its id from its creation. A rolled-back transaction leaves a gap.
 - `add` flushes, so a constraint violation rises inside `add`, where the repository translates it.
