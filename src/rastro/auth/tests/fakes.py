@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.ports import PasswordCheck
 from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
@@ -17,22 +18,24 @@ class FakePasswordHasher:
 
     def __init__(self) -> None:
         self.hashed: list[RawPassword] = []
-        self.verified: list[tuple[RawPassword, HashedPassword]] = []
-
-    @property
-    def fixed_hash(self) -> HashedPassword:
-        return HashedPassword(f"{CURRENT_SCHEME}$fixed")
+        self.verified: list[tuple[RawPassword, HashedPassword | None]] = []
 
     def hash(self, *, password: RawPassword) -> HashedPassword:
         self.hashed.append(password)
         return HashedPassword(f"{CURRENT_SCHEME}${password.root.get_secret_value()}")
 
-    def verify(self, *, password: RawPassword, hashed: HashedPassword) -> bool:
+    def verify(
+        self, *, password: RawPassword, hashed: HashedPassword | None
+    ) -> PasswordCheck:
         self.verified.append((password, hashed))
-        return hashed.root.partition("$")[2] == password.root.get_secret_value()
-
-    def needs_rehash(self, *, hashed: HashedPassword) -> bool:
-        return hashed.root.partition("$")[0] != CURRENT_SCHEME
+        if hashed is None:
+            return PasswordCheck(is_correct=False, new_hash=None)
+        scheme, _, secret = hashed.root.partition("$")
+        if secret != password.root.get_secret_value():
+            return PasswordCheck(is_correct=False, new_hash=None)
+        if scheme != CURRENT_SCHEME:
+            return PasswordCheck(is_correct=True, new_hash=self.hash(password=password))
+        return PasswordCheck(is_correct=True, new_hash=None)
 
 
 class FakeUserRepository:

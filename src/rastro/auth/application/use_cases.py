@@ -49,17 +49,13 @@ async def session_start(
     token_bytes: TokenBytes,
 ) -> SessionToken:
     user = await users.get_by_email(input.email)
-    if user is None:
-        # An unknown email takes as long as a wrong password.
-        password_hasher.verify(
-            password=input.password, hashed=password_hasher.fixed_hash
-        )
+    check = password_hasher.verify(
+        password=input.password, hashed=None if user is None else user.hashed_password
+    )
+    if user is None or not check.is_correct:
         raise IncorrectCredentialsError()
-    check = user.verify_password(input.password, hasher=password_hasher)
-    if not check.is_correct:
-        raise IncorrectCredentialsError()
-    if check.needs_rehash:
-        user.hashed_password = password_hasher.hash(password=input.password)
+    if check.new_hash is not None:
+        user.hashed_password = check.new_hash
         await users.update(user)
     token = SessionToken.generate(nbytes=token_bytes)
     await sessions.add(

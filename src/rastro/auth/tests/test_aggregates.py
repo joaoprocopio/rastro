@@ -3,16 +3,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import SecretStr
 
-from rastro.auth.domain.aggregates import PasswordCheck, Session, User
+from rastro.auth.domain.aggregates import Session
 from rastro.auth.domain.value_objects import (
-    DisplayName,
-    Email,
-    HashedPassword,
-    RawPassword,
     SessionLifetime,
     SessionToken,
 )
-from rastro.auth.tests.fakes import FakePasswordHasher
 from rastro.common.domain.value_objects import Id
 
 TEN_O_CLOCK = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -45,30 +40,4 @@ def test_a_session_starts_with_its_token_digest_and_ends_a_lifetime_later() -> N
 
     assert session == Session(
         id=Id(1), user_id=Id(2), hashed_token=TOKEN.digest(), expires_at=TEN_O_CLOCK
-    )
-
-
-@pytest.mark.parametrize(
-    ("hashed", "password", "check"),
-    [
-        ("fake$password", "password", PasswordCheck(True, needs_rehash=False)),
-        ("outdated$password", "password", PasswordCheck(True, needs_rehash=True)),
-        ("fake$password", "wrongpassword", PasswordCheck(False, needs_rehash=False)),
-    ],
-)
-def test_verify_password_answers_whether_it_is_correct_and_needs_a_rehash(
-    hashed: str, password: str, check: PasswordCheck
-) -> None:
-    user = User(
-        id=Id(1),
-        email=Email("ana@x.com"),
-        display_name=DisplayName("Ana"),
-        hashed_password=HashedPassword(hashed),
-    )
-
-    assert (
-        user.verify_password(
-            RawPassword(SecretStr(password)), hasher=FakePasswordHasher()
-        )
-        == check
     )

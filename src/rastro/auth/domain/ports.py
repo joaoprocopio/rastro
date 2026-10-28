@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.value_objects import (
@@ -11,15 +11,18 @@ from rastro.auth.domain.value_objects import (
 from rastro.common.domain.value_objects import Id
 
 
-class PasswordHasher(Protocol):
-    @property
-    def fixed_hash(self) -> HashedPassword: ...
+class PasswordCheck(NamedTuple):
+    is_correct: bool
+    new_hash: HashedPassword | None
 
+
+class PasswordHasher(Protocol):
     def hash(self, *, password: RawPassword) -> HashedPassword: ...
 
-    def verify(self, *, password: RawPassword, hashed: HashedPassword) -> bool: ...
-
-    def needs_rehash(self, *, hashed: HashedPassword) -> bool: ...
+    # No hash (an unknown email) takes as long as a wrong password and is never correct.
+    def verify(
+        self, *, password: RawPassword, hashed: HashedPassword | None
+    ) -> PasswordCheck: ...
 
 
 class Clock(Protocol):

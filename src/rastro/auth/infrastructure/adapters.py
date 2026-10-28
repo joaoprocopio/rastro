@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import argon2
 
+from rastro.auth.domain.ports import PasswordCheck
 from rastro.auth.domain.value_objects import HashedPassword, RawPassword
 
 
@@ -13,24 +14,26 @@ class Argon2PasswordHasher:
             self._hasher.hash(secrets.token_urlsafe())
         )
 
-    @property
-    def fixed_hash(self) -> HashedPassword:
-        return self._fixed_hash
-
     def hash(self, *, password: RawPassword) -> HashedPassword:
         return HashedPassword.model_validate(
             self._hasher.hash(password.root.get_secret_value())
         )
 
-    def verify(self, *, password: RawPassword, hashed: HashedPassword) -> bool:
+    def verify(
+        self, *, password: RawPassword, hashed: HashedPassword | None
+    ) -> PasswordCheck:
+        # An unknown email checks against the fixed hash, so it takes as long.
+        checked = self._fixed_hash if hashed is None else hashed
         # Any other argon2 error means a corrupted hash, so it answers 500.
         try:
-            return self._hasher.verify(hashed.root, password.root.get_secret_value())
+            self._hasher.verify(checked.root, password.root.get_secret_value())
         except argon2.exceptions.VerifyMismatchError:
-            return False
-
-    def needs_rehash(self, *, hashed: HashedPassword) -> bool:
-        return self._hasher.check_needs_rehash(hashed.root)
+            return PasswordCheck(is_correct=False, new_hash=None)
+        if hashed is None:
+            return PasswordCheck(is_correct=False, new_hash=None)
+        if self._hasher.check_needs_rehash(hashed.root):
+            return PasswordCheck(is_correct=True, new_hash=self.hash(password=password))
+        return PasswordCheck(is_correct=True, new_hash=None)
 
 
 class SystemClock:

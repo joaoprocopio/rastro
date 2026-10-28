@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Response
 
 from rastro.auth.application import use_cases
 from rastro.auth.application.dtos import (
@@ -20,8 +20,12 @@ from rastro.auth.domain.ports import (
     SessionRepository,
     UserRepository,
 )
-from rastro.auth.domain.value_objects import SessionToken
 from rastro.auth.presentation import dependencies
+from rastro.auth.presentation.session_cookie import (
+    CurrentSessionToken,
+    session_cookie_delete,
+    session_cookie_set,
+)
 from rastro.common.presentation.dependencies import AppSettings
 from rastro.common.presentation.problems import ErrorStatuses
 from rastro.common.presentation.views import csrf_check, csrf_cookie_set
@@ -33,14 +37,6 @@ ERROR_STATUSES: ErrorStatuses = {
 }
 
 router = APIRouter(dependencies=[Depends(csrf_check)])
-
-
-def _session_token(request: Request, settings: AppSettings) -> SessionToken | None:
-    value = request.cookies.get(settings.session_cookie_name)
-    return None if value is None else SessionToken.model_validate(value)
-
-
-CurrentSessionToken = Annotated[SessionToken | None, Depends(_session_token)]
 
 
 @router.post("/register", status_code=HTTPStatus.CREATED, response_class=Response)
@@ -71,14 +67,7 @@ async def session_start_view(
         lifetime=settings.session_lifetime,
         token_bytes=settings.session_token_bytes,
     )
-    response.set_cookie(
-        settings.session_cookie_name,
-        token.root.get_secret_value(),
-        max_age=int(settings.session_lifetime.root.total_seconds()),
-        httponly=settings.session_cookie_httponly,
-        secure=settings.session_cookie_secure,
-        samesite=settings.session_cookie_samesite.value,
-    )
+    session_cookie_set(response, token, settings=settings)
 
 
 @router.get("/session")
@@ -102,12 +91,7 @@ async def session_end_view(
     response: Response,
 ) -> None:
     await use_cases.session_end(token, sessions=sessions, clock=clock)
-    response.delete_cookie(
-        settings.session_cookie_name,
-        httponly=settings.session_cookie_httponly,
-        secure=settings.session_cookie_secure,
-        samesite=settings.session_cookie_samesite.value,
-    )
+    session_cookie_delete(response, settings=settings)
 
 
 @router.get("/csrf", status_code=HTTPStatus.NO_CONTENT)

@@ -72,7 +72,7 @@ The test sample app in `rastro/common/tests/sample/` is the reference for the fo
 
 Every piece of code takes one of four forms, so a reader can tell what a class does from its kind:
 
-- **Data** is a class: an aggregate, a value object, a DTO, an error, a row, or an enum. A data class receives no dependency, and its methods read only its own fields and their arguments. A `typing.NamedTuple` is data only as the result of a domain method that holds several values and no rule, such as `PasswordCheck` from `User.verify_password`. No edge parses it, so it needs no Pydantic validation.
+- **Data** is a class: an aggregate, a value object, a DTO, an error, a row, or an enum. A data class receives no dependency, and its methods read only its own fields and their arguments. A `typing.NamedTuple` is data only as the result of a domain method that holds several values and no rule, such as `PasswordCheck` from `PasswordHasher.verify`. No edge parses it, so it needs no Pydantic validation.
 - **A port** is a `typing.Protocol` in the domain's `ports` module, for each dependency that the core swaps between production and tests. A hasher, a clock, and each repository are ports.
 - **An adapter** is a class that implements a port and holds configuration or a resource, which it receives once, in its constructor. A repository receives the `AsyncSession`. A fake is an adapter class in the app's tests package.
 - **Everything else is a function**: a use case, a mapper, a view, a FastAPI dependency, and a task.
@@ -227,7 +227,7 @@ async def note_create_view(
 
 An adapter that several apps use, for example an SMTP mailer, lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters, dependencies, and views read `Settings`. A use case that needs a configuration value receives it as a keyword-only argument, as the section on use cases states.
 
-A factory builds a new adapter on each call, except for an adapter that is costly to build and holds no request state. That factory is a `@functools.cache` function, so the process builds the adapter once: `password_hasher` computes the argon2 `fixed_hash` once per process. A factory that does no I/O is a plain `def`.
+A factory builds a new adapter on each call, except for an adapter that is costly to build and holds no request state. That factory is a `@functools.cache` function, so the process builds the adapter once: `password_hasher` computes the argon2 hash of an unknown email once per process. A factory that does no I/O is a plain `def`.
 
 ## Write views
 
@@ -245,7 +245,7 @@ DatabaseSession = Annotated[AsyncSession, Depends(database_session, scope="funct
 
 The DTOs of a use case subclass `DTO`, live in the application's `dtos` module, and are named `<Entity><Action>Input` and `<Entity><Action>Output`, for example `SessionStartInput`. Each DTO belongs to one operation, and no other operation reuses it, so an operation can change its format without breaking another one. FastAPI reads the Input DTO as the request body and the Output DTO as the response model, so the presentation needs no mapper while the HTTP shape and the use case contract agree. An application DTO holds no field that only one edge uses, and the first edge whose shape differs adds a presentation DTO.
 
-A command view responds with no body: `201` when it creates something and `204` otherwise. FastAPI drops the body of a `204` only, so a `201` view declares `response_class=Response`, or FastAPI sends `null`. A query view responds with the `Output` DTO of its use case. A view that sets or deletes a cookie takes a `response: Response` argument and calls `set_cookie` or `delete_cookie` on it.
+A command view responds with no body: `201` when it creates something and `204` otherwise. FastAPI drops the body of a `204` only, so a `201` view declares `response_class=Response`, or FastAPI sends `null`. A query view responds with the `Output` DTO of its use case. A view that sets or deletes a cookie takes a `response: Response` argument and passes it to the one module that owns the cookie: `rastro.auth.presentation.session_cookie` for the Session cookie, and `csrf_cookie_set` for the CSRF cookie. No view calls `set_cookie` or `delete_cookie` itself, so the name and flags of a cookie live in one place.
 
 A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one case: `GET /api/v1/auth/csrf` sets a new CSRF token through `csrf_cookie_set` in `rastro.common.presentation.views` and answers `204`. It uses `GET`, because the frontend fetches the token before its first change of state and `csrf_check` lets `GET` through.
 
@@ -257,7 +257,7 @@ A view reads a value outside the body, for example a cookie, through a dependenc
 CurrentSessionToken = Annotated[SessionToken | None, Depends(_session_token)]
 ```
 
-The dependency is a private function of the views module, beside its alias, for example `_session_token`, because it builds no adapter. The dependency reads `request.cookies` and returns a value object, or `None` when the cookie is absent. It never declares a `Cookie`, `Query`, or `Header` parameter with a rule, because a parameter outside the body that fails validation answers `500`. The value object of such a value has no rule, so a bad value reaches the use case, and the use case answers it with its own error. For example, a token that no Session holds answers `auth.not_authenticated`.
+The dependency is a private function beside its alias, because it builds no adapter. A cookie dependency sits in the module that owns the cookie, for example `_session_token` and `CurrentSessionToken` in `rastro.auth.presentation.session_cookie`. The dependency reads `request.cookies` and returns a value object, or `None` when the cookie is absent. It never declares a `Cookie`, `Query`, or `Header` parameter with a rule, because a parameter outside the body that fails validation answers `500`. The value object of such a value has no rule, so a bad value reaches the use case, and the use case answers it with its own error. For example, a token that no Session holds answers `auth.not_authenticated`.
 
 ## Start, read, and end a Session
 
@@ -265,17 +265,14 @@ A Session lives in the `auth_session` table, with `id`, `user_id`, `hashed_token
 
 - `Session.start(id=..., user_id=..., token=..., at=..., lifetime=...)` stores `token.digest()`, the SHA-256 digest of the token as a `HashedSessionToken`, and sets `expires_at` to `at + lifetime`. The aggregate never holds the token, so no repository can store it, and a leaked database starts no Session.
 - `session.is_active(at=...)` answers whether `at` is before `expires_at`. A Session ends one `RASTRO_SESSION_LIFETIME` after it starts, 14 days by default, with no renewal on use.
-- `User.verify_password(password, hasher=...)` returns `PasswordCheck(is_correct, needs_rehash)`. It calls only `verify` and `needs_rehash` on the hasher, and the use case decides the effect.
-
-`User.verify_password` types its `hasher` with the `PasswordHasher` port, and the ports module imports the aggregates, so `aggregates.py` imports the port under `if TYPE_CHECKING:`. Python 3.15 evaluates an annotation only when code reads it, and no code reads the annotations of a method at run time.
 
 The use cases read the time from the `Clock` port:
 
-- `session_start` gets the User by email and verifies the Credentials through `verify_password`. When `needs_rehash` is true, it assigns a new hash and calls `users.update`. It creates a Session token with `SessionToken.generate(nbytes=token_bytes)`, adds a Session that ends `lifetime` after `clock.now()`, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
-- For an unknown email, `session_start` verifies the password against `PasswordHasher.fixed_hash`, an argon2 hash of a random password, so the response takes as long as a wrong password. An unknown email and a wrong password raise the same `IncorrectCredentialsError`.
+- `session_start` gets the User by email and verifies the Credentials with `password_hasher.verify(password=..., hashed=...)`, which returns `PasswordCheck(is_correct, new_hash)`. When `new_hash` is set, the hash had outdated parameters, and `session_start` assigns `new_hash` and calls `users.update`. It creates a Session token with `SessionToken.generate(nbytes=token_bytes)`, adds a Session that ends `lifetime` after `clock.now()`, and returns the token. ADR 0002 records why the Session and the rehashed User share one transaction.
+- For an unknown email, `session_start` passes `hashed=None`. The hasher then verifies the password against its own hash of a random password and answers incorrect, so the response takes as long as a wrong password. An unknown email and a wrong password raise the same `IncorrectCredentialsError`.
 - `session_get` and `session_end` raise `NotAuthenticatedError` with no token, with a token that no Session holds, and when `clock.now()` reaches `expires_at`. Otherwise `session_get` returns the User of the Session as `SessionGetOutput`, and `session_end` removes the Session.
 
-`session_start_view` reads `AppSettings` and passes `session_lifetime` and `session_token_bytes` to `session_start`. It sets the token in the cookie named `session_cookie_name`, with the `HttpOnly`, `Secure`, and `SameSite` flags of the settings and a `Max-Age` of the lifetime. Under the defaults, the cookie is `rastro_session`, `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of 14 days. `session_end_view` deletes the cookie with the same name and flags when the use case succeeds, and `CurrentSessionToken` reads the cookie by the same name.
+`session_start_view` reads `AppSettings` and passes `session_lifetime` and `session_token_bytes` to `session_start`. It sets the token through `session_cookie_set`, in the cookie named `session_cookie_name`, with the `HttpOnly`, `Secure`, and `SameSite` flags of the settings and a `Max-Age` of the lifetime. Under the defaults, the cookie is `rastro_session`, `HttpOnly`, `Secure`, and `SameSite=Lax`, with a `Max-Age` of 14 days. `session_end_view` deletes the cookie through `session_cookie_delete`, with the same name and flags, when the use case succeeds, and `CurrentSessionToken` reads the cookie by the same name.
 
 ## Reject cross-site requests with a CSRF token
 
@@ -474,7 +471,7 @@ The `auth` test package has these fixtures in `rastro/auth/tests/conftest.py`:
 
 The Session routes hash with argon2, so `rastro/auth/tests/views/conftest.py` overrides the `password_hasher` fixture with the argon2 hasher of `dependencies.password_hasher()`. The `user` of a view test can then sign in, and the register route of a view test writes an argon2 hash through the override of the `app` fixture. The same conftest overrides the `clock` fixture with the `SystemClock` of `dependencies.clock()`, because the view tests compare `expires_at` with the wall clock.
 
-The `auth` app tests each operation by layer: `tests/test_aggregates.py` calls the aggregate methods, `tests/use_cases/` calls a use case with `FakeUserRepository`, `FakeSessionRepository`, `FakePasswordHasher`, and `FakeClock`, and `tests/repositories/` runs `SqlUserRepository` and `SqlSessionRepository` on the `db_session` fixture. `tests/use_cases/conftest.py` holds `users`, `sessions`, `ana` (a User in `users`), and `session_token` (the token of a Session of `ana` in `sessions`, which expires one second after `clock.now()`).
+The `auth` app tests each operation by layer: `tests/test_aggregates.py` calls the aggregate methods, `tests/test_adapters.py` calls `Argon2PasswordHasher`, `tests/use_cases/` calls a use case with `FakeUserRepository`, `FakeSessionRepository`, `FakePasswordHasher`, and `FakeClock`, and `tests/repositories/` runs `SqlUserRepository` and `SqlSessionRepository` on the `db_session` fixture. `tests/use_cases/conftest.py` holds `users`, `sessions`, `ana` (a User in `users`), and `session_token` (the token of a Session of `ana` in `sessions`, which expires one second after `clock.now()`).
 
 ### Place and name a test
 

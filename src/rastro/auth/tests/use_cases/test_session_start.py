@@ -172,7 +172,7 @@ async def test_a_wrong_password_raises_and_starts_no_session(
     assert sessions.sessions == {}
 
 
-async def test_an_unknown_email_verifies_against_the_fixed_hash_and_raises_the_same(
+async def test_an_unknown_email_verifies_with_no_hash_and_raises_the_same(
     users: FakeUserRepository,
     sessions: FakeSessionRepository,
     password_hasher: FakePasswordHasher,
@@ -193,7 +193,5 @@ async def test_an_unknown_email_verifies_against_the_fixed_hash_and_raises_the_s
             token_bytes=TOKEN_BYTES,
         )
 
-    assert password_hasher.verified == [
-        (RawPassword(SecretStr("password")), password_hasher.fixed_hash)
-    ]
+    assert password_hasher.verified == [(RawPassword(SecretStr("password")), None)]
     assert sessions.sessions == {}
