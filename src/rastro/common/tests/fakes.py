@@ -12,7 +12,8 @@ class FakeNoteRepository:
         return Id(self._last_id)
 
     async def add(self, note: Note) -> None:
-        self.notes[note.id] = note
+        self.notes[note.id] = note.model_copy()
 
     async def get_by_id(self, id: Id) -> Note | None:
-        return self.notes.get(id)
+        note = self.notes.get(id)
+        return None if note is None else note.model_copy()

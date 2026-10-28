@@ -5,7 +5,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.ports import PasswordHasher
@@ -20,15 +20,6 @@ from rastro.auth.infrastructure.repositories import (
     SqlUserRepository,
 )
 from rastro.settings import Settings
-
-
-@pytest.fixture
-async def db_session(connection: AsyncConnection) -> AsyncIterator[AsyncSession]:
-    # A commit or a rollback in the test becomes a savepoint, as in a request.
-    async with AsyncSession(
-        connection, join_transaction_mode="create_savepoint", expire_on_commit=False
-    ) as db_session:
-        yield db_session
 
 
 @pytest.fixture
