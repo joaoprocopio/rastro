@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.errors import EmailInUseError
 from rastro.auth.domain.ports import PasswordCheck
 from rastro.auth.domain.value_objects import (
     Email,
@@ -48,15 +49,12 @@ class FakeUserRepository:
         return Id(self._last_id)
 
     async def add(self, user: User) -> None:
-        self.users[user.id] = user.model_copy()
+        self._store(user)
 
     async def update(self, user: User) -> None:
         if user.id not in self.users:
             raise LookupError(f"No User with the id {user.id.root}.")
-        self.users[user.id] = user.model_copy()
-
-    async def remove(self, user: User) -> None:
-        del self.users[user.id]
+        self._store(user)
 
     async def get_by_id(self, id: Id) -> User | None:
         user = self.users.get(id)
@@ -67,6 +65,14 @@ class FakeUserRepository:
             (user.model_copy() for user in self.users.values() if user.email == email),
             None,
         )
+
+    def _store(self, user: User) -> None:
+        if any(
+            stored.email == user.email and stored.id != user.id
+            for stored in self.users.values()
+        ):
+            raise EmailInUseError()
+        self.users[user.id] = user.model_copy()
 
 
 class FakeSessionRepository:
@@ -81,17 +87,10 @@ class FakeSessionRepository:
     async def add(self, session: Session) -> None:
         self.sessions[session.id] = session.model_copy()
 
-    async def update(self, session: Session) -> None:
+    async def remove(self, session: Session) -> None:
         if session.id not in self.sessions:
             raise LookupError(f"No Session with the id {session.id.root}.")
-        self.sessions[session.id] = session.model_copy()
-
-    async def remove(self, session: Session) -> None:
         del self.sessions[session.id]
-
-    async def get_by_id(self, id: Id) -> Session | None:
-        session = self.sessions.get(id)
-        return None if session is None else session.model_copy()
 
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken

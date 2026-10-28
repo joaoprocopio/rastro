@@ -21,7 +21,7 @@ Three levels split the work:
 - **Business rules** depend on the state of the system or on several fields. A rule that reads only the fields of one aggregate is a method of the aggregate. A rule that needs other data lives in a use case.
 - **Database constraints** are the last safety net, and they never replace the two levels above.
 
-The split decides the status of a database error. A `CheckConstraint` violation means that an edge let invalid data through, so it is a bug that answers `500`. A `unique` violation is a business rule. The use case checks for the conflict, and the repository's `add` translates the `IntegrityError` of a concurrent write into the `BaseError` subclass of that rule, for example `EmailInUseError`. The repository translates only a `psycopg.errors.UniqueViolation` on the constraint of that rule, so any other `IntegrityError` still answers `500`.
+The split decides the status of a database error. A `CheckConstraint` violation means that an edge let invalid data through, so it is a bug that answers `500`. A `unique` violation is a business rule. The use case checks for the conflict, and the repository's `add` and `update` translate the `IntegrityError` of a concurrent write into the `BaseError` subclass of that rule, for example `EmailInUseError`. The repository translates only a `psycopg.errors.UniqueViolation` on the constraint of that rule, so any other `IntegrityError` still answers `500`.
 
 ## Raise in place of a fallback value
 
@@ -97,7 +97,7 @@ A configuration value with a rule is a value object too, for example `TokenBytes
 
 A value object that holds a secret wraps a `SecretStr`, so a log line or a traceback shows `**********`. A secret is a value that lets its holder act, such as a password or a token. A digest stays plain, because it lets no one act, and so does a value that a response sends, such as `Email`. Code reads a secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two tokens, and a test reads it to check the value. A Session stores only the digest of its Session token, so a leaked database starts no Session.
 
-A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken.matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
+A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives with the rest of CSRF in `rastro.common.presentation.csrf`, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
 
 A value object equals only a value object of its own class, so `Id(1) == 1` is false.
 
@@ -131,15 +131,15 @@ A row subclasses `Row`, takes the suffix `Row`, and has `Mapped` columns of prim
 - `created_at` and `updated_at` use `server_default=func.now()`, and `updated_at` also uses `onupdate`, so no Python code reads a clock for audit data.
 - A unique constraint that a repository translates has an explicit name in `__table_args__`, so the repository and the migration read one name.
 
-A repository is one adapter per aggregate, and it receives the `AsyncSession` in its constructor, so the application never imports SQLAlchemy. Its methods use Evans's names: `add`, `remove`, `update`, `get_by_*`, and `next_id`. The repository methods follow these rules:
+A repository is one adapter per aggregate, and it receives the `AsyncSession` in its constructor, so the application never imports SQLAlchemy. Its methods follow these rules:
 
 - `next_id` takes the id from the column's sequence, so every aggregate has its id from its creation. A rolled-back transaction leaves a gap.
-- `add` flushes, so a constraint violation rises inside `add`, where the repository translates it.
+- `add` and `update` flush, so a constraint violation rises inside the method, where the repository translates it.
 - `update` and `remove` load the row through `existing_row`, which raises `LookupError` for a missing id, because `merge` alone would insert a missing row.
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
-A fake repository matches the real repository in two ways. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `update` raises `LookupError` for a missing id.
+A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` and `update` raise the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
 
 ## Map between layers by hand
 
@@ -163,7 +163,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it sends a task with `<task>.kiq(...)`. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
-Each app has one `APIRouter` under `/api/v1/<app label>/`, and each router declares `dependencies=[Depends(csrf_check)]`, so a new app cannot forget the CSRF check. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
+Each app has one `APIRouter` under `/api/v1/<app label>/`, and each router declares `dependencies=[Depends(csrf_check)]`, so a new app cannot forget the CSRF check. The module `rastro.common.presentation.csrf` holds all of CSRF, and its own router serves `GET /api/v1/csrf`, so no app depends on another app for the CSRF cookie. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
 A views module holds its parts in this order: `ERROR_STATUSES`, the `router`, the private request dependencies, and the views. It calls `use_cases.<name>` through the module, so a parameter such as `clock` never hides a function of the same name.
 
@@ -228,7 +228,7 @@ Each layer has its own kind of test. A test passes fakes as arguments or through
 
 - **Domain tests** are pure, with no database and no fake. They check each value object, with no input in the message of the `ValidationError`, and each aggregate method.
 - **Use case tests** call a use case with the in-memory fakes and assert the error class with `pytest.raises`.
-- **Repository tests** run against the test database and read back through a second session, so the identity map hides nothing. They cover both mapper directions, `next_id` and the `Id` that it returns, a row with the id `0`, the unique-violation translation, `LookupError` for a missing row, and a corrupted row.
+- **Repository tests** run one behaviour suite per port, and its `adapter` fixture runs each test once with the fake and once with the Sql adapter. Only the Sql case opens the test database, and it reads back through a second session, so the identity map hides nothing. The suite covers both mapper directions, `next_id` and the `Id` that it returns, the unique-violation translation, `LookupError` for a missing row, and the `model_copy()` rule. A test that only Postgres can pass lives in `test_sql_<aggregate>_repository.py`: a row that breaks its value object, such as the id `0`, the audit columns, and the query span.
 - **View tests** cover the HTTP contract and compare the literal JSON of each problem, because the literal is the contract that a client reads. The view tests own the code of each rejection.
 - **Task tests** send the task through taskiq's in-memory broker and read its rows.
 

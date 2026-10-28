@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from pydantic import StringConstraints
+from pydantic import Field, StringConstraints
 
 from rastro.common.domain.value_objects import RootValueObject
 
@@ -15,4 +15,9 @@ class Color(
         ]
     ]
 ):
+    pass
+
+
+# The problems module has no case for greater_than_equal, so a zero answers 500.
+class Walls(RootValueObject[Annotated[int, Field(ge=1)]]):
     pass

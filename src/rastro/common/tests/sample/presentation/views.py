@@ -3,8 +3,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from rastro.common.presentation.csrf import csrf_check
 from rastro.common.presentation.problems import ErrorStatuses
-from rastro.common.presentation.views import csrf_check
 from rastro.common.tests.sample.application import use_cases
 from rastro.common.tests.sample.application.dtos import PaintApplyInput
 from rastro.common.tests.sample.domain.errors import NoteRejectedError

@@ -31,6 +31,7 @@ from rastro.app import create_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
 from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
+from rastro.common.tests.adapter import RepositoryKind
 from rastro.settings import Settings
 
 ROOT = Path(__file__).parent
@@ -115,6 +116,30 @@ def sessionmaker(connection: AsyncConnection) -> async_sessionmaker[AsyncSession
     return async_sessionmaker(
         connection, join_transaction_mode="create_savepoint", expire_on_commit=False
     )
+
+
+@pytest.fixture
+async def db_session(connection: AsyncConnection) -> AsyncIterator[AsyncSession]:
+    """A database session whose commit or rollback is a savepoint, as in a request."""
+    async with AsyncSession(
+        connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    ) as db_session:
+        yield db_session
+
+
+@pytest.fixture
+async def reader(
+    sessionmaker: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[AsyncSession]:
+    """A second database session, whose reads skip the identity map of `db_session`."""
+    async with sessionmaker() as reader:
+        yield reader
+
+
+@pytest.fixture(params=list(RepositoryKind))
+def adapter(request: pytest.FixtureRequest) -> RepositoryKind:
+    """The adapter of a repository behaviour test, and only `SQL` opens the database."""
+    return RepositoryKind(request.param)
 
 
 @pytest.fixture

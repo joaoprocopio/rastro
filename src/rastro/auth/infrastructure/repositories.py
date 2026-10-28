@@ -26,29 +26,14 @@ class SqlUserRepository:
 
     async def add(self, user: User) -> None:
         self._db_session.add(user_to_row(user))
-        try:
-            await self._db_session.flush()
-        except IntegrityError as error:
-            # A concurrent registration can insert the email after the use case's check.
-            if (
-                isinstance(error.orig, UniqueViolation)
-                and error.orig.diag.constraint_name == USER_EMAIL_KEY
-            ):
-                raise EmailInUseError() from error
-            raise
+        await self._flush()
 
     async def update(self, user: User) -> None:
         # The load raises for a missing row, which merge alone would insert.
         await existing_row(self._db_session, UserRow, user.id)
         # merge copies only the columns that the mapper sets, so created_at stays.
         await self._db_session.merge(user_to_row(user))
-        await self._db_session.flush()
-
-    async def remove(self, user: User) -> None:
-        await self._db_session.delete(
-            await existing_row(self._db_session, UserRow, user.id)
-        )
-        await self._db_session.flush()
+        await self._flush()
 
     async def get_by_id(self, id: Id) -> User | None:
         row = await self._db_session.get(UserRow, id.root)
@@ -59,6 +44,18 @@ class SqlUserRepository:
             select(UserRow).where(UserRow.email == email.root)
         )
         return None if row is None else user_from_row(row)
+
+    async def _flush(self) -> None:
+        try:
+            await self._db_session.flush()
+        except IntegrityError as error:
+            # A concurrent write can take the email after the use case's check.
+            if (
+                isinstance(error.orig, UniqueViolation)
+                and error.orig.diag.constraint_name == USER_EMAIL_KEY
+            ):
+                raise EmailInUseError() from error
+            raise
 
 
 class SqlSessionRepository:
@@ -72,20 +69,11 @@ class SqlSessionRepository:
         self._db_session.add(session_to_row(session))
         await self._db_session.flush()
 
-    async def update(self, session: Session) -> None:
-        await existing_row(self._db_session, SessionRow, session.id)
-        await self._db_session.merge(session_to_row(session))
-        await self._db_session.flush()
-
     async def remove(self, session: Session) -> None:
         await self._db_session.delete(
             await existing_row(self._db_session, SessionRow, session.id)
         )
         await self._db_session.flush()
-
-    async def get_by_id(self, id: Id) -> Session | None:
-        row = await self._db_session.get(SessionRow, id.root)
-        return None if row is None else session_from_row(row)
 
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken

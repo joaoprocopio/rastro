@@ -1,9 +1,10 @@
 from rastro.auth.application.dtos import (
     SessionGetOutput,
     SessionStartInput,
+    SessionStartOutput,
     UserRegisterInput,
 )
-from rastro.auth.application.mappers import session_get_output
+from rastro.auth.application.mappers import session_get_output, session_start_output
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.errors import (
     EmailInUseError,
@@ -47,7 +48,7 @@ async def session_start(
     clock: Clock,
     lifetime: SessionLifetime,
     token_bytes: TokenBytes,
-) -> SessionToken:
+) -> SessionStartOutput:
     user = await users.get_by_email(input.email)
     check = password_hasher.verify(
         password=input.password, hashed=None if user is None else user.hashed_password
@@ -58,16 +59,15 @@ async def session_start(
         user.hashed_password = check.new_hash
         await users.update(user)
     token = SessionToken.generate(nbytes=token_bytes)
-    await sessions.add(
-        Session.start(
-            id=await sessions.next_id(),
-            user_id=user.id,
-            token=token,
-            at=clock.now(),
-            lifetime=lifetime,
-        )
+    session = Session.start(
+        id=await sessions.next_id(),
+        user_id=user.id,
+        token=token,
+        at=clock.now(),
+        lifetime=lifetime,
     )
-    return token
+    await sessions.add(session)
+    return session_start_output(session, token=token)
 
 
 async def session_get(
@@ -86,17 +86,26 @@ async def session_get(
 
 
 async def session_end(
-    token: SessionToken | None, *, sessions: SessionRepository, clock: Clock
+    token: SessionToken | None, *, sessions: SessionRepository
 ) -> None:
-    await sessions.remove(await _active_session(token, sessions=sessions, clock=clock))
+    await sessions.remove(await _stored_session(token, sessions=sessions))
 
 
 async def _active_session(
     token: SessionToken | None, *, sessions: SessionRepository, clock: Clock
 ) -> Session:
+    session = await _stored_session(token, sessions=sessions)
+    if not session.is_active(at=clock.now()):
+        raise NotAuthenticatedError()
+    return session
+
+
+async def _stored_session(
+    token: SessionToken | None, *, sessions: SessionRepository
+) -> Session:
     if token is None:
         raise NotAuthenticatedError()
     session = await sessions.get_by_hashed_token(token.digest())
-    if session is None or not session.is_active(at=clock.now()):
+    if session is None:
         raise NotAuthenticatedError()
     return session

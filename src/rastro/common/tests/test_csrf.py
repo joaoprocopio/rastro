@@ -3,6 +3,8 @@ from http import HTTPStatus
 import httpx
 import pytest
 
+from rastro.common.domain.value_objects import TokenBytes
+from rastro.common.presentation.csrf import CsrfToken
 from rastro.settings import Settings
 
 PATH = "/sample/csrf"
@@ -99,3 +101,16 @@ async def test_a_safe_method_needs_no_token(
     response = await sample_client.request(method, PATH)
 
     assert response.status_code == HTTPStatus.NO_CONTENT
+
+
+def test_a_csrf_token_of_16_bytes_has_22_characters() -> None:
+    token = CsrfToken.generate(nbytes=TokenBytes(16))
+
+    assert len(token.root.get_secret_value()) == 22
+
+
+def test_a_csrf_token_hides_its_value_in_repr() -> None:
+    token = CsrfToken.model_validate("abc123")
+
+    assert "**********" in repr(token)
+    assert "abc123" not in repr(token)

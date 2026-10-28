@@ -69,6 +69,19 @@ async def test_a_missing_body_answers_a_field_required_item_at_the_root(
     }
 
 
+async def test_a_body_that_is_no_object_answers_an_invalid_type_item_at_the_root(
+    sample_client: httpx.AsyncClient,
+) -> None:
+    response = await sample_client.post("/sample/paints", json=["red", 2])
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#", "type": "request.invalid_type"}],
+    }
+
+
 async def test_every_failed_field_answers_its_own_item(
     sample_client: httpx.AsyncClient,
 ) -> None:
@@ -98,3 +111,15 @@ async def test_a_validation_failure_never_shows_the_input(
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert "Secret" not in response.text
     assert "hidden" not in response.text
+
+
+async def test_a_pydantic_error_type_with_no_case_answers_an_internal_error(
+    sample_client: httpx.AsyncClient,
+) -> None:
+    response = await sample_client.post(
+        "/sample/paints", json={"color": "red", "coats": 2, "walls": 0}
+    )
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {"type": "server.internal_error", "status": 500}

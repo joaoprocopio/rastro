@@ -25,35 +25,34 @@ async def test_it_ends_the_session_of_the_token_and_no_other(
     )
     await sessions.add(other)
 
-    await session_end(session_token, sessions=sessions, clock=clock)
+    await session_end(session_token, sessions=sessions)
 
     assert sessions.sessions == {other.id: other}
 
 
 async def test_it_raises_not_authenticated_with_no_token(
-    sessions: FakeSessionRepository, clock: FakeClock, session_token: SessionToken
+    sessions: FakeSessionRepository, session_token: SessionToken
 ) -> None:
     with pytest.raises(NotAuthenticatedError):
-        await session_end(None, sessions=sessions, clock=clock)
+        await session_end(None, sessions=sessions)
 
     assert len(sessions.sessions) == 1
 
 
 async def test_it_raises_not_authenticated_for_a_token_with_no_session(
-    sessions: FakeSessionRepository, clock: FakeClock, session_token: SessionToken
+    sessions: FakeSessionRepository, session_token: SessionToken
 ) -> None:
     with pytest.raises(NotAuthenticatedError):
-        await session_end(
-            SessionToken(SecretStr("unknown")), sessions=sessions, clock=clock
-        )
+        await session_end(SessionToken(SecretStr("unknown")), sessions=sessions)
 
     assert len(sessions.sessions) == 1
 
 
-async def test_it_raises_not_authenticated_for_an_expired_session(
+async def test_it_ends_an_expired_session(
     sessions: FakeSessionRepository, clock: FakeClock, session_token: SessionToken
 ) -> None:
     clock.current += timedelta(seconds=1)
 
-    with pytest.raises(NotAuthenticatedError):
-        await session_end(session_token, sessions=sessions, clock=clock)
+    await session_end(session_token, sessions=sessions)
+
+    assert sessions.sessions == {}

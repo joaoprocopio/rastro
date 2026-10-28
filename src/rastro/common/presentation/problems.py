@@ -103,6 +103,9 @@ def _field_error(error: ErrorDetails) -> BaseError:
             return FieldRequiredError()
         case "extra_forbidden":
             return UnknownFieldError()
+        # from_attributes turns the model_type of a body that is no object into this.
+        case "string_type" | "int_type" | "model_attributes_type":
+            return InvalidTypeError()
         # A length rule that runs after a BeforeValidator drops the string_ prefix.
         case "string_too_short" | "too_short":
             return TooShortError(
@@ -115,7 +118,9 @@ def _field_error(error: ErrorDetails) -> BaseError:
         case "string_pattern_mismatch":
             return InvalidFormatError()
         case _:
-            return InvalidTypeError()
+            raise LookupError(
+                f"No problem for the Pydantic error type {error['type']!r}."
+            )
 
 
 def _validation_item(error: ErrorDetails) -> ValidationItem:
