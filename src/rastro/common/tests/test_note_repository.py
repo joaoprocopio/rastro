@@ -62,10 +62,9 @@ async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
     await notes.add(note)
     note.color = Color("blue")
     read = await read_notes.get_by_id(note.id)
-    if read is not None:
-        read.color = Color("green")
+    assert read is not None
+    read.color = Color("green")
 
     stored = await read_notes.get_by_id(note.id)
 
-    assert read is not None
     assert stored == Note(id=note.id, color=Color("red"))

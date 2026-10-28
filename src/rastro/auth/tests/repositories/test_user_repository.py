@@ -95,11 +95,10 @@ async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
     await users.add(ana)
     ana.display_name = DisplayName("Added")
     read = await read_users.get_by_id(ana.id)
-    if read is not None:
-        read.display_name = DisplayName("Read")
+    assert read is not None
+    read.display_name = DisplayName("Read")
 
     stored = await read_users.get_by_id(ana.id)
 
-    assert read is not None
     assert stored is not None
     assert stored.display_name == DisplayName("Ana")

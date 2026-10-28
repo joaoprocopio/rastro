@@ -85,11 +85,10 @@ async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
     await sessions.add(session)
     session.expires_at = START
     read = await read_sessions.get_by_hashed_token(TOKEN.digest())
-    if read is not None:
-        read.expires_at = START
+    assert read is not None
+    read.expires_at = START
 
     stored = await read_sessions.get_by_hashed_token(TOKEN.digest())
 
-    assert read is not None
     assert stored is not None
     assert stored.expires_at == START + LIFETIME.root
