@@ -5,13 +5,7 @@ from pydantic import SecretStr
 
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.ports import SessionRepository, UserRepository
-from rastro.auth.domain.value_objects import (
-    DisplayName,
-    Email,
-    HashedPassword,
-    SessionLifetime,
-    SessionToken,
-)
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 LIFETIME = SessionLifetime(timedelta(days=14))
@@ -20,20 +14,11 @@ OTHER_TOKEN = SessionToken(SecretStr("other"))
 
 
 @pytest.fixture
-async def ana(users: UserRepository) -> User:
-    ana = User(
-        id=await users.next_id(),
-        email=Email("ana@x.com"),
-        display_name=DisplayName("Ana"),
-        hashed_password=HashedPassword("fake$password"),
-    )
+async def session(
+    sessions: SessionRepository, users: UserRepository, ana: User
+) -> Session:
+    """A Session of the added `ana` for `TOKEN`, which the test has not added yet."""
     await users.add(ana)
-    return ana
-
-
-@pytest.fixture
-async def session(sessions: SessionRepository, ana: User) -> Session:
-    """A Session of `ana` for `TOKEN`, which the test has not added yet."""
     return Session.start(
         id=await sessions.next_id(),
         user_id=ana.id,
@@ -100,10 +85,11 @@ async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
     await sessions.add(session)
     session.expires_at = START
     read = await read_sessions.get_by_hashed_token(TOKEN.digest())
-    assert read is not None
-    read.expires_at = START
+    if read is not None:
+        read.expires_at = START
 
     stored = await read_sessions.get_by_hashed_token(TOKEN.digest())
 
+    assert read is not None
     assert stored is not None
     assert stored.expires_at == START + LIFETIME.root
