@@ -13,7 +13,6 @@ from starlette.exceptions import HTTPException
 from rastro.common.application.dtos import ExtensibleDTO
 from rastro.common.domain.errors import BaseError
 from rastro.common.presentation.errors import (
-    CsrfFailedError,
     FieldRequiredError,
     InternalServerError,
     InvalidFormatError,
@@ -44,7 +43,6 @@ ERROR_STATUSES: ErrorStatuses = {
     TooShortError: HTTPStatus.UNPROCESSABLE_ENTITY,
     TooLongError: HTTPStatus.UNPROCESSABLE_ENTITY,
     InvalidFormatError: HTTPStatus.UNPROCESSABLE_ENTITY,
-    CsrfFailedError: HTTPStatus.FORBIDDEN,
     NotFoundError: HTTPStatus.NOT_FOUND,
     MethodNotAllowedError: HTTPStatus.METHOD_NOT_ALLOWED,
     InternalServerError: HTTPStatus.INTERNAL_SERVER_ERROR,

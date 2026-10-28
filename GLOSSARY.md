@@ -19,3 +19,7 @@ _Avoid_: Login (as a noun), token (the Session token only identifies a Session)
 **Session token**:
 The random secret that a client presents to act in its Session. Whoever holds it acts as the User of that Session.
 _Avoid_: Session id, session key
+
+# Security (security)
+
+Security is the part of rastro that controls what another site can make a browser do with rastro: send a command, read a response, or show rastro in a frame. Auth, not Security, knows who a person is.

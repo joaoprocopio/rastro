@@ -74,7 +74,7 @@ async def test_the_token_of_the_cookie_without_the_header_fails(
     response = await sample_client.post(SAMPLE_COMMAND)
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    assert response.json() == {"type": "request.csrf_failed", "status": 403}
+    assert response.json() == {"type": "csrf.failed", "status": 403}
 
 
 async def test_the_settings_choose_the_csrf_cookie_and_header(

@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] When a client calls `GET /api/v1/csrf`, then the response is `204` and sets the CSRF cookie with the name, flags, and token size from the settings.
-- [ ] Given a `POST` to an auth route or a sample route with no CSRF header, then the response is `{"type": "csrf.failed", "status": 403}` with `application/problem+json`.
-- [ ] Given a header with characters outside ASCII, then the response is the `403` problem and not `500`.
-- [ ] The architecture test of error codes lists `csrf.failed` with `403`, and no longer lists `request.csrf_failed`.
-- [ ] No module in `common` declares or imports CSRF code, and the CSRF tests live in the tests of `csrf`.
-- [ ] The checks in `README.md` pass.
+- [x] When a client calls `GET /api/v1/csrf`, then the response is `204` and sets the CSRF cookie with the name, flags, and token size from the settings.
+- [x] Given a `POST` to an auth route or a sample route with no CSRF header, then the response is `{"type": "csrf.failed", "status": 403}` with `application/problem+json`.
+- [x] Given a header with characters outside ASCII, then the response is the `403` problem and not `500`.
+- [x] The architecture test of error codes lists `csrf.failed` with `403`, and no longer lists `request.csrf_failed`.
+- [x] No module in `common` declares or imports CSRF code, and the CSRF tests live in the tests of `csrf`.
+- [x] The checks in `README.md` pass.

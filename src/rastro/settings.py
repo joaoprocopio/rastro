@@ -5,7 +5,7 @@ from pydantic import PostgresDsn, Secret, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from rastro.auth.domain.value_objects import SessionLifetime
-from rastro.common.domain.value_objects import TokenBytes
+from rastro.common.domain.value_objects import CorsOrigin, TokenBytes
 
 
 # The scheme names the SQLAlchemy driver, so another driver fails at startup.
@@ -61,3 +61,6 @@ class Settings(BaseSettings):
     csrf_cookie_samesite: SameSite = SameSite.LAX
     csrf_token_bytes: TokenBytes = TokenBytes(32)
     csrf_header_name: str = "X-CSRF-Token"
+
+    # Empty, so a deployment that forgets the variable allows no other origin.
+    cors_allowed_origins: list[CorsOrigin] = []

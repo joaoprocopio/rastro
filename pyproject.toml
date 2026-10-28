@@ -112,3 +112,10 @@ forbidden_modules = ["rastro.**.infrastructure"]
 ignore_imports = ["rastro.**.presentation.dependencies -> rastro.**.infrastructure.**"]
 # A view imports dependencies, which import the infrastructure to build adapters.
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "only the wiring imports the csrf app"
+type = "forbidden"
+source_modules = ["rastro.*"]
+forbidden_modules = ["rastro.csrf"]
+ignore_imports = ["rastro.app -> rastro.csrf.**", "rastro.csrf.** -> rastro.csrf.**"]

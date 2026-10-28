@@ -146,5 +146,5 @@ async def test_a_registration_without_the_csrf_token_registers_no_user(
     response = await client.post(PATH, json=VALID_BODY)
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    assert response.json() == {"type": "request.csrf_failed", "status": 403}
+    assert response.json() == {"type": "csrf.failed", "status": 403}
     assert await _user_count(db_session) == 0

@@ -4,8 +4,8 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given a `2xx` response, then it carries `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`.
-- [ ] Given a `403` problem from the CSRF check and a `404` problem, then each carries both headers.
-- [ ] The checks in `README.md` pass.
+- [x] Given a `2xx` response, then it carries `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`.
+- [x] Given a `403` problem from the CSRF check and a `404` problem, then each carries both headers.
+- [x] The checks in `README.md` pass.

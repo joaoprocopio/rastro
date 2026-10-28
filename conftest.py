@@ -27,11 +27,17 @@ from sqlalchemy.ext.asyncio import (
 from taskiq import InMemoryBroker, async_shared_broker
 
 from rastro import telemetry
-from rastro.app import create_app
+from rastro.app import ERROR_STATUSES, create_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
 from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
+from rastro.common.presentation.problems import install_problem_handlers
 from rastro.common.tests.adapter import RepositoryKind
+from rastro.common.tests.sample.infrastructure.models import SampleRow
+from rastro.common.tests.sample.presentation.views import (
+    ERROR_STATUSES as SAMPLE_ERROR_STATUSES,
+)
+from rastro.common.tests.sample.presentation.views import router as sample_router
 from rastro.settings import Settings
 
 ROOT = Path(__file__).parent
@@ -193,6 +199,36 @@ async def client(
     app: FastAPI, settings: Settings, csrf_token: str
 ) -> AsyncIterator[httpx.AsyncClient]:
     transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="https://testserver",
+        cookies={settings.csrf_cookie_name: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def sample_tables(connection: AsyncConnection) -> None:
+    # The tables live in the test's transaction, so they vanish with its rollback.
+    await connection.run_sync(SampleRow.metadata.create_all)
+
+
+@pytest.fixture
+def sample_app(app: FastAPI, sample_tables: None) -> FastAPI:
+    app.include_router(sample_router, prefix="/sample")
+    install_problem_handlers(
+        app, error_statuses={**ERROR_STATUSES, **SAMPLE_ERROR_STATUSES}
+    )
+    return app
+
+
+@pytest.fixture
+async def sample_client(
+    sample_app: FastAPI, settings: Settings, csrf_token: str
+) -> AsyncIterator[httpx.AsyncClient]:
+    # The 500 handler sends its response and then raises the exception again.
+    transport = httpx.ASGITransport(app=sample_app, raise_app_exceptions=False)
     async with httpx.AsyncClient(
         transport=transport,
         base_url="https://testserver",

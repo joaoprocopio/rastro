@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 (Move CSRF into the `csrf` app)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given the sample router with no CSRF line, when a client sends a `POST` to a sample route with no CSRF header, then the response is `{"type": "csrf.failed", "status": 403}`.
-- [ ] Given a matching CSRF cookie and header, when a client sends a `POST` to a sample route, then the CSRF check lets it through.
-- [ ] No router in `auth`, `csrf`, or the sample app declares `csrf_check`.
-- [ ] Given a module in `auth` that imports the `csrf` app, then `uv run lint-imports` fails, and without that import it passes.
-- [ ] The checks in `README.md` pass.
+- [x] Given the sample router with no CSRF line, when a client sends a `POST` to a sample route with no CSRF header, then the response is `{"type": "csrf.failed", "status": 403}`.
+- [x] Given a matching CSRF cookie and header, when a client sends a `POST` to a sample route, then the CSRF check lets it through.
+- [x] No router in `auth`, `csrf`, or the sample app declares `csrf_check`.
+- [x] Given a module in `auth` that imports the `csrf` app, then `uv run lint-imports` fails, and without that import it passes.
+- [x] The checks in `README.md` pass.

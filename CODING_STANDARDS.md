@@ -97,7 +97,7 @@ A configuration value with a rule is a value object too, for example `TokenBytes
 
 A value object that holds a secret wraps a `SecretStr`, so a log line or a traceback shows `**********`. A secret is a value that lets its holder act, such as a password or a token. A digest stays plain, because it lets no one act, and so does a value that a response sends, such as `Email`. Code reads a secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two tokens, and a test reads it to check the value. A Session stores only the digest of its Session token, so a leaked database starts no Session.
 
-A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives with the rest of CSRF in `rastro.common.presentation.csrf`, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
+A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives in the value objects of the `csrf` app, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
 
 A value object equals only a value object of its own class, so `Id(1) == 1` is false.
 
@@ -163,7 +163,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it sends a task with `<task>.kiq(...)`. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
-Each app has one `APIRouter` under `/api/v1/<app label>/`, and each router declares `dependencies=[Depends(csrf_check)]`, so a new app cannot forget the CSRF check. The module `rastro.common.presentation.csrf` holds all of CSRF, and its own router serves `GET /api/v1/csrf`, so no app depends on another app for the CSRF cookie. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
+Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/app.py` imports the `csrf` app, and an import-linter contract forbids every other app to import it. The `csrf` app owns CSRF: its router serves `GET /api/v1/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
 A views module holds its parts in this order: `ERROR_STATUSES`, the `router`, the private request dependencies, and the views. It calls `use_cases.<name>` through the module, so a parameter such as `clock` never hides a function of the same name.
 
@@ -208,7 +208,7 @@ The presentation layer chooses each status. Each app's `views` module declares a
 
 ## Configure settings
 
-A setting holds every value that an operator may change, for example a cookie name, a cookie flag, or a token size. A value that a standard fixes stays a constant, for example `SAFE_METHODS`. Every setting has a default except `RASTRO_POSTGRES_URL`, so no password sits in the code. A password with `@` or `/` needs percent-encoding in that URL. `RASTRO_OPENAPI_ENABLED` is off by default, so a deployment that forgets the variable shows no route list.
+A setting holds every value that an operator may change, for example a cookie name, a cookie flag, a token size, or the allowed CORS origins. A value that a standard fixes stays a constant, for example `SAFE_METHODS`, the CORS methods and headers that the frontend needs, or the frame headers `X-Frame-Options` and `Content-Security-Policy` in `rastro/app.py`, which `create_app` adds to each response. Every setting has a default except `RASTRO_POSTGRES_URL`, so no password sits in the code. A password with `@` or `/` needs percent-encoding in that URL. `RASTRO_OPENAPI_ENABLED` is off by default, so a deployment that forgets the variable shows no route list.
 
 A new setting needs a field with a default and a line in `.env.example`. Only a process entry and a test build `Settings()`, and every factory receives the settings as an argument, so a test builds each one with the settings of its own database. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`.
 

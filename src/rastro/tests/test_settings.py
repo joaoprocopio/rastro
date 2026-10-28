@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from rastro.auth.domain.value_objects import SessionLifetime
-from rastro.common.domain.value_objects import TokenBytes
+from rastro.common.domain.value_objects import CorsOrigin, TokenBytes
 from rastro.settings import SameSite, Settings
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
@@ -33,6 +33,7 @@ def test_env_example_loads(
         "postgresql+psycopg://postgres:postgres@localhost:5432/postgres"
     )
     assert settings.openapi_enabled is True
+    assert settings.cors_allowed_origins == [CorsOrigin("http://localhost:5173")]
 
 
 @pytest.mark.parametrize(
@@ -58,6 +59,7 @@ def test_env_example_loads(
         ("csrf_cookie_samesite", SameSite.LAX),
         ("csrf_token_bytes", TokenBytes(32)),
         ("csrf_header_name", "X-CSRF-Token"),
+        ("cors_allowed_origins", []),
     ],
 )
 def test_a_setting_without_its_variable_takes_its_default(
@@ -192,3 +194,33 @@ def test_the_error_hides_the_values_it_read(
 
 def test_the_repr_hides_the_database_password(postgres_url_only: None) -> None:
     assert "hunter2-secret" not in repr(Settings())
+
+
+def test_a_list_of_cors_origins_loads(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "RASTRO_CORS_ALLOWED_ORIGINS",
+        '["http://localhost:5173", "https://rastro.example:8443"]',
+    )
+
+    assert Settings().cors_allowed_origins == [
+        CorsOrigin("http://localhost:5173"),
+        CorsOrigin("https://rastro.example:8443"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "origin",
+    ["http://localhost:5173/", "http://localhost:5173/app", "localhost:5173", ""],
+)
+def test_a_cors_origin_with_a_path_or_no_scheme_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, origin: str
+) -> None:
+    monkeypatch.setenv("RASTRO_CORS_ALLOWED_ORIGINS", f'["{origin}"]')
+
+    with pytest.raises(
+        ValueError,
+        match=r"(?m)^RASTRO_CORS_ALLOWED_ORIGINS\.0\n  .* \[type=string_pattern_mismatch\]",
+    ):
+        Settings()

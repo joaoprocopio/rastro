@@ -1,7 +1,7 @@
 import pydantic
 import pytest
 
-from rastro.common.domain.value_objects import Id, TokenBytes
+from rastro.common.domain.value_objects import CorsOrigin, Id, TokenBytes
 from rastro.common.tests.sample.application.dtos import PaintApplyInput
 from rastro.common.tests.sample.domain.value_objects import Color
 
@@ -64,3 +64,58 @@ def test_token_bytes_allows_16_bytes() -> None:
 def test_token_bytes_rejects_15_bytes() -> None:
     with pytest.raises(pydantic.ValidationError):
         TokenBytes(15)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "http://localhost:5173",
+        "https://rastro.example",
+        "https://app.rastro-example.com:8443",
+        "http://127.0.0.1:1",
+        "https://x:65535",
+        "http://x:443",
+        "https://x:80",
+        "http://[::1]:5173",
+    ],
+)
+def test_a_cors_origin_accepts_a_scheme_a_host_and_an_optional_port(
+    value: str,
+) -> None:
+    assert CorsOrigin(value).root == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "localhost:5173",
+        "ftp://localhost",
+        "http://localhost:5173/",
+        "http://localhost/app",
+        "http://Localhost",
+        "HTTP://localhost",
+        "http://",
+        "http://..",
+        "http://localhost.",
+        "http://.localhost",
+        "http://a..b",
+        "http://-a.b",
+        "http://a-.b",
+        "http://localhost:",
+        "http://localhost:0",
+        "http://localhost:05173",
+        "http://localhost:65536",
+        "http://localhost:99999",
+        "http://x:80",
+        "https://x:443",
+        "http://[]",
+        "http://[::1",
+        "http://[::g]",
+        "http://[::1]:80",
+    ],
+)
+def test_a_cors_origin_rejects_a_value_that_no_browser_sends_as_origin(
+    value: str,
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        CorsOrigin(value)

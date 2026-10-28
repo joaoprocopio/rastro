@@ -3,7 +3,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from rastro.common.presentation.csrf import csrf_check
 from rastro.common.presentation.problems import ErrorStatuses
 from rastro.common.tests.sample.application import use_cases
 from rastro.common.tests.sample.application.dtos import PaintApplyInput
@@ -15,7 +14,7 @@ ERROR_STATUSES: ErrorStatuses = {
     NoteRejectedError: HTTPStatus.CONFLICT,
 }
 
-router = APIRouter(dependencies=[Depends(csrf_check)])
+router = APIRouter()
 
 
 @router.post("/notes", status_code=HTTPStatus.NO_CONTENT)

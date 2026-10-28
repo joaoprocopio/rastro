@@ -25,6 +25,8 @@ DOMAIN = "domain"
 APPLICATION = "application"
 USE_CASES = "use_cases"
 ALIASED_FORMS = frozenset({"Annotated", "Literal"})
+# create_app declares the CSRF check for every route.
+WIRING = "rastro.app"
 
 
 def domain_modules() -> list[ModuleType]:
@@ -156,6 +158,15 @@ def pydantic_error_reads(*, source: str, name: str) -> list[str]:
 
 def is_presentation(name: str) -> bool:
     return PRESENTATION in name.split(".")
+
+
+def depends_violations(sources: Iterable[tuple[str, str]]) -> list[str]:
+    return [
+        use
+        for name, source in sources
+        if not is_presentation(name) and name != WIRING
+        for use in depends_uses(source=source, name=name)
+    ]
 
 
 def depends_uses(*, source: str, name: str) -> list[str]:
