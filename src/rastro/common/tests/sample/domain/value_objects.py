@@ -19,5 +19,5 @@ class Color(
 
 
 # The problems module has no case for greater_than_equal, so a zero answers 500.
-class Coats(RootValueObject[Annotated[int, Field(ge=1)]]):
+class Walls(RootValueObject[Annotated[int, Field(ge=1)]]):
     pass
