@@ -7,6 +7,7 @@ from taskiq import AsyncBroker
 
 from rastro.auth.presentation.views import ERROR_STATUSES as AUTH_ERROR_STATUSES
 from rastro.auth.presentation.views import router as auth_router
+from rastro.common.presentation.csrf import router as csrf_router
 from rastro.common.presentation.problems import ERROR_STATUSES as COMMON_ERROR_STATUSES
 from rastro.common.presentation.problems import ErrorStatuses, install_problem_handlers
 from rastro.settings import Settings
@@ -35,5 +36,6 @@ def create_app(
     app.state.settings = settings
     app.state.sessionmaker = sessionmaker
     install_problem_handlers(app, error_statuses=ERROR_STATUSES)
+    app.include_router(csrf_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1/auth")
     return app

@@ -1,7 +1,6 @@
-import secrets
-from typing import Annotated, Self
+from typing import Annotated
 
-from pydantic import Field, PositiveInt, SecretStr
+from pydantic import Field, PositiveInt
 
 from rastro.common.domain.schemas import RootSchema, Schema
 
@@ -21,15 +20,3 @@ class Id(RootValueObject[PositiveInt]):
 # A token shorter than 16 random bytes is short enough to guess.
 class TokenBytes(RootValueObject[Annotated[int, Field(ge=16, strict=False)]]):
     pass
-
-
-class CsrfToken(RootValueObject[SecretStr]):
-    @classmethod
-    def generate(cls, *, nbytes: TokenBytes) -> Self:
-        return cls(SecretStr(secrets.token_urlsafe(nbytes.root)))
-
-    def matches(self, other: CsrfToken) -> bool:
-        return secrets.compare_digest(
-            self.root.get_secret_value().encode(),
-            other.root.get_secret_value().encode(),
-        )
