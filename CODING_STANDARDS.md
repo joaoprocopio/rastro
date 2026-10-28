@@ -163,7 +163,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it sends a task with `<task>.kiq(...)`. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
-Each app has one `APIRouter` under `/api/v1/<app label>/`, and each router declares `dependencies=[Depends(csrf_check)]`, so a new app cannot forget the CSRF check. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
+Each app has one `APIRouter` under `/api/v1/<app label>/`, and each router declares `dependencies=[Depends(csrf_check)]`, so a new app cannot forget the CSRF check. The module `rastro.common.presentation.csrf` holds all of CSRF, and its own router serves `GET /api/v1/csrf`, so no app depends on another app for the CSRF cookie. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
 A views module holds its parts in this order: `ERROR_STATUSES`, the `router`, the private request dependencies, and the views. It calls `use_cases.<name>` through the module, so a parameter such as `clock` never hides a function of the same name.
 

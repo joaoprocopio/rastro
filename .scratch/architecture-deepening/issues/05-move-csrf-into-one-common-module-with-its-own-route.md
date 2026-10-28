@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] When a client calls `GET /api/v1/csrf`, then the response is `204` and sets the CSRF cookie with the name, flags, and token size from the settings.
-- [ ] When a client calls `GET /api/v1/auth/csrf`, then the response is the `404` problem.
-- [ ] Given the token from the new route in the cookie and the header, when the client sends a `POST` to an auth route, then the CSRF check lets it through. Without the header, the response is the `request.csrf_failed` problem with status `403`.
-- [ ] No module in a domain package declares `CsrfToken`, and the CSRF view tests live in `common`.
-- [ ] The checks in `README.md` pass.
+- [x] When a client calls `GET /api/v1/csrf`, then the response is `204` and sets the CSRF cookie with the name, flags, and token size from the settings.
+- [x] When a client calls `GET /api/v1/auth/csrf`, then the response is the `404` problem.
+- [x] Given the token from the new route in the cookie and the header, when the client sends a `POST` to an auth route, then the CSRF check lets it through. Without the header, the response is the `request.csrf_failed` problem with status `403`.
+- [x] No module in a domain package declares `CsrfToken`, and the CSRF view tests live in `common`.
+- [x] The checks in `README.md` pass.
