@@ -1,15 +1,36 @@
-from tests.architecture.rules import depends_uses, is_presentation, rastro_sources
+from tests.architecture.rules import (
+    depends_uses,
+    depends_violations,
+    is_presentation,
+    rastro_sources,
+)
+
+DEPENDS_SOURCE = "from fastapi import Depends\n"
 
 
-def test_only_presentation_modules_use_depends() -> None:
-    uses = [
-        use
-        for name, source in rastro_sources()
-        if not is_presentation(name)
-        for use in depends_uses(source=source, name=name)
+def test_only_presentation_modules_and_the_wiring_use_depends() -> None:
+    assert depends_violations(rastro_sources()) == []
+
+
+def test_the_wiring_exemption_covers_only_rastro_app() -> None:
+    sources = [
+        (name, DEPENDS_SOURCE)
+        for name in [
+            "rastro.app",
+            "rastro.paint.presentation.views",
+            "rastro.app.wiring",
+            "rastro.apps",
+            "rastro.paint.app",
+            "rastro",
+        ]
     ]
 
-    assert uses == []
+    assert depends_violations(sources) == [
+        "rastro.app.wiring:1: from fastapi import Depends",
+        "rastro.apps:1: from fastapi import Depends",
+        "rastro.paint.app:1: from fastapi import Depends",
+        "rastro:1: from fastapi import Depends",
+    ]
 
 
 def test_a_module_outside_a_presentation_package_is_not_presentation() -> None:

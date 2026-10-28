@@ -26,7 +26,6 @@ from rastro.auth.presentation.session_cookie import (
     session_cookie_delete,
     session_cookie_set,
 )
-from rastro.common.presentation.csrf import csrf_check
 from rastro.common.presentation.dependencies import AppSettings
 from rastro.common.presentation.problems import ErrorStatuses
 
@@ -36,7 +35,7 @@ ERROR_STATUSES: ErrorStatuses = {
     NotAuthenticatedError: HTTPStatus.UNAUTHORIZED,
 }
 
-router = APIRouter(dependencies=[Depends(csrf_check)])
+router = APIRouter()
 
 
 @router.post("/register", status_code=HTTPStatus.CREATED, response_class=Response)

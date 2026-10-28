@@ -149,7 +149,7 @@ async def test_a_sign_in_without_the_csrf_token_starts_no_session(
     response = await client.post(PATH, json=CREDENTIALS)
 
     assert response.status_code == HTTPStatus.FORBIDDEN
-    assert response.json() == {"type": "request.csrf_failed", "status": 403}
+    assert response.json() == {"type": "csrf.failed", "status": 403}
     assert "Set-Cookie" not in response.headers
 
 

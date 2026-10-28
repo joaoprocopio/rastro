@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given an allowed origin, when the browser sends a preflight `OPTIONS`, then the response has `Access-Control-Allow-Origin` with that origin, `Access-Control-Allow-Credentials: true`, and the CSRF header in `Access-Control-Allow-Headers`.
-- [ ] Given a CSRF header renamed through the settings, then the preflight allows the new header name.
-- [ ] Given an origin outside the list, when it sends a request, then the response has no `Access-Control-Allow-Origin`.
-- [ ] Given no variable, then `cors_allowed_origins` is empty.
-- [ ] Given an origin with a path or with no scheme, then the settings fail to load.
-- [ ] The checks in `README.md` pass.
+- [x] Given an allowed origin, when the browser sends a preflight `OPTIONS`, then the response has `Access-Control-Allow-Origin` with that origin, `Access-Control-Allow-Credentials: true`, and the CSRF header in `Access-Control-Allow-Headers`.
+- [x] Given a CSRF header renamed through the settings, then the preflight allows the new header name.
+- [x] Given an origin outside the list, when it sends a request, then the response has no `Access-Control-Allow-Origin`.
+- [x] Given no variable, then `cors_allowed_origins` is empty.
+- [x] Given an origin with a path or with no scheme, then the settings fail to load.
+- [x] The checks in `README.md` pass.

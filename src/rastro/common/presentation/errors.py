@@ -66,10 +66,6 @@ class InvalidFormatError(BaseError):
     code = "request.invalid_format"
 
 
-class CsrfFailedError(BaseError):
-    code = "request.csrf_failed"
-
-
 class NotFoundError(BaseError):
     code = "request.not_found"
 

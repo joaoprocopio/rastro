@@ -1,28 +1,11 @@
-import secrets
-from http import HTTPStatus
-from typing import Self
+from fastapi import Request, Response
 
-from fastapi import APIRouter, Depends, Request, Response
-from pydantic import SecretStr
-
-from rastro.common.domain.value_objects import RootValueObject, TokenBytes
 from rastro.common.presentation.dependencies import AppSettings
-from rastro.common.presentation.errors import CsrfFailedError
+from rastro.csrf.domain.errors import CsrfFailedError
+from rastro.csrf.domain.value_objects import CsrfToken
 from rastro.settings import Settings
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-
-
-class CsrfToken(RootValueObject[SecretStr]):
-    @classmethod
-    def generate(cls, *, nbytes: TokenBytes) -> Self:
-        return cls(SecretStr(secrets.token_urlsafe(nbytes.root)))
-
-    def matches(self, other: CsrfToken) -> bool:
-        return secrets.compare_digest(
-            self.root.get_secret_value().encode(),
-            other.root.get_secret_value().encode(),
-        )
 
 
 def csrf_cookie_set(response: Response, *, settings: Settings) -> None:
@@ -47,11 +30,3 @@ def csrf_check(request: Request, settings: AppSettings) -> None:
     sent = CsrfToken.model_validate(header)
     if not expected.matches(sent):
         raise CsrfFailedError()
-
-
-router = APIRouter(dependencies=[Depends(csrf_check)])
-
-
-@router.get("/csrf", status_code=HTTPStatus.NO_CONTENT)
-async def csrf_set_view(response: Response, settings: AppSettings) -> None:
-    csrf_cookie_set(response, settings=settings)
