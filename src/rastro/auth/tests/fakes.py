@@ -55,9 +55,6 @@ class FakeUserRepository:
             raise LookupError(f"No User with the id {user.id.root}.")
         self.users[user.id] = user.model_copy()
 
-    async def remove(self, user: User) -> None:
-        del self.users[user.id]
-
     async def get_by_id(self, id: Id) -> User | None:
         user = self.users.get(id)
         return None if user is None else user.model_copy()
@@ -81,17 +78,8 @@ class FakeSessionRepository:
     async def add(self, session: Session) -> None:
         self.sessions[session.id] = session.model_copy()
 
-    async def update(self, session: Session) -> None:
-        if session.id not in self.sessions:
-            raise LookupError(f"No Session with the id {session.id.root}.")
-        self.sessions[session.id] = session.model_copy()
-
     async def remove(self, session: Session) -> None:
         del self.sessions[session.id]
-
-    async def get_by_id(self, id: Id) -> Session | None:
-        session = self.sessions.get(id)
-        return None if session is None else session.model_copy()
 
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken
