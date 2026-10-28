@@ -14,10 +14,7 @@ def cors(app: ASGIApp, *, settings: Settings) -> ASGIApp:
     return CORSMiddleware(
         app,
         allow_origins=[str(origin) for origin in settings.cors_allowed_origins],
-        allow_origin_regex="|".join(
-            f"(?:{regex.pattern})" for regex in settings.cors_allowed_origin_regexes
-        )
-        or None,
+        allow_origin_regex=settings.cors_allowed_origin_regex,
         allow_credentials=settings.cors_allow_credentials,
         allow_private_network=settings.cors_allow_private_network,
         allow_methods=settings.cors_allow_methods,

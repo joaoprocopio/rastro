@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta
 from enum import StrEnum
 from http import HTTPMethod
@@ -74,7 +73,7 @@ class Settings(BaseSettings):
 
     # Empty, so a deployment that forgets the variable allows no other origin.
     cors_allowed_origins: list[CorsOrigin] = []
-    cors_allowed_origin_regexes: list[re.Pattern[str]] = []
+    cors_allowed_origin_regex: str | None = None
     cors_allow_methods: list[HTTPMethod | Literal["*"]] = [
         HTTPMethod.DELETE,
         HTTPMethod.GET,

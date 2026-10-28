@@ -16,7 +16,7 @@ This ticket replaces the bullet "A CORS setting for the methods, the headers, th
 
 | Setting | Type | Default | Argument of `CORSMiddleware` |
 |---|---|---|---|
-| `RASTRO_CORS_ALLOWED_ORIGIN_REGEXES` | `list[re.Pattern[str]]` | `[]` | `allow_origin_regex`, as `(?:a)\|(?:b)`, or `None` when the list is empty |
+| `RASTRO_CORS_ALLOWED_ORIGIN_REGEX` | `str \| None` | `None` | `allow_origin_regex` |
 | `RASTRO_CORS_ALLOW_METHODS` | `list[HTTPMethod \| Literal["*"]]` | `DELETE, GET, OPTIONS, PATCH, POST, PUT` | `allow_methods` |
 | `RASTRO_CORS_ALLOW_HEADERS` | `list[str]` | `accept, authorization, content-type, user-agent, x-csrftoken, x-csrf-token, x-requested-with` | `allow_headers` |
 | `RASTRO_CORS_EXPOSE_HEADERS` | `list[str]` | `[]` | `expose_headers` |
@@ -65,3 +65,5 @@ Tests drive the app that `create_app` builds through HTTP, or load `Settings` fr
 - [x] Given the credentials flag `false`, when an allowed origin sends a preflight, then the response carries no `Access-Control-Allow-Credentials`.
 - [x] Given the private network flag `true`, when the browser sends a preflight with `Access-Control-Request-Private-Network: true`, then the response carries `Access-Control-Allow-Private-Network: true`.
 - [x] `src/rastro/security/presentation/middleware.py` defines no CORS constant, and the checks in `README.md` pass.
+
+The maintainer changed the regex setting from a list to one `str | None`, `RASTRO_CORS_ALLOWED_ORIGIN_REGEX`, because Starlette takes one regex. The first version joined the list as `(?:a)|(?:b)`, so a regex with a global inline flag such as `(?i)` loaded in the settings and then failed Starlette's `re.compile` at start. An operator who needs two patterns writes `a|b`, and an invalid regex fails when the app starts.

@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -61,7 +60,7 @@ def test_env_example_loads(
         ("csrf_token_bytes", TokenBytes(32)),
         ("csrf_header_name", "X-CSRF-Token"),
         ("cors_allowed_origins", []),
-        ("cors_allowed_origin_regexes", []),
+        ("cors_allowed_origin_regex", None),
         (
             "cors_allow_methods",
             ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"],
@@ -266,16 +265,14 @@ def test_a_cors_origin_with_no_scheme_another_scheme_or_a_bad_port_stops_the_set
         Settings()
 
 
-def test_a_list_of_cors_origin_regexes_loads(
+def test_a_cors_origin_regex_loads_unchanged(
     postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(
-        "RASTRO_CORS_ALLOWED_ORIGIN_REGEXES", r'["https://[a-z]+\\.example\\.com"]'
+        "RASTRO_CORS_ALLOWED_ORIGIN_REGEX", r"https://[a-z]+\.example\.com"
     )
 
-    assert Settings().cors_allowed_origin_regexes == [
-        re.compile(r"https://[a-z]+\.example\.com")
-    ]
+    assert Settings().cors_allowed_origin_regex == r"https://[a-z]+\.example\.com"
 
 
 def test_a_wildcard_in_the_cors_methods_loads(

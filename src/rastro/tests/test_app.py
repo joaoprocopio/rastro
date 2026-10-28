@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta
 from http import HTTPStatus
 
@@ -18,7 +17,7 @@ CSRF_HEADER = "X-CSRF-Token"
 FRONTEND_ORIGIN = "http://localhost:5173"
 OTHER_ORIGIN = "https://other.example"
 FRONTEND_ORIGINS = [CorsOrigin(FRONTEND_ORIGIN)]
-EXAMPLE_SUBDOMAINS = [re.compile(r"https://[a-z]+\.example\.com")]
+EXAMPLE_SUBDOMAINS = r"https://[a-z]+\.example\.com"
 FRAME_HEADERS = {
     "X-Frame-Options": "DENY",
     "Content-Security-Policy": "frame-ancestors 'none'",
@@ -161,7 +160,7 @@ async def test_a_preflight_with_the_default_headers_rejects_a_renamed_csrf_heade
 
 
 @pytest.mark.parametrize(
-    "cors_settings", [{"cors_allowed_origin_regexes": EXAMPLE_SUBDOMAINS}]
+    "cors_settings", [{"cors_allowed_origin_regex": EXAMPLE_SUBDOMAINS}]
 )
 async def test_a_preflight_from_an_origin_that_a_regex_matches_allows_the_origin(
     cors_client: httpx.AsyncClient,
@@ -178,28 +177,23 @@ async def test_a_preflight_from_an_origin_that_a_regex_matches_allows_the_origin
 
 @pytest.mark.parametrize(
     "cors_settings",
-    [
-        {
-            "cors_allowed_origin_regexes": [
-                *EXAMPLE_SUBDOMAINS,
-                re.compile(r"https://rastro\.test"),
-            ]
-        }
-    ],
+    [{"cors_allowed_origin_regex": r"(?i)https://APP\.example\.com"}],
 )
-async def test_a_preflight_from_an_origin_that_the_second_regex_matches_allows_it(
+async def test_a_preflight_from_an_origin_that_a_regex_with_a_flag_matches_allows_it(
     cors_client: httpx.AsyncClient,
 ) -> None:
     response = await cors_client.options(
         SESSION_PATH,
-        headers=_preflight_headers(origin="https://rastro.test", header=CSRF_HEADER),
+        headers=_preflight_headers(
+            origin="https://app.example.com", header=CSRF_HEADER
+        ),
     )
 
-    assert response.headers["access-control-allow-origin"] == "https://rastro.test"
+    assert response.headers["access-control-allow-origin"] == "https://app.example.com"
 
 
 @pytest.mark.parametrize(
-    "cors_settings", [{"cors_allowed_origin_regexes": EXAMPLE_SUBDOMAINS}]
+    "cors_settings", [{"cors_allowed_origin_regex": EXAMPLE_SUBDOMAINS}]
 )
 async def test_a_preflight_from_an_origin_that_no_regex_matches_gets_no_cors_origin(
     cors_client: httpx.AsyncClient,
