@@ -26,9 +26,9 @@ from rastro.auth.presentation.session_cookie import (
     session_cookie_delete,
     session_cookie_set,
 )
+from rastro.common.presentation.csrf import csrf_check
 from rastro.common.presentation.dependencies import AppSettings
 from rastro.common.presentation.problems import ErrorStatuses
-from rastro.common.presentation.views import csrf_check, csrf_cookie_set
 
 ERROR_STATUSES: ErrorStatuses = {
     EmailInUseError: HTTPStatus.CONFLICT,
@@ -58,7 +58,7 @@ async def session_start_view(
     settings: AppSettings,
     response: Response,
 ) -> None:
-    token = await use_cases.session_start(
+    output = await use_cases.session_start(
         body,
         users=users,
         sessions=sessions,
@@ -67,7 +67,7 @@ async def session_start_view(
         lifetime=settings.session_lifetime,
         token_bytes=settings.session_token_bytes,
     )
-    session_cookie_set(response, token, settings=settings)
+    session_cookie_set(response, output, settings=settings)
 
 
 @router.get("/session")
@@ -91,8 +91,3 @@ async def session_end_view(
 ) -> None:
     await use_cases.session_end(token, sessions=sessions)
     session_cookie_delete(response, settings=settings)
-
-
-@router.get("/csrf", status_code=HTTPStatus.NO_CONTENT)
-async def csrf_set_view(response: Response, settings: AppSettings) -> None:
-    csrf_cookie_set(response, settings=settings)

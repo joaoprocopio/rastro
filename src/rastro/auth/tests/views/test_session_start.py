@@ -1,6 +1,7 @@
 import base64
 import hashlib
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 
 import argon2
@@ -50,25 +51,41 @@ async def test_a_session_ends_a_fixed_time_after_it_starts(
     client: httpx.AsyncClient, user: User, db_session: AsyncSession
 ) -> None:
     before = datetime.now(UTC)
-    response = await client.post(PATH, json=CREDENTIALS)
+    await client.post(PATH, json=CREDENTIALS)
     after = datetime.now(UTC)
 
     session = await db_session.scalar(select(SessionRow))
     assert session is not None
     lifetime = timedelta(days=14)
     assert before + lifetime <= session.expires_at <= after + lifetime
-    assert "Max-Age=1209600" in response.headers["Set-Cookie"]
 
 
-async def test_the_session_cookie_takes_its_name_lifetime_and_flags_from_the_settings(
-    client: httpx.AsyncClient, user: User, other_session_cookie_settings: Settings
+async def test_the_session_cookie_expires_when_the_session_expires(
+    client: httpx.AsyncClient, user: User, db_session: AsyncSession
 ) -> None:
     response = await client.post(PATH, json=CREDENTIALS)
+
+    session = await db_session.scalar(select(SessionRow))
+    assert session is not None
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    assert response.content == b""
+    # A cookie date has no fraction of a second.
+    assert _cookie_expires(response) == session.expires_at.replace(microsecond=0)
+    assert "Max-Age" not in response.headers["Set-Cookie"]
+
+
+async def test_the_session_cookie_takes_its_name_and_flags_from_the_settings(
+    client: httpx.AsyncClient, user: User, other_session_cookie_settings: Settings
+) -> None:
+    before = datetime.now(UTC).replace(microsecond=0)
+    response = await client.post(PATH, json=CREDENTIALS)
+    after = datetime.now(UTC)
 
     assert response.status_code == HTTPStatus.NO_CONTENT
     cookie = response.headers["Set-Cookie"]
     assert cookie.startswith("other_session=")
-    assert "Max-Age=3600" in cookie
+    lifetime = timedelta(hours=1)
+    assert before + lifetime <= _cookie_expires(response) <= after + lifetime
     assert "HttpOnly" not in cookie
     assert "Secure" not in cookie
     assert "SameSite=strict" in cookie
@@ -134,3 +151,11 @@ async def test_a_sign_in_without_the_csrf_token_starts_no_session(
     assert response.status_code == HTTPStatus.FORBIDDEN
     assert response.json() == {"type": "request.csrf_failed", "status": 403}
     assert "Set-Cookie" not in response.headers
+
+
+def _cookie_expires(response: httpx.Response) -> datetime:
+    attributes = response.headers["Set-Cookie"].split("; ")
+    (expires,) = (
+        a.removeprefix("expires=") for a in attributes if a.startswith("expires=")
+    )
+    return parsedate_to_datetime(expires)

@@ -4,9 +4,13 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given a paint body with `"coats": "two"`, when the client sends it, then the item for `#/coats` has the type `request.invalid_type`, as today.
-- [ ] Given a body that raises a Pydantic error type with no case, when the client sends it, then the response is the `500` problem, and the body shows no input value.
-- [ ] Every validation view test that passed before this ticket passes with the same JSON.
-- [ ] The checks in `README.md` pass.
+- [x] Given a paint body with `"coats": "two"`, when the client sends it, then the item for `#/coats` has the type `request.invalid_type`, as today.
+- [x] Given a body that raises a Pydantic error type with no case, when the client sends it, then the response is the `500` problem, and the body shows no input value.
+- [x] Every validation view test that passed before this ticket passes with the same JSON.
+- [x] The checks in `README.md` pass.
+
+## Comments
+
+The strict configuration makes `"coats": "two"` raise `int_type`, not `int_parsing`. A probe of every request DTO with wrong JSON types found three type errors: `string_type`, `int_type`, and `model_attributes_type` for a body that is no JSON object. Each has an explicit case. The sample's `coats` field is now the `Coats` value object with `ge=1`, so `"coats": 0` raises `greater_than_equal`, which has no case and answers `500`.
