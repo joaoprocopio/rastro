@@ -6,10 +6,10 @@ The fakes change to pass the suite: `FakeUserRepository.add` raises `EmailInUseE
 
 **Blocked by:** 01 (Delete the repository methods that no use case calls), so the suite holds no test for a deleted method.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given a User with the email `ana@x.com` in the repository, when a second User with `ana@x.com` is added, then both the fake and the Sql adapter raise `EmailInUseError`.
-- [ ] Given no aggregate with a given id, when `update` or `remove` runs for that id, then both adapters raise `LookupError` and the repository stays unchanged.
-- [ ] Given an aggregate read from the repository, when a test assigns a field and calls no `update`, then a second read from either adapter returns the old value. This holds for `FakeNoteRepository` too.
-- [ ] Each behaviour test runs once per adapter, and no behaviour has a second test in a per-adapter module.
-- [ ] The checks in `README.md` pass.
+- [x] Given a User with the email `ana@x.com` in the repository, when a second User with `ana@x.com` is added, then both the fake and the Sql adapter raise `EmailInUseError`.
+- [x] Given no aggregate with a given id, when `update` or `remove` runs for that id, then both adapters raise `LookupError` and the repository stays unchanged.
+- [x] Given an aggregate read from the repository, when a test assigns a field and calls no `update`, then a second read from either adapter returns the old value. This holds for `FakeNoteRepository` too.
+- [x] Each behaviour test runs once per adapter, and no behaviour has a second test in a per-adapter module.
+- [x] The checks in `README.md` pass.

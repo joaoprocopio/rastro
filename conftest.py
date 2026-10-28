@@ -118,6 +118,30 @@ def sessionmaker(connection: AsyncConnection) -> async_sessionmaker[AsyncSession
 
 
 @pytest.fixture
+async def db_session(connection: AsyncConnection) -> AsyncIterator[AsyncSession]:
+    # A commit or a rollback in the test becomes a savepoint, as in a request.
+    async with AsyncSession(
+        connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+    ) as db_session:
+        yield db_session
+
+
+@pytest.fixture
+async def reader(
+    sessionmaker: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[AsyncSession]:
+    """A second database session, whose reads skip the identity map of `db_session`."""
+    async with sessionmaker() as reader:
+        yield reader
+
+
+@pytest.fixture(params=["fake", "sql"])
+def adapter(request: pytest.FixtureRequest) -> str:
+    """The adapter of a repository behaviour test, and only `sql` opens the database."""
+    return str(request.param)
+
+
+@pytest.fixture
 async def broker(
     sessionmaker: async_sessionmaker[AsyncSession],
 ) -> AsyncIterator[InMemoryBroker]:

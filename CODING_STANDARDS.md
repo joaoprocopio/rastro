@@ -139,7 +139,7 @@ A repository is one adapter per aggregate, and it receives the `AsyncSession` in
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
-A fake repository matches the real repository in two ways. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `update` raises `LookupError` for a missing id.
+A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` raises the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
 
 ## Map between layers by hand
 
@@ -228,7 +228,7 @@ Each layer has its own kind of test. A test passes fakes as arguments or through
 
 - **Domain tests** are pure, with no database and no fake. They check each value object, with no input in the message of the `ValidationError`, and each aggregate method.
 - **Use case tests** call a use case with the in-memory fakes and assert the error class with `pytest.raises`.
-- **Repository tests** run against the test database and read back through a second session, so the identity map hides nothing. They cover both mapper directions, `next_id` and the `Id` that it returns, a row with the id `0`, the unique-violation translation, `LookupError` for a missing row, and a corrupted row.
+- **Repository tests** run one behaviour suite per port, and its `adapter` fixture runs each test once with the fake and once with the Sql adapter. Only the Sql case opens the test database, and it reads back through a second session, so the identity map hides nothing. The suite covers both mapper directions, `next_id` and the `Id` that it returns, the unique-violation translation, `LookupError` for a missing row, and the `model_copy()` rule. A test that only Postgres can pass lives in `test_sql_<aggregate>_repository.py`: a row that breaks its value object, such as the id `0`, the audit columns, and the query span.
 - **View tests** cover the HTTP contract and compare the literal JSON of each problem, because the literal is the contract that a client reads. The view tests own the code of each rejection.
 - **Task tests** send the task through taskiq's in-memory broker and read its rows.
 

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.errors import EmailInUseError
 from rastro.auth.domain.ports import PasswordCheck
 from rastro.auth.domain.value_objects import (
     Email,
@@ -48,6 +49,8 @@ class FakeUserRepository:
         return Id(self._last_id)
 
     async def add(self, user: User) -> None:
+        if any(stored.email == user.email for stored in self.users.values()):
+            raise EmailInUseError()
         self.users[user.id] = user.model_copy()
 
     async def update(self, user: User) -> None:
@@ -79,6 +82,8 @@ class FakeSessionRepository:
         self.sessions[session.id] = session.model_copy()
 
     async def remove(self, session: Session) -> None:
+        if session.id not in self.sessions:
+            raise LookupError(f"No Session with the id {session.id.root}.")
         del self.sessions[session.id]
 
     async def get_by_hashed_token(
