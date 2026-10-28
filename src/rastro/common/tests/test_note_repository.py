@@ -1,6 +1,7 @@
 import pytest
 
 from rastro.common.domain.value_objects import Id
+from rastro.common.tests.adapter import Adapter
 from rastro.common.tests.fakes import FakeNoteRepository
 from rastro.common.tests.sample.domain.aggregates import Note
 from rastro.common.tests.sample.domain.ports import NoteRepository
@@ -9,21 +10,23 @@ from rastro.common.tests.sample.infrastructure.repositories import SqlNoteReposi
 
 
 @pytest.fixture
-def notes(adapter: str, request: pytest.FixtureRequest) -> NoteRepository:
-    if adapter == "fake":
-        return FakeNoteRepository()
-    request.getfixturevalue("sample_tables")
-    return SqlNoteRepository(request.getfixturevalue("db_session"))
+def notes(adapter: Adapter, request: pytest.FixtureRequest) -> NoteRepository:
+    def sql() -> NoteRepository:
+        request.getfixturevalue("sample_tables")
+        return SqlNoteRepository(request.getfixturevalue("db_session"))
+
+    return adapter.pick(fake=FakeNoteRepository, sql=sql)
 
 
 @pytest.fixture
 def read_notes(
-    adapter: str, notes: NoteRepository, request: pytest.FixtureRequest
+    adapter: Adapter, notes: NoteRepository, request: pytest.FixtureRequest
 ) -> NoteRepository:
     """The repository that reads back what `notes` wrote."""
-    if adapter == "fake":
-        return notes
-    return SqlNoteRepository(request.getfixturevalue("reader"))
+    return adapter.pick(
+        fake=lambda: notes,
+        sql=lambda: SqlNoteRepository(request.getfixturevalue("reader")),
+    )
 
 
 async def test_get_by_id_reads_back_every_field_that_add_wrote(

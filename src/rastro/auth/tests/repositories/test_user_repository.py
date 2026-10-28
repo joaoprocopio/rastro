@@ -7,19 +7,9 @@ from rastro.auth.domain.value_objects import DisplayName, Email, HashedPassword
 from rastro.common.domain.value_objects import Id
 
 
-async def _ana(users: UserRepository) -> User:
-    return User(
-        id=await users.next_id(),
-        email=Email("ana@x.com"),
-        display_name=DisplayName("Ana"),
-        hashed_password=HashedPassword("fake$password"),
-    )
-
-
 async def test_get_by_id_and_get_by_email_read_back_every_field_that_add_wrote(
-    users: UserRepository, read_users: UserRepository
+    users: UserRepository, read_users: UserRepository, ana: User
 ) -> None:
-    ana = await _ana(users)
 
     await users.add(ana)
 
@@ -44,9 +34,9 @@ async def test_two_next_id_calls_return_two_different_ids(
 
 
 async def test_a_second_add_with_the_same_email_raises_email_in_use(
-    users: UserRepository,
+    users: UserRepository, ana: User
 ) -> None:
-    await users.add(await _ana(users))
+    await users.add(ana)
     other = User(
         id=await users.next_id(),
         email=Email("ana@x.com"),
@@ -58,10 +48,26 @@ async def test_a_second_add_with_the_same_email_raises_email_in_use(
         await users.add(other)
 
 
-async def test_update_writes_every_field_of_the_user(
-    users: UserRepository, read_users: UserRepository
+async def test_an_update_to_the_email_of_another_user_raises_email_in_use(
+    users: UserRepository, ana: User
 ) -> None:
-    ana = await _ana(users)
+    await users.add(ana)
+    other = User(
+        id=await users.next_id(),
+        email=Email("other@x.com"),
+        display_name=DisplayName("Other"),
+        hashed_password=HashedPassword("fake$other"),
+    )
+    await users.add(other)
+    other.email = Email("ana@x.com")
+
+    with pytest.raises(EmailInUseError):
+        await users.update(other)
+
+
+async def test_update_writes_every_field_of_the_user(
+    users: UserRepository, read_users: UserRepository, ana: User
+) -> None:
     await users.add(ana)
     ana.email = Email("ana@y.com")
     ana.display_name = DisplayName("Ana L.")
@@ -73,9 +79,8 @@ async def test_update_writes_every_field_of_the_user(
 
 
 async def test_update_of_a_missing_user_raises_lookup_error_and_adds_no_user(
-    users: UserRepository, read_users: UserRepository
+    users: UserRepository, read_users: UserRepository, ana: User
 ) -> None:
-    ana = await _ana(users)
 
     with pytest.raises(LookupError, match=f"with the id {ana.id.root}\\."):
         await users.update(ana)
@@ -85,9 +90,8 @@ async def test_update_of_a_missing_user_raises_lookup_error_and_adds_no_user(
 
 
 async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
-    users: UserRepository, read_users: UserRepository
+    users: UserRepository, read_users: UserRepository, ana: User
 ) -> None:
-    ana = await _ana(users)
     await users.add(ana)
     ana.display_name = DisplayName("Added")
     read = await read_users.get_by_id(ana.id)

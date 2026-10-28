@@ -9,7 +9,7 @@ from rastro.settings import Settings
 
 
 def session_cookie_set(
-    response: Response, output: SessionStartOutput, *, settings: Settings
+    response: Response, *, output: SessionStartOutput, settings: Settings
 ) -> None:
     response.set_cookie(
         settings.session_cookie_name,

@@ -39,7 +39,7 @@ def test_a_dto_parses_its_json_into_value_objects_and_dumps_it_back() -> None:
     paint = PaintApplyInput.model_validate_json('{"color": " red", "coats": 2}')
 
     assert paint.color == Color("red")
-    assert paint.model_dump(mode="json") == {"color": "red", "coats": 2}
+    assert paint.model_dump(mode="json") == {"color": "red", "coats": 2, "walls": None}
 
 
 def test_a_dto_rejects_an_unknown_field() -> None:

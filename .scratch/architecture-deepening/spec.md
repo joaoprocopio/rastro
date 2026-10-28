@@ -101,7 +101,7 @@ The work splits into six tickets under `issues/`. Each ticket is one PR. Only ti
 ### 6. Every Pydantic error type has an explicit case
 
 - The `case _` branch of the problems module raises a built-in exception whose message names the Pydantic error type. The handler chain answers `500`.
-- Each Pydantic type error that rastro's DTOs and value objects raise today gets an explicit case that answers `request.invalid_type`, for example `int_parsing` for `"coats": "two"`. The implementer finds the list from the field types of every DTO and value object.
+- Each Pydantic type error that rastro's DTOs and value objects raise today gets an explicit case that answers `request.invalid_type`, for example `int_type` for `"coats": "two"`. The implementer finds the list from the field types of every DTO and value object.
 - No validation problem body changes for today's input.
 
 ## Testing Decisions

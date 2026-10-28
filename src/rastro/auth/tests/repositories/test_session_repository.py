@@ -5,13 +5,7 @@ from pydantic import SecretStr
 
 from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.ports import SessionRepository, UserRepository
-from rastro.auth.domain.value_objects import (
-    DisplayName,
-    Email,
-    HashedPassword,
-    SessionLifetime,
-    SessionToken,
-)
+from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 LIFETIME = SessionLifetime(timedelta(days=14))
@@ -20,20 +14,11 @@ OTHER_TOKEN = SessionToken(SecretStr("other"))
 
 
 @pytest.fixture
-async def ana(users: UserRepository) -> User:
-    ana = User(
-        id=await users.next_id(),
-        email=Email("ana@x.com"),
-        display_name=DisplayName("Ana"),
-        hashed_password=HashedPassword("fake$password"),
-    )
+async def session(
+    sessions: SessionRepository, users: UserRepository, ana: User
+) -> Session:
+    """A Session of the added `ana` for `TOKEN`, which the test has not added yet."""
     await users.add(ana)
-    return ana
-
-
-@pytest.fixture
-async def session(sessions: SessionRepository, ana: User) -> Session:
-    """A Session of `ana` for `TOKEN`, which the test has not added yet."""
     return Session.start(
         id=await sessions.next_id(),
         user_id=ana.id,

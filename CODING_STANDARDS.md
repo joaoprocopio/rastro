@@ -21,7 +21,7 @@ Three levels split the work:
 - **Business rules** depend on the state of the system or on several fields. A rule that reads only the fields of one aggregate is a method of the aggregate. A rule that needs other data lives in a use case.
 - **Database constraints** are the last safety net, and they never replace the two levels above.
 
-The split decides the status of a database error. A `CheckConstraint` violation means that an edge let invalid data through, so it is a bug that answers `500`. A `unique` violation is a business rule. The use case checks for the conflict, and the repository's `add` translates the `IntegrityError` of a concurrent write into the `BaseError` subclass of that rule, for example `EmailInUseError`. The repository translates only a `psycopg.errors.UniqueViolation` on the constraint of that rule, so any other `IntegrityError` still answers `500`.
+The split decides the status of a database error. A `CheckConstraint` violation means that an edge let invalid data through, so it is a bug that answers `500`. A `unique` violation is a business rule. The use case checks for the conflict, and the repository's `add` and `update` translate the `IntegrityError` of a concurrent write into the `BaseError` subclass of that rule, for example `EmailInUseError`. The repository translates only a `psycopg.errors.UniqueViolation` on the constraint of that rule, so any other `IntegrityError` still answers `500`.
 
 ## Raise in place of a fallback value
 
@@ -97,7 +97,7 @@ A configuration value with a rule is a value object too, for example `TokenBytes
 
 A value object that holds a secret wraps a `SecretStr`, so a log line or a traceback shows `**********`. A secret is a value that lets its holder act, such as a password or a token. A digest stays plain, because it lets no one act, and so does a value that a response sends, such as `Email`. Code reads a secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two tokens, and a test reads it to check the value. A Session stores only the digest of its Session token, so a leaked database starts no Session.
 
-A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken.matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
+A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives with the rest of CSRF in `rastro.common.presentation.csrf`, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
 
 A value object equals only a value object of its own class, so `Id(1) == 1` is false.
 
@@ -134,12 +134,12 @@ A row subclasses `Row`, takes the suffix `Row`, and has `Mapped` columns of prim
 A repository is one adapter per aggregate, and it receives the `AsyncSession` in its constructor, so the application never imports SQLAlchemy. Its methods follow these rules:
 
 - `next_id` takes the id from the column's sequence, so every aggregate has its id from its creation. A rolled-back transaction leaves a gap.
-- `add` flushes, so a constraint violation rises inside `add`, where the repository translates it.
+- `add` and `update` flush, so a constraint violation rises inside the method, where the repository translates it.
 - `update` and `remove` load the row through `existing_row`, which raises `LookupError` for a missing id, because `merge` alone would insert a missing row.
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
-A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` raises the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
+A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` and `update` raise the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
 
 ## Map between layers by hand
 

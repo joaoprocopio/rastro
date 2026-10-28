@@ -67,7 +67,7 @@ async def session_start_view(
         lifetime=settings.session_lifetime,
         token_bytes=settings.session_token_bytes,
     )
-    session_cookie_set(response, output, settings=settings)
+    session_cookie_set(response, output=output, settings=settings)
 
 
 @router.get("/session")

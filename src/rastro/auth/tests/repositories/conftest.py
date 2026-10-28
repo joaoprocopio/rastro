@@ -1,42 +1,60 @@
 import pytest
 
+from rastro.auth.domain.aggregates import User
 from rastro.auth.domain.ports import SessionRepository, UserRepository
+from rastro.auth.domain.value_objects import DisplayName, Email, HashedPassword
 from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
 from rastro.auth.tests.fakes import FakeSessionRepository, FakeUserRepository
+from rastro.common.tests.adapter import Adapter
 
 
 @pytest.fixture
-def users(adapter: str, request: pytest.FixtureRequest) -> UserRepository:
-    if adapter == "fake":
-        return FakeUserRepository()
-    return SqlUserRepository(request.getfixturevalue("db_session"))
+def users(adapter: Adapter, request: pytest.FixtureRequest) -> UserRepository:
+    return adapter.pick(
+        fake=FakeUserRepository,
+        sql=lambda: SqlUserRepository(request.getfixturevalue("db_session")),
+    )
 
 
 @pytest.fixture
 def read_users(
-    adapter: str, users: UserRepository, request: pytest.FixtureRequest
+    adapter: Adapter, users: UserRepository, request: pytest.FixtureRequest
 ) -> UserRepository:
     """The repository that reads back what `users` wrote."""
-    if adapter == "fake":
-        return users
-    return SqlUserRepository(request.getfixturevalue("reader"))
+    return adapter.pick(
+        fake=lambda: users,
+        sql=lambda: SqlUserRepository(request.getfixturevalue("reader")),
+    )
 
 
 @pytest.fixture
-def sessions(adapter: str, request: pytest.FixtureRequest) -> SessionRepository:
-    if adapter == "fake":
-        return FakeSessionRepository()
-    return SqlSessionRepository(request.getfixturevalue("db_session"))
+def sessions(adapter: Adapter, request: pytest.FixtureRequest) -> SessionRepository:
+    return adapter.pick(
+        fake=FakeSessionRepository,
+        sql=lambda: SqlSessionRepository(request.getfixturevalue("db_session")),
+    )
 
 
 @pytest.fixture
 def read_sessions(
-    adapter: str, sessions: SessionRepository, request: pytest.FixtureRequest
+    adapter: Adapter, sessions: SessionRepository, request: pytest.FixtureRequest
 ) -> SessionRepository:
     """The repository that reads back what `sessions` wrote."""
-    if adapter == "fake":
-        return sessions
-    return SqlSessionRepository(request.getfixturevalue("reader"))
+    return adapter.pick(
+        fake=lambda: sessions,
+        sql=lambda: SqlSessionRepository(request.getfixturevalue("reader")),
+    )
+
+
+@pytest.fixture
+async def ana(users: UserRepository) -> User:
+    """A User with the next id of `users`, which the test has not added yet."""
+    return User(
+        id=await users.next_id(),
+        email=Email("ana@x.com"),
+        display_name=DisplayName("Ana"),
+        hashed_password=HashedPassword("fake$password"),
+    )

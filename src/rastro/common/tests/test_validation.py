@@ -117,7 +117,7 @@ async def test_a_pydantic_error_type_with_no_case_answers_an_internal_error(
     sample_client: httpx.AsyncClient,
 ) -> None:
     response = await sample_client.post(
-        "/sample/paints", json={"color": "red", "coats": 0}
+        "/sample/paints", json={"color": "red", "coats": 2, "walls": 0}
     )
 
     assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
