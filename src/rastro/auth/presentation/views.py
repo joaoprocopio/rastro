@@ -86,11 +86,10 @@ async def session_get_view(
 async def session_end_view(
     token: CurrentSessionToken,
     sessions: Annotated[SessionRepository, Depends(dependencies.session_repository)],
-    clock: Annotated[Clock, Depends(dependencies.clock)],
     settings: AppSettings,
     response: Response,
 ) -> None:
-    await use_cases.session_end(token, sessions=sessions, clock=clock)
+    await use_cases.session_end(token, sessions=sessions)
     session_cookie_delete(response, settings=settings)
 
 
