@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given a Session past its expiry, when the client ends it, then the response is `204`, the Session cookie is cleared, and no Session row remains. This test replaces the test that asserts `401` and one row.
-- [ ] Given no Session cookie, when the client ends a Session, then the response is the `auth.not_authenticated` problem with status `401`.
-- [ ] Given a Session token that no Session holds, when the client ends a Session, then the response is the `auth.not_authenticated` problem with status `401`.
-- [ ] Given a Session past its expiry, when the client reads its Session, then the response is still `401`.
-- [ ] The checks in `README.md` pass.
+- [x] Given a Session past its expiry, when the client ends it, then the response is `204`, the Session cookie is cleared, and no Session row remains. This test replaces the test that asserts `401` and one row.
+- [x] Given no Session cookie, when the client ends a Session, then the response is the `auth.not_authenticated` problem with status `401`.
+- [x] Given a Session token that no Session holds, when the client ends a Session, then the response is the `auth.not_authenticated` problem with status `401`.
+- [x] Given a Session past its expiry, when the client reads its Session, then the response is still `401`.
+- [x] The checks in `README.md` pass.
