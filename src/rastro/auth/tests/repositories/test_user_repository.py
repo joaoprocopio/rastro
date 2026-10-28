@@ -48,6 +48,23 @@ async def test_a_second_add_with_the_same_email_raises_email_in_use(
         await users.add(other)
 
 
+async def test_an_update_to_the_email_of_another_user_raises_email_in_use(
+    users: UserRepository, ana: User
+) -> None:
+    await users.add(ana)
+    other = User(
+        id=await users.next_id(),
+        email=Email("other@x.com"),
+        display_name=DisplayName("Other"),
+        hashed_password=HashedPassword("fake$other"),
+    )
+    await users.add(other)
+    other.email = Email("ana@x.com")
+
+    with pytest.raises(EmailInUseError):
+        await users.update(other)
+
+
 async def test_update_writes_every_field_of_the_user(
     users: UserRepository, read_users: UserRepository, ana: User
 ) -> None:

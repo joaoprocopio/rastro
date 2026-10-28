@@ -49,14 +49,12 @@ class FakeUserRepository:
         return Id(self._last_id)
 
     async def add(self, user: User) -> None:
-        if any(stored.email == user.email for stored in self.users.values()):
-            raise EmailInUseError()
-        self.users[user.id] = user.model_copy()
+        self._store(user)
 
     async def update(self, user: User) -> None:
         if user.id not in self.users:
             raise LookupError(f"No User with the id {user.id.root}.")
-        self.users[user.id] = user.model_copy()
+        self._store(user)
 
     async def get_by_id(self, id: Id) -> User | None:
         user = self.users.get(id)
@@ -67,6 +65,14 @@ class FakeUserRepository:
             (user.model_copy() for user in self.users.values() if user.email == email),
             None,
         )
+
+    def _store(self, user: User) -> None:
+        if any(
+            stored.email == user.email and stored.id != user.id
+            for stored in self.users.values()
+        ):
+            raise EmailInUseError()
+        self.users[user.id] = user.model_copy()
 
 
 class FakeSessionRepository:
