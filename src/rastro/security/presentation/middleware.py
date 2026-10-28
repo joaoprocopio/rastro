@@ -4,8 +4,6 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from rastro.settings import Settings
 
-CORS_METHODS = ["GET", "POST"]
-CORS_HEADERS = ["Content-Type"]
 FRAME_HEADERS = {
     "X-Frame-Options": "DENY",
     "Content-Security-Policy": "frame-ancestors 'none'",
@@ -16,9 +14,16 @@ def cors(app: ASGIApp, *, settings: Settings) -> ASGIApp:
     return CORSMiddleware(
         app,
         allow_origins=[str(origin) for origin in settings.cors_allowed_origins],
-        allow_credentials=True,
-        allow_methods=CORS_METHODS,
-        allow_headers=[*CORS_HEADERS, settings.csrf_header_name],
+        allow_origin_regex="|".join(
+            f"(?:{regex.pattern})" for regex in settings.cors_allowed_origin_regexes
+        )
+        or None,
+        allow_credentials=settings.cors_allow_credentials,
+        allow_private_network=settings.cors_allow_private_network,
+        allow_methods=settings.cors_allow_methods,
+        allow_headers=settings.cors_allow_headers,
+        expose_headers=settings.cors_expose_headers,
+        max_age=int(settings.cors_preflight_max_age.total_seconds()),
     )
 
 

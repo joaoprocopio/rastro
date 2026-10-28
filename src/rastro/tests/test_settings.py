@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from pathlib import Path
 
@@ -60,6 +61,27 @@ def test_env_example_loads(
         ("csrf_token_bytes", TokenBytes(32)),
         ("csrf_header_name", "X-CSRF-Token"),
         ("cors_allowed_origins", []),
+        ("cors_allowed_origin_regexes", []),
+        (
+            "cors_allow_methods",
+            ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"],
+        ),
+        (
+            "cors_allow_headers",
+            [
+                "accept",
+                "authorization",
+                "content-type",
+                "user-agent",
+                "x-csrftoken",
+                "x-csrf-token",
+                "x-requested-with",
+            ],
+        ),
+        ("cors_expose_headers", []),
+        ("cors_preflight_max_age", timedelta(minutes=10)),
+        ("cors_allow_credentials", True),
+        ("cors_allow_private_network", False),
     ],
 )
 def test_a_setting_without_its_variable_takes_its_default(
@@ -242,3 +264,40 @@ def test_a_cors_origin_with_no_scheme_another_scheme_or_a_bad_port_stops_the_set
 
     with pytest.raises(ValueError, match=r"(?m)^RASTRO_CORS_ALLOWED_ORIGINS\.0\n  "):
         Settings()
+
+
+def test_a_list_of_cors_origin_regexes_loads(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "RASTRO_CORS_ALLOWED_ORIGIN_REGEXES", r'["https://[a-z]+\\.example\\.com"]'
+    )
+
+    assert Settings().cors_allowed_origin_regexes == [
+        re.compile(r"https://[a-z]+\.example\.com")
+    ]
+
+
+def test_a_wildcard_in_the_cors_methods_loads(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_CORS_ALLOW_METHODS", '["*"]')
+
+    assert Settings().cors_allow_methods == ["*"]
+
+
+def test_a_cors_method_with_a_typo_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_CORS_ALLOW_METHODS", '["PSOT"]')
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_CORS_ALLOW_METHODS\.0\."):
+        Settings()
+
+
+def test_the_cors_preflight_max_age_reads_an_iso_8601_duration(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_CORS_PREFLIGHT_MAX_AGE", "PT1H")
+
+    assert Settings().cors_preflight_max_age == timedelta(hours=1)

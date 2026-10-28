@@ -79,7 +79,7 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 
 ### 2. The middleware module and the wiring
 
-- The presentation `middleware` module of `security` holds `FRAME_HEADERS`, `CORS_METHODS`, `CORS_HEADERS`, and the functions `cors` and `frame_headers`. `cors` receives the ASGI app and the settings and returns the `CORSMiddleware`, so `create_app` registers it with `app.add_middleware(cors, settings=settings)`, and mypy rejects the call without `settings`.
+- The presentation `middleware` module of `security` holds `FRAME_HEADERS` and the functions `cors` and `frame_headers`. `cors` receives the ASGI app and the settings and returns the `CORSMiddleware`, so `create_app` registers it with `app.add_middleware(cors, settings=settings)`, and mypy rejects the call without `settings`.
 - `frame_headers` receives the ASGI app and returns an ASGI app that adds `FRAME_HEADERS` to the `http.response.start` message of each HTTP request and passes every other scope unchanged. Starlette 1.9 builds a middleware with `cls(app, *args, **kwargs)`, and its `_MiddlewareFactory` protocol accepts a function. A run of the function in a scratch script added both headers to a `200` and a `404`, and `mypy --strict` passed.
 - The module of `create_app` imports `csrf_check`, `cors`, `frame_headers`, the router, and `ERROR_STATUSES` from `security`, and registers each one on its own line, as it does today. A function such as `install_security(app, settings)` is rejected, because FastAPI copies the app's dependencies into a route when a router adds it, so a call after an `include_router` leaves that router's routes without the CSRF check and raises no error.
 - The module of `create_app` keeps no class, and its only constant is the merged `ERROR_STATUSES`, so `create_app` and the architecture test of the error codes read the same table.
@@ -112,14 +112,14 @@ The CSRF cookie, the CSRF header, the six CSRF settings, `cors_allowed_origins`,
 
 - The layout section states that a name is a whole word or a common abbreviation, for example `auth` or `csrf`, and never a numeronym such as `s6y`.
 - The layout tree lists `middleware.py` in the presentation layer, for the middleware and the constants that `create_app` passes to `add_middleware`.
-- The sentences that name the `csrf` app name the `security` app: the `CsrfToken` paragraph, the router paragraph with the route `GET /api/v1/security/csrf`, and the settings paragraph, which places the frame headers and the CORS constants in the `middleware` module of `security`.
+- The sentences that name the `csrf` app name the `security` app: the `CsrfToken` paragraph, the router paragraph with the route `GET /api/v1/security/csrf`, and the settings paragraph, which places the frame headers and the middleware functions `cors` and `frame_headers` in the `middleware` module of `security`.
 - The settings paragraph states that a configuration type that only the settings read, for example `PsycopgDsn` or `CorsOrigin`, lives in the settings module.
 
 ADR 0003 is rewritten in place, with a new file name such as `0003-security-is-an-app-and-create-app-runs-the-csrf-check.md`. The new text records:
 
 - the `security` app with CSRF, CORS, and the frame headers, and the CSRF check in `create_app`
-- the rejected option of a `csrf` app alone, because CORS reads the CSRF header name and the CORS and frame-header code now exists
-- the rejected option of a module beside `create_app` in the `rastro` package, because the middleware and the header constants are HTTP behaviour and not wiring, and CORS reads the CSRF header name
+- the rejected option of a `csrf` app alone, because the three protections of the browser then sit in two places, and the module of `create_app` holds header policy beside the wiring
+- the rejected option of a module beside `create_app` in the `rastro` package, because the CORS middleware and the frame headers are HTTP behaviour and not wiring
 - the rejected options that ADR 0003 already lists and that still hold: one CSRF module in `common`, CSRF across the fixed modules of `common`, a middleware for the check, and a check on each router
 - the consequence that the problem type changes from `csrf.failed` to `security.csrf_failed` and the route moves from `GET /api/v1/csrf` to `GET /api/v1/security/csrf`
 
@@ -148,7 +148,6 @@ The implementer runs the checks in `README.md` before the work is done.
 ## Out of Scope
 
 - Validation of an origin beyond what `HttpUrl` checks, for example a rejection of a path or a trailing slash.
-- A CORS setting for the methods, the headers, the credentials flag, or `max_age`.
 - Other security headers, for example `Strict-Transport-Security` or `X-Content-Type-Options`.
 - An observability module. The naming rule applies to it when it exists, so its name is a whole word such as `observability` and not `o11y`.
 - A frontend change. The repository holds no frontend.

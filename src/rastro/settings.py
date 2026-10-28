@@ -1,5 +1,8 @@
+import re
 from datetime import timedelta
 from enum import StrEnum
+from http import HTTPMethod
+from typing import Literal
 
 from pydantic import HttpUrl, PostgresDsn, Secret, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -71,3 +74,25 @@ class Settings(BaseSettings):
 
     # Empty, so a deployment that forgets the variable allows no other origin.
     cors_allowed_origins: list[CorsOrigin] = []
+    cors_allowed_origin_regexes: list[re.Pattern[str]] = []
+    cors_allow_methods: list[HTTPMethod | Literal["*"]] = [
+        HTTPMethod.DELETE,
+        HTTPMethod.GET,
+        HTTPMethod.OPTIONS,
+        HTTPMethod.PATCH,
+        HTTPMethod.POST,
+        HTTPMethod.PUT,
+    ]
+    cors_allow_headers: list[str] = [
+        "accept",
+        "authorization",
+        "content-type",
+        "user-agent",
+        "x-csrftoken",
+        "x-csrf-token",
+        "x-requested-with",
+    ]
+    cors_expose_headers: list[str] = []
+    cors_preflight_max_age: timedelta = timedelta(minutes=10)
+    cors_allow_credentials: bool = True
+    cors_allow_private_network: bool = False

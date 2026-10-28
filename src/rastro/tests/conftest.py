@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from taskiq import InMemoryBroker
 
 from rastro.app import create_app
-from rastro.settings import CorsOrigin, Settings
+from rastro.settings import Settings
 
 POSTGRES_URL = "postgresql+psycopg://postgres:hunter2-secret@localhost:5432/postgres"
 
@@ -42,13 +42,14 @@ async def openapi_client(
 
 @pytest.fixture
 async def cors_client(
-    settings: Settings, cors_allowed_origins: list[CorsOrigin]
+    settings: Settings, cors_settings: dict[str, object]
 ) -> AsyncIterator[httpx.AsyncClient]:
-    """A client of an app whose test parametrizes `cors_allowed_origins`."""
+    """A client of an app whose test parametrizes `cors_settings`."""
+    # model_copy() skips validation, so a misspelled field would test nothing.
+    fields = Settings.model_fields
+    update = {fields[name].alias: value for name, value in cors_settings.items()}
     app = create_app(
-        settings=settings.model_copy(
-            update={"cors_allowed_origins": cors_allowed_origins}
-        ),
+        settings=Settings.model_validate(settings.model_dump(by_alias=True) | update),
         sessionmaker=async_sessionmaker(),
         broker=InMemoryBroker(),
     )
