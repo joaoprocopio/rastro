@@ -74,7 +74,7 @@ An adapter takes the name of its technology and its port, for example `SqlUserRe
 
 An adapter does not inherit its `Protocol`, and the code uses no `abc.ABC`, so a fake and a real adapter have the same standing. mypy checks conformance where a dependency function returns the adapter as the port type. A class inherits only from a framework base or from a rastro base that carries configuration or declaration rules, such as `Aggregate` or `Row`.
 
-A construction that follows a rule is a classmethod named after the act, with keyword arguments only, for example `Session.start(...)` or `SessionToken.generate(nbytes=...)`, so no caller repeats the rule. Every function or method takes its subject as its one positional argument and every other argument by keyword, so a call reads without the signature: `hasher.verify(password=..., hashed=...)`. A function with no subject takes only keywords. A domain method that receives the time names the argument `at`.
+A construction that follows a rule is a classmethod named after the act, with keyword arguments only, for example `Session.start(...)` or `SessionToken.generate(nbytes=...)`, so no caller repeats the rule. Every function or method takes its subject as its one positional argument and every other argument by keyword, so a call reads without the signature: `hasher.verify(password=..., hashed=...)`. A function with no subject takes only keywords. A function whose signature a framework fixes keeps that signature, for example `_include_name`, which Alembic calls by position, and a periodic task, which the `periodic` decorator of Procrastinate types with a positional `timestamp`. A domain method that receives the time names the argument `at`.
 
 A data type is always a class, never a module-level `Annotated` or `Literal` alias, because mypy cannot tell two aliases of one type apart. A constraint goes inside the class, and a fixed set of texts is a `StrEnum`. Two aliases stay. A FastAPI dependency alias stays, because FastAPI reads `Depends` only inside `Annotated`. A `type` statement that names the shape of a container stays, because it holds no value that mypy must tell apart.
 
@@ -140,6 +140,8 @@ A repository is one adapter per aggregate, and it receives the `AsyncSession` in
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
+`SqlSessionRepository.remove_expired` is the one method that writes many aggregates, and its `DELETE` repeats the rule of `Session.is_active` in SQL, so the behaviour suite proves that both treat a Session as expired once the time reaches its `expires_at`.
+
 A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` and `update` raise the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
 
 ## Map between layers by hand
@@ -154,11 +156,6 @@ Create a migration with `uv run --env-file .env.example alembic revision --autog
 
 The migration `create procrastinate schema` holds the `sql/schema.sql` of Procrastinate 3.10.0 as text and runs it with `op.execute`. A migration never reads the installed package, so an upgrade of the package changes no migration that a database already ran. The Alembic environment ignores every name that starts with `procrastinate_`, because `Row.metadata` holds no Procrastinate table and autogenerate would drop each one.
 
-To upgrade Procrastinate, stop at each version that adds a file to the package's `sql/migrations/`, as the [Procrastinate migration guide](https://procrastinate.readthedocs.io/en/stable/howto/production/migrations.html) requires. A `pre` file keeps the schema usable by the code of the previous version, and a `post` file can remove what the code of the previous version calls. For each version, copy each file into its own Alembic migration, in the order of the file names:
-
-1. In one change, pin the version in `pyproject.toml` and add the migration of each `pre` file. The `migrate` service runs the `pre` SQL before the new code starts.
-2. After every API and worker process runs the new version, add the migration of each `post` file in a second change.
-
 ## Build adapters in the presentation dependencies
 
 Each route declares every adapter as an `Annotated[Port, Depends(factory)]` parameter, so its signature shows every dependency, and a test swaps the factory through `app.dependency_overrides`. A task calls the same factories with the session of its own transaction.
@@ -169,7 +166,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 ## Write views
 
-A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
+A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task. No view or use case defers a job yet, and the first one that defers a job adds the defer helper of ADR 0004. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
 Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/app.py` imports the `security` app, and an import-linter contract forbids every other module of rastro to import it. The `security` app owns CSRF: its router serves `GET /api/v1/security/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
@@ -185,7 +182,7 @@ A value outside the body, for example a cookie, comes from a private dependency 
 
 ## Write tasks
 
-A task is an `async def` named `<entity>_<action>_task`, and it is an edge. It parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. It never uses FastAPI's `Depends`.
+A task is an `async def` named `<entity>_<action>_task`, and it is an edge. Every task except `job_retry_stalled_task` parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. A task never uses FastAPI's `Depends`.
 
 A task declares itself with `pass_context=True` on the `blueprint` of its app's `presentation/tasks.py`, so a tasks module imports no Procrastinate `App`. `create_task_app` in `rastro/task_app.py` adds the `blueprint` of every app to one `App`, so the connector and the worker options live in that module only.
 
@@ -193,11 +190,18 @@ The task reads its sessionmaker with `job_sessionmaker(context)` and opens the t
 
 Procrastinate delivers each job at least once, so a job whose worker dies after the commit runs again. A task therefore takes ids, reads its state from the database, and does nothing on a second run.
 
-The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task opens no transaction and calls no use case, because it changes only the rows of Procrastinate, through `context.app.job_manager`.
+The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task changes only the rows of Procrastinate, so it opens no transaction and calls no use case.
+
+To upgrade Procrastinate, stop at each version that adds a file to the package's `sql/migrations/`, as the [Procrastinate migration guide](https://procrastinate.readthedocs.io/en/stable/howto/production/migrations.html) requires. A `pre` file keeps the schema usable by the code of the previous version, and a `post` file can remove what the code of the previous version calls. For each version, copy each file into its own Alembic migration, in the order of the file names:
+
+1. In one change, pin the version in `pyproject.toml` and add the migration of each `pre` file. The `migrate` service runs the `pre` SQL before the new code starts.
+2. After every API and worker process runs the new version, add the migration of each `post` file in a second change.
 
 ## Trace without personal data
 
 Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_task_app` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
+
+A module that logs declares `logger = logging.getLogger(__name__)` below its imports and adds no handler, because `instrument` adds the handler that sends each record of the root logger to the collector.
 
 A span never holds personal data. The FastAPI span keeps the URL with its query string, so personal data never goes into a query string.
 
