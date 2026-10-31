@@ -1,14 +1,26 @@
-import pytest
+from datetime import UTC, datetime, timedelta
 
-from rastro.auth.domain.aggregates import User
+import pytest
+from pydantic import SecretStr
+
+from rastro.auth.domain.aggregates import Session, User
 from rastro.auth.domain.ports import SessionRepository, UserRepository
-from rastro.auth.domain.value_objects import DisplayName, Email, HashedPassword
+from rastro.auth.domain.value_objects import (
+    DisplayName,
+    Email,
+    HashedPassword,
+    SessionLifetime,
+    SessionToken,
+)
 from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
 from rastro.auth.tests.fakes import FakeSessionRepository, FakeUserRepository
 from rastro.common.tests.adapter import RepositoryKind
+
+START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+LIFETIME = SessionLifetime(timedelta(days=14))
 
 
 @pytest.fixture
@@ -59,4 +71,33 @@ async def ana(users: UserRepository) -> User:
         email=Email("ana@x.com"),
         display_name=DisplayName("Ana"),
         hashed_password=HashedPassword("fake$password"),
+    )
+
+
+@pytest.fixture
+async def session(
+    sessions: SessionRepository, users: UserRepository, ana: User
+) -> Session:
+    """A Session of the added `ana`, which the test has not added yet."""
+    await users.add(ana)
+    return Session.start(
+        id=await sessions.next_id(),
+        user_id=ana.id,
+        token=SessionToken(SecretStr("token")),
+        at=START,
+        lifetime=LIFETIME,
+    )
+
+
+@pytest.fixture
+async def earlier_session(
+    sessions: SessionRepository, session: Session, ana: User
+) -> Session:
+    """A Session of `ana` that expires one day before `session`, not added yet."""
+    return Session.start(
+        id=await sessions.next_id(),
+        user_id=ana.id,
+        token=SessionToken(SecretStr("other")),
+        at=START - timedelta(days=1),
+        lifetime=LIFETIME,
     )
