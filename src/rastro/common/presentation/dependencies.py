@@ -25,8 +25,11 @@ async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
 DatabaseSession = Annotated[AsyncSession, Depends(database_session, scope="function")]
 
 
+JOB_SESSIONMAKER_KEY = "sessionmaker"
+
+
 def job_sessionmaker(context: JobContext) -> async_sessionmaker[AsyncSession]:
-    sessionmaker = context.additional_context["sessionmaker"]
+    sessionmaker = context.additional_context[JOB_SESSIONMAKER_KEY]
     # additional_context is an untyped dict, so the check gives mypy the type.
     if not isinstance(sessionmaker, async_sessionmaker):
         raise TypeError(f"The job context holds {sessionmaker!r} as its sessionmaker.")
