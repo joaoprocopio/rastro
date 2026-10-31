@@ -28,6 +28,20 @@ async def session(
     )
 
 
+@pytest.fixture
+async def earlier_session(
+    sessions: SessionRepository, session: Session, ana: User
+) -> Session:
+    """A Session of `ana` for `OTHER_TOKEN` that expires one day before `session`."""
+    return Session.start(
+        id=await sessions.next_id(),
+        user_id=ana.id,
+        token=OTHER_TOKEN,
+        at=START - timedelta(days=1),
+        lifetime=LIFETIME,
+    )
+
+
 async def test_get_by_hashed_token_reads_back_every_field_that_add_wrote(
     sessions: SessionRepository, read_sessions: SessionRepository, session: Session
 ) -> None:
@@ -77,6 +91,60 @@ async def test_remove_of_a_missing_session_raises_lookup_error_and_keeps_the_oth
         await sessions.remove(missing)
 
     assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
+
+
+async def test_remove_expired_removes_an_expired_session_and_keeps_an_active_one(
+    sessions: SessionRepository,
+    read_sessions: SessionRepository,
+    session: Session,
+    earlier_session: Session,
+) -> None:
+    await sessions.add(session)
+    await sessions.add(earlier_session)
+
+    await sessions.remove_expired(at=session.expires_at - timedelta(seconds=1))
+
+    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
+    assert await read_sessions.get_by_hashed_token(OTHER_TOKEN.digest()) is None
+
+
+async def test_remove_expired_removes_a_session_that_expires_at_that_moment(
+    sessions: SessionRepository, read_sessions: SessionRepository, session: Session
+) -> None:
+    await sessions.add(session)
+
+    await sessions.remove_expired(at=session.expires_at)
+
+    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) is None
+
+
+async def test_remove_expired_keeps_every_active_session_and_returns_0(
+    sessions: SessionRepository,
+    read_sessions: SessionRepository,
+    session: Session,
+    earlier_session: Session,
+) -> None:
+    await sessions.add(session)
+    await sessions.add(earlier_session)
+
+    removed = await sessions.remove_expired(at=START)
+
+    assert removed == 0
+    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
+    assert await read_sessions.get_by_hashed_token(OTHER_TOKEN.digest()) == (
+        earlier_session
+    )
+
+
+async def test_remove_expired_returns_the_number_of_removed_sessions(
+    sessions: SessionRepository, session: Session, earlier_session: Session
+) -> None:
+    await sessions.add(session)
+    await sessions.add(earlier_session)
+
+    removed = await sessions.remove_expired(at=session.expires_at)
+
+    assert removed == 2
 
 
 async def test_a_field_assigned_with_no_update_keeps_its_stored_value(

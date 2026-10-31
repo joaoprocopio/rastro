@@ -4,12 +4,16 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Given one expired Session and one active Session, when `remove_expired` runs, then only the active Session remains, for the fake and the Sql adapter.
-- [ ] Given a Session whose `expires_at` equals `at`, when `remove_expired` runs, then the Session is removed, for the fake and the Sql adapter.
-- [ ] Given no expired Session, when `remove_expired` runs, then every Session remains and it returns 0, for the fake and the Sql adapter.
-- [ ] The use case removes the Sessions that expired at the time of `FakeClock`, and its output holds the count.
-- [ ] Given one expired Session and one active Session, when `session_remove_expired_task` runs through the `InMemoryConnector`, then only the active Session remains.
-- [ ] The worker registers `session_remove_expired_task` on the cron `0 * * * *`.
-- [ ] Every check in the README passes.
+- [x] Given one expired Session and one active Session, when `remove_expired` runs, then only the active Session remains, for the fake and the Sql adapter.
+- [x] Given a Session whose `expires_at` equals `at`, when `remove_expired` runs, then the Session is removed, for the fake and the Sql adapter.
+- [x] Given no expired Session, when `remove_expired` runs, then every Session remains and it returns 0, for the fake and the Sql adapter.
+- [x] The use case removes the Sessions that expired at the time of `FakeClock`, and its output holds the count.
+- [x] Given one expired Session and one active Session, when `session_remove_expired_task` runs through the `InMemoryConnector`, then only the active Session remains.
+- [x] The worker registers `session_remove_expired_task` on the cron `0 * * * *`.
+- [x] Every check in the README passes.
+
+## Comments
+
+No test covers the cron criterion, because the spec bans assertions on a Procrastinate internal, and a worker run defers the job of `0 * * * *` only in the first 10 minutes of an hour. The implementer checked it on the App that `create_task_app` builds: `app.periodic_registry.periodic_tasks` holds `auth:rastro.auth.presentation.tasks.session_remove_expired_task` on `0 * * * *`, and its `retry_strategy` is `None`.
