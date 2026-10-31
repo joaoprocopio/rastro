@@ -193,6 +193,8 @@ The task reads its sessionmaker with `job_sessionmaker(context)` and opens the t
 
 Procrastinate delivers each job at least once, so a job whose worker dies after the commit runs again. A task therefore takes ids, reads its state from the database, and does nothing on a second run.
 
+The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task opens no transaction and calls no use case, because it changes only the rows of Procrastinate, through `context.app.job_manager`.
+
 ## Trace without personal data
 
 Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_task_app` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
