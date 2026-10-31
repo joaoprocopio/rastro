@@ -5,9 +5,6 @@ x-rastro-environment: &rastro-environment
 
   RASTRO_POSTGRES_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/postgres"
 
-  RASTRO_ZEROMQ_PUBLISH_ADDRESS: "tcp://0.0.0.0:5555"
-  RASTRO_ZEROMQ_SUBSCRIBE_ADDRESS: "tcp://api:5555"
-
   RASTRO_SERVICE_NAMESPACE: "rastro"
   RASTRO_SERVICE_NAME: "rastro"
   RASTRO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
@@ -44,8 +41,7 @@ services:
     build:
       context: .
       dockerfile: dockerfile
-    # ZeroMQ sends every task to every worker, so one worker runs each task once.
-    command: taskiq worker rastro.worker:broker -w 1
+    command: procrastinate --app=rastro.worker.app worker
     environment:
       <<: *rastro-environment
       # Grafana tells the spans of the worker from the spans of the API.

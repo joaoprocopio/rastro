@@ -40,8 +40,6 @@ def test_env_example_loads(
     ("field", "default"),
     [
         ("openapi_enabled", False),
-        ("zeromq_publish_address", "tcp://127.0.0.1:5555"),
-        ("zeromq_subscribe_address", "tcp://127.0.0.1:5555"),
         ("service_namespace", "rastro"),
         ("service_name", "rastro"),
         ("deployment_id", "local"),

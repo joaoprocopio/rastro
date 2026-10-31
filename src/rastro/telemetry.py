@@ -18,8 +18,6 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.semconv._incubating.attributes import deployment_attributes
 from opentelemetry.semconv.attributes import service_attributes
 from sqlalchemy.ext.asyncio import AsyncEngine
-from taskiq import AsyncBroker
-from taskiq.middlewares.opentelemetry_middleware import OpenTelemetryMiddleware
 
 from rastro.settings import Settings
 
@@ -84,8 +82,3 @@ def instrument_app(app: FastAPI) -> None:
 def instrument_engine(engine: AsyncEngine) -> None:
     # 0.66b1 declares SQLAlchemy < 2.1 and instruments nothing without the skip.
     SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine, skip_dep_check=True)
-
-
-def instrument_broker(broker: AsyncBroker) -> None:
-    # The middleware carries the trace from the sender to the worker in the labels.
-    broker.add_middlewares(OpenTelemetryMiddleware())

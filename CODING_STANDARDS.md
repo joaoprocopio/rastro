@@ -2,7 +2,7 @@
 
 These rules define how rastro code is structured, and they hold only what the code cannot say: the conventions that a new module follows, and the reasons behind them. Other projects copy rastro's patterns, so a change that breaks a rule on purpose updates this file in the same commit.
 
-Use the domain terms from `GLOSSARY.md` in code, tests, and docs. The architecture decision record (ADR) 0001 records why rastro uses FastAPI, SQLAlchemy 2, and taskiq in four layers. The test sample app in `rastro/common/tests/sample/` is the reference for the four layers, so read it before you add an app.
+Use the domain terms from `GLOSSARY.md` in code, tests, and docs. The architecture decision record (ADR) 0001 records why rastro uses FastAPI and SQLAlchemy 2 in four layers, and ADR 0004 records why rastro runs its tasks with Procrastinate. The test sample app in `rastro/common/tests/sample/` is the reference for the four layers, so read it before you add an app.
 
 ## Validate at the edge, trust the core
 
@@ -53,7 +53,7 @@ Each app is one bounded context, and its package name is its app label, for exam
     dependencies.py    # the FastAPI dependency that builds each adapter
     views.py           # the router, the views, and the error-to-status table
     middleware.py      # the middleware and the constants for add_middleware
-    tasks.py           # the taskiq tasks
+    tasks.py           # the blueprint and its Procrastinate tasks
   tests/
 ```
 
@@ -169,7 +169,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 ## Write views
 
-A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it sends a task with `<task>.kiq(...)`. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
+A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
 Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/app.py` imports the `security` app, and an import-linter contract forbids every other module of rastro to import it. The `security` app owns CSRF: its router serves `GET /api/v1/security/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
@@ -187,18 +187,15 @@ A value outside the body, for example a cookie, comes from a private dependency 
 
 A task is an `async def` named `<entity>_<action>_task`, and it is an edge. It parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. It never uses FastAPI's `Depends`.
 
-The task opens the transaction in its body with `sessionmaker.begin()`, not in a `yield` dependency, because taskiq closes a dependency after it records the result, so a failed commit would follow a successful task. A task declares itself on `async_shared_broker`, so a tasks module imports no broker, and a change of broker changes only `rastro/broker.py`.
+A task declares itself with `pass_context=True` on the `blueprint` of its app's `presentation/tasks.py`, so a tasks module imports no Procrastinate `App`. `create_task_app` in `rastro/task_app.py` adds the `blueprint` of every app to one `App`, so the connector and the worker options live in that module only.
 
-The ZeroMQ broker needs no server, and it has these limits:
+The task reads its sessionmaker with `job_sessionmaker(context)` and opens the transaction in its body with `sessionmaker.begin()`. The transaction stays in the body because Procrastinate has no dependency injection, and a commit that fails in the body fails the job, so Procrastinate retries the job or records the failure.
 
-- With N workers, each task runs N times, so the stack runs one worker.
-- A task sent while the worker is down is lost.
-- No result backend exists, so a caller cannot read the result of a task.
-- The API binds the publish address, so the API runs in one process.
+Procrastinate delivers each job at least once, so a job whose worker dies after the commit runs again. A task therefore takes ids, reads its state from the database, and does nothing on a second run.
 
 ## Trace without personal data
 
-Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_broker` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
+Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_task_app` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
 
 A span never holds personal data. The FastAPI span keeps the URL with its query string, so personal data never goes into a query string.
 
@@ -238,7 +235,7 @@ Each layer has its own kind of test. A test passes fakes as arguments or through
 - **Use case tests** call a use case with the in-memory fakes and assert the error class with `pytest.raises`.
 - **Repository tests** run one behaviour suite per port, and its `adapter` fixture runs each test once with the fake and once with the Sql adapter. Only the Sql case opens the test database, and it reads back through a second session, so the identity map hides nothing. The suite covers both mapper directions, `next_id` and the `Id` that it returns, the unique-violation translation, `LookupError` for a missing row, and the `model_copy()` rule. A test that only Postgres can pass lives in `test_sql_<aggregate>_repository.py`: a row that breaks its value object, such as the id `0`, the audit columns, and the query span.
 - **View tests** cover the HTTP contract and compare the literal JSON of each problem, because the literal is the contract that a client reads. The view tests own the code of each rejection.
-- **Task tests** send the task through taskiq's in-memory broker and read its rows.
+- **Task tests** defer the task, run the worker of the `task_app` fixture on Procrastinate's `InMemoryConnector`, and read its rows. A test defers a periodic task with `configure(task_kwargs={"timestamp": 0}).defer_async()`, because mypy accepts a `defer_async()` with no timestamp, and the job then fails.
 
 A test lives in `rastro/<app>/tests/`, beside the code that it covers, for example `views/test_session_start.py`. A test name states the behaviour as a sentence, for example `test_an_email_in_use_is_a_conflict`, and a blank line splits the setup and the call from the assertions. An input that several tests share is a module-level constant. A test class is optional, so group tests in a class only when the group helps the reader.
 
