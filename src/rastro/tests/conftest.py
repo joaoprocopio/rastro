@@ -3,7 +3,6 @@ from collections.abc import AsyncIterator
 
 import httpx
 import pytest
-from alembic.config import Config
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from rastro.app import create_app
@@ -22,11 +21,6 @@ def empty_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture
 def postgres_url_only(empty_environment: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RASTRO_POSTGRES_URL", POSTGRES_URL)
-
-
-@pytest.fixture
-def alembic_config(pytestconfig: pytest.Config) -> Config:
-    return Config(toml_file=pytestconfig.rootpath / "pyproject.toml")
 
 
 @pytest.fixture

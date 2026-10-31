@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -82,10 +82,21 @@ def spans(span_exporter: InMemorySpanExporter) -> InMemorySpanExporter:
     return span_exporter
 
 
-def _migrate(connection: Connection) -> None:
+def _alembic_config(connection: Connection) -> Config:
+    # env.py runs on this connection, so the migrations run in the test database.
     config = Config(toml_file=ROOT / "pyproject.toml")
     config.attributes["connection"] = connection
-    command.upgrade(config, "head")
+    return config
+
+
+def _migrate(connection: Connection) -> None:
+    command.upgrade(_alembic_config(connection), "head")
+
+
+@pytest.fixture
+def alembic_config() -> Callable[[Connection], Config]:
+    """Build the Alembic config whose env.py runs on the given connection."""
+    return _alembic_config
 
 
 @pytest.fixture(scope="session")
