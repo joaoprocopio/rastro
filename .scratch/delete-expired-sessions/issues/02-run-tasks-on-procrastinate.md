@@ -6,13 +6,13 @@ These items go: the taskiq dependency with its `opentelemetry` and `zmq` extras,
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] With Procrastinate's `InMemoryConnector`, a sample task that succeeds commits its writes.
-- [ ] With Procrastinate's `InMemoryConnector`, a sample task that raises rolls back its writes.
-- [ ] No module imports `taskiq`, and the project dependencies hold no taskiq package.
-- [ ] The settings and `.env.example` hold no ZeroMQ setting.
-- [ ] The test that a task produces a span and the test that the app starts its broker are gone.
-- [ ] `docker compose up worker` starts the Procrastinate worker, and it connects to Postgres.
-- [ ] mypy strict accepts the accessor and every task with no `Any` and no ignore comment.
-- [ ] Every check in the README passes.
+- [x] With Procrastinate's `InMemoryConnector`, a sample task that succeeds commits its writes.
+- [x] With Procrastinate's `InMemoryConnector`, a sample task that raises rolls back its writes.
+- [x] No module imports `taskiq`, and the project dependencies hold no taskiq package.
+- [x] The settings and `.env.example` hold no ZeroMQ setting.
+- [x] The test that a task produces a span and the test that the app starts its broker are gone.
+- [x] `docker compose up worker` starts the Procrastinate worker, and it connects to Postgres.
+- [x] mypy strict accepts the accessor and every task with no `Any` and no ignore comment.
+- [x] Every check in the README passes.

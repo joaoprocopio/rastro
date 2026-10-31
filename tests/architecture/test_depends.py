@@ -57,16 +57,14 @@ def test_the_check_reports_each_way_to_reach_depends() -> None:
         "import fastapi.params as params\n"
         "from fastapi import Depends, Request\n"
         "from fastapi.params import Depends as D\n"
-        "from taskiq import TaskiqDepends\n"
         "fastapi.Depends\n"
         "params.Depends\n"
         "fastapi.Request\n"
-        "TaskiqDepends()\n"
     )
 
     assert depends_uses(source=source, name="rastro.sample.services") == [
         "rastro.sample.services:3: from fastapi import Depends, Request",
         "rastro.sample.services:4: from fastapi.params import Depends as D",
-        "rastro.sample.services:6: fastapi.Depends",
-        "rastro.sample.services:7: params.Depends",
+        "rastro.sample.services:5: fastapi.Depends",
+        "rastro.sample.services:6: params.Depends",
     ]
