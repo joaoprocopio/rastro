@@ -28,3 +28,7 @@ class SessionStartOutput(DTO):
 class SessionGetOutput(DTO):
     email: Email
     display_name: DisplayName
+
+
+class SessionRemoveExpiredOutput(DTO):
+    count: int

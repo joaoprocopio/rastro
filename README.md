@@ -1,6 +1,6 @@
 # rastro
 
-An experimental FastAPI project that defines the patterns other projects copy, built on SQLAlchemy 2 and Procrastinate in four layers, and instrumented with OpenTelemetry and Grafana. `CODING_STANDARDS.md` holds the patterns, and `docs/adr/0001-layers-with-fastapi-sqlalchemy-and-taskiq.md` records why rastro uses this stack.
+An experimental FastAPI project that defines the patterns other projects copy, built on SQLAlchemy 2 and Procrastinate in four layers, and instrumented with OpenTelemetry and Grafana. `CODING_STANDARDS.md` holds the patterns, and `docs/adr/0001-layers-with-fastapi-sqlalchemy-and-procrastinate.md` records why rastro uses this stack.
 
 ## Run the stack
 

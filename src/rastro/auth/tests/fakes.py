@@ -92,6 +92,14 @@ class FakeSessionRepository:
             raise LookupError(f"No Session with the id {session.id.root}.")
         del self.sessions[session.id]
 
+    async def remove_expired(self, *, at: datetime) -> int:
+        expired = [
+            id for id, session in self.sessions.items() if not session.is_active(at=at)
+        ]
+        for id in expired:
+            del self.sessions[id]
+        return len(expired)
+
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken
     ) -> Session | None:
