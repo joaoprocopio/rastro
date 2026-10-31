@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -82,10 +82,21 @@ def spans(span_exporter: InMemorySpanExporter) -> InMemorySpanExporter:
     return span_exporter
 
 
-def _migrate(connection: Connection) -> None:
+def _alembic_config(connection: Connection) -> Config:
+    # env.py runs on this connection, so the migrations run in the test database.
     config = Config(toml_file=ROOT / "pyproject.toml")
     config.attributes["connection"] = connection
-    command.upgrade(config, "head")
+    return config
+
+
+def _migrate(connection: Connection) -> None:
+    command.upgrade(_alembic_config(connection), "head")
+
+
+@pytest.fixture
+def alembic_config() -> Callable[[Connection], Config]:
+    """Build the Alembic config whose env.py runs on the given connection."""
+    return _alembic_config
 
 
 @pytest.fixture(scope="session")
@@ -121,12 +132,21 @@ async def connection(engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
         await transaction.rollback()
 
 
-@pytest.fixture
-def sessionmaker(connection: AsyncConnection) -> async_sessionmaker[AsyncSession]:
+@pytest.fixture(scope="session")
+def unbound_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """The sessionmaker of `worker_app`, which `sessionmaker` binds to each test."""
     # Each request or task transaction becomes a savepoint in the test's transaction.
     return async_sessionmaker(
-        connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+        join_transaction_mode="create_savepoint", expire_on_commit=False
     )
+
+
+@pytest.fixture
+def sessionmaker(
+    unbound_sessionmaker: async_sessionmaker[AsyncSession], connection: AsyncConnection
+) -> async_sessionmaker[AsyncSession]:
+    unbound_sessionmaker.configure(bind=connection)
+    return unbound_sessionmaker
 
 
 @pytest.fixture
@@ -154,13 +174,18 @@ def adapter(request: pytest.FixtureRequest) -> RepositoryKind:
 
 
 @pytest.fixture(scope="session")
-def worker_app(settings: Settings) -> App:
+def worker_app(
+    settings: Settings, unbound_sessionmaker: async_sessionmaker[AsyncSession]
+) -> App:
     """The App that the worker builds, with the sample tasks added."""
     # add_tasks_from binds each task to its App, so the test run builds one App.
-    app = create_task_app(settings=settings, sessionmaker=async_sessionmaker())
+    app = create_task_app(settings=settings, sessionmaker=unbound_sessionmaker)
     app.add_tasks_from(sample_blueprint, namespace="sample")
     # A run defers no periodic job, so a test runs only the jobs that it defers.
     app.periodic_defaults["max_delay"] = -1
+    # A run stops when no job is left, and the signal handlers stay with pytest.
+    app.worker_defaults["wait"] = False
+    app.worker_defaults["install_signal_handlers"] = False
     return app
 
 
@@ -168,19 +193,10 @@ def worker_app(settings: Settings) -> App:
 async def task_app(
     worker_app: App, sessionmaker: async_sessionmaker[AsyncSession]
 ) -> AsyncIterator[App]:
-    """`worker_app` with no job, whose worker runs the deferred jobs and returns."""
-    defaults = worker_app.worker_defaults
-    worker_app.worker_defaults = {
-        "wait": False,
-        "install_signal_handlers": False,
-        "additional_context": {"sessionmaker": sessionmaker},
-    }
-    try:
-        with worker_app.replace_connector(InMemoryConnector()) as app:
-            async with app.open_async():
-                yield app
-    finally:
-        worker_app.worker_defaults = defaults
+    """`worker_app` with no job, whose jobs run in the test's transaction."""
+    with worker_app.replace_connector(InMemoryConnector()) as app:
+        async with app.open_async():
+            yield app
 
 
 @pytest.fixture

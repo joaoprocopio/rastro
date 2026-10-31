@@ -2,6 +2,7 @@ from procrastinate import App, Blueprint, PsycopgConnector
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from rastro.common.infrastructure.modules import import_every_app_module
+from rastro.common.presentation.dependencies import JOB_SESSIONMAKER_KEY
 from rastro.settings import Settings
 
 
@@ -17,8 +18,7 @@ def create_task_app(
 ) -> App:
     app = App(
         connector=PsycopgConnector(conninfo=_conninfo(settings)),
-        # job_sessionmaker reads it, as database_session reads app.state.sessionmaker.
-        worker_defaults={"additional_context": {"sessionmaker": sessionmaker}},
+        worker_defaults={"additional_context": {JOB_SESSIONMAKER_KEY: sessionmaker}},
     )
     for label, module in import_every_app_module("presentation.tasks").items():
         blueprint = module.blueprint

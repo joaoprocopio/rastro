@@ -1,45 +1,9 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
-from pydantic import SecretStr
 
-from rastro.auth.domain.aggregates import Session, User
-from rastro.auth.domain.ports import SessionRepository, UserRepository
-from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
-
-START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-LIFETIME = SessionLifetime(timedelta(days=14))
-TOKEN = SessionToken(SecretStr("token"))
-OTHER_TOKEN = SessionToken(SecretStr("other"))
-
-
-@pytest.fixture
-async def session(
-    sessions: SessionRepository, users: UserRepository, ana: User
-) -> Session:
-    """A Session of the added `ana` for `TOKEN`, which the test has not added yet."""
-    await users.add(ana)
-    return Session.start(
-        id=await sessions.next_id(),
-        user_id=ana.id,
-        token=TOKEN,
-        at=START,
-        lifetime=LIFETIME,
-    )
-
-
-@pytest.fixture
-async def earlier_session(
-    sessions: SessionRepository, session: Session, ana: User
-) -> Session:
-    """A Session of `ana` for `OTHER_TOKEN` that expires one day before `session`."""
-    return Session.start(
-        id=await sessions.next_id(),
-        user_id=ana.id,
-        token=OTHER_TOKEN,
-        at=START - timedelta(days=1),
-        lifetime=LIFETIME,
-    )
+from rastro.auth.domain.aggregates import Session
+from rastro.auth.domain.ports import SessionRepository
 
 
 async def test_get_by_hashed_token_reads_back_every_field_that_add_wrote(
@@ -47,13 +11,13 @@ async def test_get_by_hashed_token_reads_back_every_field_that_add_wrote(
 ) -> None:
     await sessions.add(session)
 
-    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) == session
 
 
 async def test_get_by_hashed_token_answers_none_for_an_unknown_session(
-    sessions: SessionRepository,
+    sessions: SessionRepository, session: Session
 ) -> None:
-    assert await sessions.get_by_hashed_token(TOKEN.digest()) is None
+    assert await sessions.get_by_hashed_token(session.hashed_token) is None
 
 
 async def test_two_next_id_calls_return_two_different_ids(
@@ -69,28 +33,21 @@ async def test_remove_deletes_the_session(
 
     await sessions.remove(session)
 
-    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) is None
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) is None
 
 
 async def test_remove_of_a_missing_session_raises_lookup_error_and_keeps_the_others(
     sessions: SessionRepository,
     read_sessions: SessionRepository,
     session: Session,
-    ana: User,
+    earlier_session: Session,
 ) -> None:
     await sessions.add(session)
-    missing = Session.start(
-        id=await sessions.next_id(),
-        user_id=ana.id,
-        token=OTHER_TOKEN,
-        at=START,
-        lifetime=LIFETIME,
-    )
 
-    with pytest.raises(LookupError, match=f"with the id {missing.id.root}\\."):
-        await sessions.remove(missing)
+    with pytest.raises(LookupError, match=f"with the id {earlier_session.id.root}\\."):
+        await sessions.remove(earlier_session)
 
-    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) == session
 
 
 async def test_remove_expired_removes_an_expired_session_and_keeps_an_active_one(
@@ -104,8 +61,8 @@ async def test_remove_expired_removes_an_expired_session_and_keeps_an_active_one
 
     await sessions.remove_expired(at=session.expires_at - timedelta(seconds=1))
 
-    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
-    assert await read_sessions.get_by_hashed_token(OTHER_TOKEN.digest()) is None
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) == session
+    assert await read_sessions.get_by_hashed_token(earlier_session.hashed_token) is None
 
 
 async def test_remove_expired_removes_a_session_that_expires_at_that_moment(
@@ -115,7 +72,7 @@ async def test_remove_expired_removes_a_session_that_expires_at_that_moment(
 
     await sessions.remove_expired(at=session.expires_at)
 
-    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) is None
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) is None
 
 
 async def test_remove_expired_keeps_every_active_session_and_returns_0(
@@ -127,11 +84,13 @@ async def test_remove_expired_keeps_every_active_session_and_returns_0(
     await sessions.add(session)
     await sessions.add(earlier_session)
 
-    removed = await sessions.remove_expired(at=START)
+    removed = await sessions.remove_expired(
+        at=earlier_session.expires_at - timedelta(seconds=1)
+    )
 
     assert removed == 0
-    assert await read_sessions.get_by_hashed_token(TOKEN.digest()) == session
-    assert await read_sessions.get_by_hashed_token(OTHER_TOKEN.digest()) == (
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) == session
+    assert await read_sessions.get_by_hashed_token(earlier_session.hashed_token) == (
         earlier_session
     )
 
@@ -151,12 +110,13 @@ async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
     sessions: SessionRepository, read_sessions: SessionRepository, session: Session
 ) -> None:
     await sessions.add(session)
-    session.expires_at = START
-    read = await read_sessions.get_by_hashed_token(TOKEN.digest())
+    added_expires_at = session.expires_at
+    session.expires_at -= timedelta(days=1)
+    read = await read_sessions.get_by_hashed_token(session.hashed_token)
     assert read is not None
-    read.expires_at = START
+    read.expires_at -= timedelta(days=1)
 
-    stored = await read_sessions.get_by_hashed_token(TOKEN.digest())
+    stored = await read_sessions.get_by_hashed_token(session.hashed_token)
 
     assert stored is not None
-    assert stored.expires_at == START + LIFETIME.root
+    assert stored.expires_at == added_expires_at

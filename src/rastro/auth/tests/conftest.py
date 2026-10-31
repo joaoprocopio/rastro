@@ -39,6 +39,42 @@ async def user(db_session: AsyncSession, password_hasher: PasswordHasher) -> Use
 
 
 @pytest.fixture
+async def active_session(
+    db_session: AsyncSession, user: User, settings: Settings
+) -> Session:
+    """A committed Session of `user` that starts now, by the wall clock."""
+    sessions = SqlSessionRepository(db_session)
+    session = Session.start(
+        id=await sessions.next_id(),
+        user_id=user.id,
+        token=SessionToken(SecretStr("active")),
+        at=datetime.now(UTC),
+        lifetime=settings.session_lifetime,
+    )
+    await sessions.add(session)
+    await db_session.commit()
+    return session
+
+
+@pytest.fixture
+async def expired_session(
+    db_session: AsyncSession, user: User, settings: Settings
+) -> Session:
+    """A committed Session of `user` whose lifetime runs out now, by the wall clock."""
+    sessions = SqlSessionRepository(db_session)
+    session = Session.start(
+        id=await sessions.next_id(),
+        user_id=user.id,
+        token=SessionToken(SecretStr("expired")),
+        at=datetime.now(UTC) - settings.session_lifetime.root,
+        lifetime=settings.session_lifetime,
+    )
+    await sessions.add(session)
+    await db_session.commit()
+    return session
+
+
+@pytest.fixture
 async def signed_in_client(
     app: FastAPI,
     settings: Settings,

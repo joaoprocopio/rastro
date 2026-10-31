@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from psycopg.errors import UniqueViolation
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,13 +78,13 @@ class SqlSessionRepository:
         await self._db_session.flush()
 
     async def remove_expired(self, *, at: datetime) -> int:
-        # AsyncSession.execute types no rowcount, so the DELETE returns each id.
-        ids = await self._db_session.scalars(
-            delete(SessionRow)
-            .where(SessionRow.expires_at <= at)
-            .returning(SessionRow.id)
+        result = await self._db_session.execute(
+            delete(SessionRow).where(SessionRow.expires_at <= at)
         )
-        return len(ids.all())
+        # AsyncSession.execute types a Result, and only a CursorResult has a rowcount.
+        if not isinstance(result, CursorResult):
+            raise TypeError(f"The DELETE returned {result!r}, not a CursorResult.")
+        return result.rowcount
 
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken
