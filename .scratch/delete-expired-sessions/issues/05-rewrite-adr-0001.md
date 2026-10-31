@@ -4,8 +4,8 @@
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] ADR 0001 does not mention taskiq or ZeroMQ.
-- [ ] ADR 0001 points to ADR 0004 for the task queue.
-- [ ] Every link to ADR 0001 in the repository resolves to the renamed file.
+- [x] ADR 0001 does not mention taskiq or ZeroMQ.
+- [x] ADR 0001 points to ADR 0004 for the task queue.
+- [x] Every link to ADR 0001 in the repository resolves to the renamed file.

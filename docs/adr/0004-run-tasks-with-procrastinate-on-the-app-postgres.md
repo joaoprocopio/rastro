@@ -6,7 +6,7 @@ status: accepted
 
 rastro runs its tasks with Procrastinate in place of taskiq. Procrastinate stores each job as a row in rastro's own Postgres, so a use case defers a job in the transaction that writes its rows, and a rollback removes the job with the rows. Durability decides the choice: a broker outside Postgres cannot commit with the app, so a crash between the commit and the publish loses the task unless rastro writes an outbox. Every queue in this comparison delivers a job at least once, so each task takes IDs, reads its state from the database, and does nothing on a second run.
 
-This decision replaces the taskiq part of ADR 0001: the taskiq option in its considered options and its section "Use ZeroMQ as the first taskiq broker".
+This decision replaces taskiq and its ZeroMQ broker, which the first version of ADR 0001 chose.
 
 ## Evidence from the failure prototypes
 
