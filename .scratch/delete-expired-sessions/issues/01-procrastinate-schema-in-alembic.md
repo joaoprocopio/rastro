@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] After `alembic upgrade head`, the test database has the `procrastinate_jobs`, `procrastinate_periodic_defers`, `procrastinate_events`, and `procrastinate_workers` tables.
-- [ ] The migration test that compares the migrated database with `Row.metadata` reports no difference.
-- [ ] `alembic downgrade` of the migration removes every `procrastinate_` object.
-- [ ] `CODING_STANDARDS.md` holds the upgrade procedure for the Procrastinate schema.
-- [ ] Every check in the README passes.
+- [x] After `alembic upgrade head`, the test database has the `procrastinate_jobs`, `procrastinate_periodic_defers`, `procrastinate_events`, and `procrastinate_workers` tables.
+- [x] The migration test that compares the migrated database with `Row.metadata` reports no difference.
+- [x] `alembic downgrade` of the migration removes every `procrastinate_` object.
+- [x] `CODING_STANDARDS.md` holds the upgrade procedure for the Procrastinate schema.
+- [x] Every check in the README passes.

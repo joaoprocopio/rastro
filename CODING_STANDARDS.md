@@ -152,6 +152,13 @@ An infrastructure mapper names its direction, for example `note_from_row` and `n
 
 Create a migration with `uv run --env-file .env.example alembic revision --autogenerate -m "<what changes>"`, and read it before you commit it. The message names the change and the table, for example `create auth_user`.
 
+The migration `create procrastinate schema` holds the `sql/schema.sql` of Procrastinate 3.10.0 as text and runs it with `op.execute`. A migration never reads the installed package, so an upgrade of the package changes no migration that a database already ran. The Alembic environment ignores every name that starts with `procrastinate_`, because `Row.metadata` holds no Procrastinate table and autogenerate would drop each one.
+
+To upgrade Procrastinate, stop at each version that adds a file to the package's `sql/migrations/`, as the [Procrastinate migration guide](https://procrastinate.readthedocs.io/en/stable/howto/production/migrations.html) requires. A `pre` file keeps the schema usable by the code of the previous version, and a `post` file can remove what the code of the previous version calls. For each version, copy each file into its own Alembic migration, in the order of the file names:
+
+1. In one change, pin the version in `pyproject.toml` and add the migration of each `pre` file. The `migrate` service runs the `pre` SQL before the new code starts.
+2. After every API and worker process runs the new version, add the migration of each `post` file in a second change.
+
 ## Build adapters in the presentation dependencies
 
 Each route declares every adapter as an `Annotated[Port, Depends(factory)]` parameter, so its signature shows every dependency, and a test swaps the factory through `app.dependency_overrides`. A task calls the same factories with the session of its own transaction.
