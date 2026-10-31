@@ -22,6 +22,7 @@ Deliverables:
 - An expired Session is not renewed, and the request still answers `401 auth.not_authenticated`.
 - `session_end` does not renew the Session that it removes.
 - Two parallel requests renew the same Session, and the later write wins. Both expiries are valid, so the order does not matter.
+- The hourly removal of expired Sessions deletes a Session while a request renews it. The renewal runs `UPDATE ... WHERE id = :id AND expires_at > :now`, and an update that changes no row answers `401 auth.not_authenticated`. Postgres locks the row for whichever statement runs first, and the other statement checks its `WHERE` again, so either the renewal keeps the Session or the request sees it as expired. Django handles the same race in `SessionStore.save`: `force_update=True` raises `UpdateError`, and the middleware answers `SessionInterrupted`.
 
 ## Out of scope
 

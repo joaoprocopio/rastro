@@ -31,6 +31,8 @@ A row, an aggregate, and a DTO use the same field names, so a mapper reads as a 
 
 ## Use ZeroMQ as the first taskiq broker
 
+ADR 0004 replaces this section and the taskiq option above with Procrastinate.
+
 taskiq's ZeroMQ broker needs no server, so the compose file adds only a `worker` service, which runs with `-w 1`. The broker has three limits, and rastro accepts them until its first real task:
 
 - With N workers, each task runs N times, because every worker receives every message.
