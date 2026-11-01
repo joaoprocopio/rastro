@@ -1,6 +1,6 @@
 # Design
 
-Each `.excalidraw` file is a rough visual guide for building the UI, not a pixel-perfect spec. `index.excalidraw` holds the current screens, and a `proposta-*.excalidraw` file holds a redesign the user has not approved yet.
+Each `.excalidraw` file is a rough visual guide for building the UI, not a pixel-perfect spec. `index.excalidraw` holds the current screens.
 
 ## Inspiration
 
