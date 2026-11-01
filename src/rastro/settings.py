@@ -47,9 +47,6 @@ class Settings(BaseSettings):
     # No default, so no password sits in the code.
     postgres_url: Secret[PsycopgDsn]
 
-    zeromq_publish_address: str = "tcp://127.0.0.1:5555"
-    zeromq_subscribe_address: str = "tcp://127.0.0.1:5555"
-
     service_namespace: str = "rastro"
     service_name: str = "rastro"
     deployment_id: str = "local"

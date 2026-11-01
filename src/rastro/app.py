@@ -1,9 +1,5 @@
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-
 from fastapi import Depends, FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from taskiq import AsyncBroker
 
 from rastro.auth.presentation.views import ERROR_STATUSES as AUTH_ERROR_STATUSES
 from rastro.auth.presentation.views import router as auth_router
@@ -23,22 +19,12 @@ ERROR_STATUSES: ErrorStatuses = {
 
 
 def create_app(
-    *,
-    settings: Settings,
-    sessionmaker: async_sessionmaker[AsyncSession],
-    broker: AsyncBroker,
+    *, settings: Settings, sessionmaker: async_sessionmaker[AsyncSession]
 ) -> FastAPI:
-    @asynccontextmanager
-    async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
-        # The broker of a process that sends tasks opens its connection here.
-        async with broker:
-            yield
-
     # openapi_url=None also turns off the /docs and /redoc pages.
     app = FastAPI(
         title="rastro",
         openapi_url="/openapi.json" if settings.openapi_enabled else None,
-        lifespan=lifespan,
         dependencies=[Depends(csrf_check)],
     )
     app.state.settings = settings

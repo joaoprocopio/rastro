@@ -13,7 +13,7 @@ The email address and password that a person presents to prove that they own a U
 _Avoid_: Login data, auth data
 
 **Session**:
-The period in which a client acts as one User, from the moment rastro accepts its Credentials until the Session ends. A Session ends when the client ends it or when its lifetime runs out.
+The period in which a client acts as one User, from the moment rastro accepts its Credentials until the Session ends. A Session ends when the client ends it or when its lifetime runs out, and a Session whose lifetime has run out is expired.
 _Avoid_: Login (as a noun), token (the Session token only identifies a Session)
 
 **Session token**:

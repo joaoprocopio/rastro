@@ -2,7 +2,7 @@
 
 These rules define how rastro code is structured, and they hold only what the code cannot say: the conventions that a new module follows, and the reasons behind them. Other projects copy rastro's patterns, so a change that breaks a rule on purpose updates this file in the same commit.
 
-Use the domain terms from `GLOSSARY.md` in code, tests, and docs. The architecture decision record (ADR) 0001 records why rastro uses FastAPI, SQLAlchemy 2, and taskiq in four layers. The test sample app in `rastro/common/tests/sample/` is the reference for the four layers, so read it before you add an app.
+Use the domain terms from `GLOSSARY.md` in code, tests, and docs. The architecture decision record (ADR) 0001 records why rastro uses FastAPI and SQLAlchemy 2 in four layers, and ADR 0004 records why rastro runs its tasks with Procrastinate. The test sample app in `rastro/common/tests/sample/` is the reference for the four layers, so read it before you add an app.
 
 ## Validate at the edge, trust the core
 
@@ -53,7 +53,7 @@ Each app is one bounded context, and its package name is its app label, for exam
     dependencies.py    # the FastAPI dependency that builds each adapter
     views.py           # the router, the views, and the error-to-status table
     middleware.py      # the middleware and the constants for add_middleware
-    tasks.py           # the taskiq tasks
+    tasks.py           # the blueprint and its Procrastinate tasks
   tests/
 ```
 
@@ -74,7 +74,7 @@ An adapter takes the name of its technology and its port, for example `SqlUserRe
 
 An adapter does not inherit its `Protocol`, and the code uses no `abc.ABC`, so a fake and a real adapter have the same standing. mypy checks conformance where a dependency function returns the adapter as the port type. A class inherits only from a framework base or from a rastro base that carries configuration or declaration rules, such as `Aggregate` or `Row`.
 
-A construction that follows a rule is a classmethod named after the act, with keyword arguments only, for example `Session.start(...)` or `SessionToken.generate(nbytes=...)`, so no caller repeats the rule. Every function or method takes its subject as its one positional argument and every other argument by keyword, so a call reads without the signature: `hasher.verify(password=..., hashed=...)`. A function with no subject takes only keywords. A domain method that receives the time names the argument `at`.
+A construction that follows a rule is a classmethod named after the act, with keyword arguments only, for example `Session.start(...)` or `SessionToken.generate(nbytes=...)`, so no caller repeats the rule. Every function or method takes its subject as its one positional argument and every other argument by keyword, so a call reads without the signature: `hasher.verify(password=..., hashed=...)`. A function with no subject takes only keywords. A function whose signature a framework fixes keeps that signature, for example `_include_name`, which Alembic calls by position, and a periodic task, which the `periodic` decorator of Procrastinate types with a positional `timestamp`. A domain method that receives the time names the argument `at`.
 
 A data type is always a class, never a module-level `Annotated` or `Literal` alias, because mypy cannot tell two aliases of one type apart. A constraint goes inside the class, and a fixed set of texts is a `StrEnum`. Two aliases stay. A FastAPI dependency alias stays, because FastAPI reads `Depends` only inside `Annotated`. A `type` statement that names the shape of a container stays, because it holds no value that mypy must tell apart.
 
@@ -140,6 +140,8 @@ A repository is one adapter per aggregate, and it receives the `AsyncSession` in
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
+`SqlSessionRepository.remove_expired` is the one method that writes many aggregates, and its `DELETE` repeats the rule of `Session.is_active` in SQL, so the behaviour suite proves that both treat a Session as expired once the time reaches its `expires_at`.
+
 A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` and `update` raise the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
 
 ## Map between layers by hand
@@ -152,6 +154,8 @@ An infrastructure mapper names its direction, for example `note_from_row` and `n
 
 Create a migration with `uv run --env-file .env.example alembic revision --autogenerate -m "<what changes>"`, and read it before you commit it. The message names the change and the table, for example `create auth_user`.
 
+The migration `create procrastinate schema` holds the `sql/schema.sql` of Procrastinate 3.10.0 as text and runs it with `op.execute`. A migration never reads the installed package, so an upgrade of the package changes no migration that a database already ran. The Alembic environment ignores every name that starts with `procrastinate_`, because `Row.metadata` holds no Procrastinate table and autogenerate would drop each one.
+
 ## Build adapters in the presentation dependencies
 
 Each route declares every adapter as an `Annotated[Port, Depends(factory)]` parameter, so its signature shows every dependency, and a test swaps the factory through `app.dependency_overrides`. A task calls the same factories with the session of its own transaction.
@@ -162,7 +166,7 @@ An adapter that several apps use lives in `rastro.common.infrastructure.adapters
 
 ## Write views
 
-A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it sends a task with `<task>.kiq(...)`. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
+A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task. No view or use case defers a job yet, and the first one that defers a job adds the defer helper of ADR 0004. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
 Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/app.py` imports the `security` app, and an import-linter contract forbids every other module of rastro to import it. The `security` app owns CSRF: its router serves `GET /api/v1/security/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
@@ -178,20 +182,26 @@ A value outside the body, for example a cookie, comes from a private dependency 
 
 ## Write tasks
 
-A task is an `async def` named `<entity>_<action>_task`, and it is an edge. It parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. It never uses FastAPI's `Depends`.
+A task is an `async def` named `<entity>_<action>_task`, and it is an edge. Every task except `job_retry_stalled_task` parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. A task never uses FastAPI's `Depends`.
 
-The task opens the transaction in its body with `sessionmaker.begin()`, not in a `yield` dependency, because taskiq closes a dependency after it records the result, so a failed commit would follow a successful task. A task declares itself on `async_shared_broker`, so a tasks module imports no broker, and a change of broker changes only `rastro/broker.py`.
+A task declares itself with `pass_context=True` on the `blueprint` of its app's `presentation/tasks.py`, so a tasks module imports no Procrastinate `App`. `create_task_app` in `rastro/task_app.py` adds the `blueprint` of every app to one `App`, so the connector and the worker options live in that module only.
 
-The ZeroMQ broker needs no server, and it has these limits:
+The task reads its sessionmaker with `job_sessionmaker(context)` and opens the transaction in its body with `sessionmaker.begin()`. The transaction stays in the body because Procrastinate has no dependency injection, and a commit that fails in the body fails the job, so Procrastinate retries the job or records the failure.
 
-- With N workers, each task runs N times, so the stack runs one worker.
-- A task sent while the worker is down is lost.
-- No result backend exists, so a caller cannot read the result of a task.
-- The API binds the publish address, so the API runs in one process.
+Procrastinate delivers each job at least once, so a job whose worker dies after the commit runs again. A task therefore takes ids, reads its state from the database, and does nothing on a second run.
+
+The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task changes only the rows of Procrastinate, so it opens no transaction and calls no use case.
+
+To upgrade Procrastinate, stop at each version that adds a file to the package's `sql/migrations/`, as the [Procrastinate migration guide](https://procrastinate.readthedocs.io/en/stable/howto/production/migrations.html) requires. A `pre` file keeps the schema usable by the code of the previous version, and a `post` file can remove what the code of the previous version calls. For each version, copy each file into its own Alembic migration, in the order of the file names:
+
+1. In one change, pin the version in `pyproject.toml` and add the migration of each `pre` file. The `migrate` service runs the `pre` SQL before the new code starts.
+2. After every API and worker process runs the new version, add the migration of each `post` file in a second change.
 
 ## Trace without personal data
 
-Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_broker` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
+Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_task_app` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
+
+A module that logs declares `logger = logging.getLogger(__name__)` below its imports and adds no handler, because `instrument` adds the handler that sends each record of the root logger to the collector.
 
 A span never holds personal data. The FastAPI span keeps the URL with its query string, so personal data never goes into a query string.
 
@@ -231,7 +241,7 @@ Each layer has its own kind of test. A test passes fakes as arguments or through
 - **Use case tests** call a use case with the in-memory fakes and assert the error class with `pytest.raises`.
 - **Repository tests** run one behaviour suite per port, and its `adapter` fixture runs each test once with the fake and once with the Sql adapter. Only the Sql case opens the test database, and it reads back through a second session, so the identity map hides nothing. The suite covers both mapper directions, `next_id` and the `Id` that it returns, the unique-violation translation, `LookupError` for a missing row, and the `model_copy()` rule. A test that only Postgres can pass lives in `test_sql_<aggregate>_repository.py`: a row that breaks its value object, such as the id `0`, the audit columns, and the query span.
 - **View tests** cover the HTTP contract and compare the literal JSON of each problem, because the literal is the contract that a client reads. The view tests own the code of each rejection.
-- **Task tests** send the task through taskiq's in-memory broker and read its rows.
+- **Task tests** defer the task, run the worker of the `task_app` fixture on Procrastinate's `InMemoryConnector`, and read its rows. A test defers a periodic task with `configure(task_kwargs={"timestamp": 0}).defer_async()`, because mypy accepts a `defer_async()` with no timestamp, and the job then fails.
 
 A test lives in `rastro/<app>/tests/`, beside the code that it covers, for example `views/test_session_start.py`. A test name states the behaviour as a sentence, for example `test_an_email_in_use_is_a_conflict`, and a blank line splits the setup and the call from the assertions. An input that several tests share is a module-level constant. A test class is optional, so group tests in a class only when the group helps the reader.
 

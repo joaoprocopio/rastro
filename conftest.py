@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -15,6 +15,8 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from procrastinate import App
+from procrastinate.testing import InMemoryConnector
 from pydantic import PostgresDsn, Secret
 from sqlalchemy import Connection, NullPool, make_url, text
 from sqlalchemy.ext.asyncio import (
@@ -24,7 +26,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from taskiq import InMemoryBroker, async_shared_broker
 
 from rastro import telemetry
 from rastro.app import ERROR_STATUSES, create_app
@@ -34,11 +35,15 @@ from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
 from rastro.common.presentation.problems import install_problem_handlers
 from rastro.common.tests.adapter import RepositoryKind
 from rastro.common.tests.sample.infrastructure.models import SampleRow
+from rastro.common.tests.sample.presentation.tasks import (
+    blueprint as sample_blueprint,
+)
 from rastro.common.tests.sample.presentation.views import (
     ERROR_STATUSES as SAMPLE_ERROR_STATUSES,
 )
 from rastro.common.tests.sample.presentation.views import router as sample_router
 from rastro.settings import Settings
+from rastro.task_app import create_task_app
 
 ROOT = Path(__file__).parent
 
@@ -77,10 +82,21 @@ def spans(span_exporter: InMemorySpanExporter) -> InMemorySpanExporter:
     return span_exporter
 
 
-def _migrate(connection: Connection) -> None:
+def _alembic_config(connection: Connection) -> Config:
+    # env.py runs on this connection, so the migrations run in the test database.
     config = Config(toml_file=ROOT / "pyproject.toml")
     config.attributes["connection"] = connection
-    command.upgrade(config, "head")
+    return config
+
+
+def _migrate(connection: Connection) -> None:
+    command.upgrade(_alembic_config(connection), "head")
+
+
+@pytest.fixture
+def alembic_config() -> Callable[[Connection], Config]:
+    """Build the Alembic config whose env.py runs on the given connection."""
+    return _alembic_config
 
 
 @pytest.fixture(scope="session")
@@ -116,12 +132,21 @@ async def connection(engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
         await transaction.rollback()
 
 
-@pytest.fixture
-def sessionmaker(connection: AsyncConnection) -> async_sessionmaker[AsyncSession]:
+@pytest.fixture(scope="session")
+def unbound_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """The sessionmaker of `worker_app`, which `sessionmaker` binds to each test."""
     # Each request or task transaction becomes a savepoint in the test's transaction.
     return async_sessionmaker(
-        connection, join_transaction_mode="create_savepoint", expire_on_commit=False
+        join_transaction_mode="create_savepoint", expire_on_commit=False
     )
+
+
+@pytest.fixture
+def sessionmaker(
+    unbound_sessionmaker: async_sessionmaker[AsyncSession], connection: AsyncConnection
+) -> async_sessionmaker[AsyncSession]:
+    unbound_sessionmaker.configure(bind=connection)
+    return unbound_sessionmaker
 
 
 @pytest.fixture
@@ -148,17 +173,30 @@ def adapter(request: pytest.FixtureRequest) -> RepositoryKind:
     return RepositoryKind(request.param)
 
 
+@pytest.fixture(scope="session")
+def worker_app(
+    settings: Settings, unbound_sessionmaker: async_sessionmaker[AsyncSession]
+) -> App:
+    """The App that the worker builds, with the sample tasks added."""
+    # add_tasks_from binds each task to its App, so the test run builds one App.
+    app = create_task_app(settings=settings, sessionmaker=unbound_sessionmaker)
+    app.add_tasks_from(sample_blueprint, namespace="sample")
+    # A run defers no periodic job, so a test runs only the jobs that it defers.
+    app.periodic_defaults["max_delay"] = -1
+    # A run stops when no job is left, and the signal handlers stay with pytest.
+    app.worker_defaults["wait"] = False
+    app.worker_defaults["install_signal_handlers"] = False
+    return app
+
+
 @pytest.fixture
-async def broker(
-    sessionmaker: async_sessionmaker[AsyncSession],
-) -> AsyncIterator[InMemoryBroker]:
-    # A task runs to its end inside kiq, and its error reaches the test.
-    broker = InMemoryBroker(await_inplace=True)
-    broker.state.sessionmaker = sessionmaker
-    telemetry.instrument_broker(broker)
-    async_shared_broker.default_broker(broker)
-    async with broker:
-        yield broker
+async def task_app(
+    worker_app: App, sessionmaker: async_sessionmaker[AsyncSession]
+) -> AsyncIterator[App]:
+    """`worker_app` with no job, whose jobs run in the test's transaction."""
+    with worker_app.replace_connector(InMemoryConnector()) as app:
+        async with app.open_async():
+            yield app
 
 
 @pytest.fixture
@@ -175,11 +213,10 @@ def clock() -> FakeClock:
 def app(
     settings: Settings,
     sessionmaker: async_sessionmaker[AsyncSession],
-    broker: InMemoryBroker,
     password_hasher: PasswordHasher,
     clock: Clock,
 ) -> FastAPI:
-    app = create_app(settings=settings, sessionmaker=sessionmaker, broker=broker)
+    app = create_app(settings=settings, sessionmaker=sessionmaker)
     telemetry.instrument_app(app)
     # Each process-wide adapter gets a fake, so no test runs a real one by accident.
     app.dependency_overrides[auth_dependencies.password_hasher] = lambda: (

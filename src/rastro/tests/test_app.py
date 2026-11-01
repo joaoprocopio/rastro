@@ -4,7 +4,6 @@ from http import HTTPStatus
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from taskiq import InMemoryBroker, TaskiqEvents
 
 from rastro.app import create_app
 from rastro.common.presentation.dependencies import AppSettings
@@ -57,9 +56,7 @@ async def test_the_openapi_pages_are_not_found_when_the_setting_is_off(
 async def test_the_openapi_schema_is_not_found_without_its_variable(
     postgres_url_only: None,
 ) -> None:
-    app = create_app(
-        settings=Settings(), sessionmaker=async_sessionmaker(), broker=InMemoryBroker()
-    )
+    app = create_app(settings=Settings(), sessionmaker=async_sessionmaker())
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://testserver"
@@ -72,9 +69,7 @@ async def test_the_openapi_schema_is_not_found_without_its_variable(
 async def test_the_settings_dependency_returns_the_settings_of_the_app(
     settings: Settings,
 ) -> None:
-    app = create_app(
-        settings=settings, sessionmaker=async_sessionmaker(), broker=InMemoryBroker()
-    )
+    app = create_app(settings=settings, sessionmaker=async_sessionmaker())
     received: list[Settings] = []
 
     @app.get("/settings")
@@ -87,25 +82,6 @@ async def test_the_settings_dependency_returns_the_settings_of_the_app(
         await client.get("/settings")
 
     assert received[0] is settings
-
-
-async def test_the_app_starts_its_broker_and_shuts_it_down(settings: Settings) -> None:
-    broker = InMemoryBroker()
-    events: list[str] = []
-    broker.add_event_handler(
-        TaskiqEvents.CLIENT_STARTUP, lambda _state: events.append("startup")
-    )
-    broker.add_event_handler(
-        TaskiqEvents.CLIENT_SHUTDOWN, lambda _state: events.append("shutdown")
-    )
-    app = create_app(
-        settings=settings, sessionmaker=async_sessionmaker(), broker=broker
-    )
-
-    async with app.router.lifespan_context(app):
-        assert events == ["startup"]
-
-    assert events == ["startup", "shutdown"]
 
 
 @pytest.mark.parametrize("cors_settings", [{"cors_allowed_origins": FRONTEND_ORIGINS}])

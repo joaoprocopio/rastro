@@ -1,6 +1,7 @@
 import asyncio
 
 from alembic import context
+from alembic.environment import NameFilterParentNames, NameFilterType
 from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -9,8 +10,19 @@ from rastro.common.infrastructure.modules import import_every_app_module
 from rastro.settings import Settings
 
 
+def _include_name(
+    name: str | None, type_: NameFilterType, parent_names: NameFilterParentNames
+) -> bool:
+    # None names the default schema, and Row.metadata has no procrastinate_ table.
+    return name is None or not name.startswith("procrastinate_")
+
+
 def _run(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=Row.metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=Row.metadata,
+        include_name=_include_name,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

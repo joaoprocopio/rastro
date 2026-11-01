@@ -2,8 +2,8 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Request
+from procrastinate import JobContext
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from taskiq import TaskiqDepends, TaskiqState
 
 from rastro.settings import Settings
 
@@ -25,8 +25,12 @@ async def database_session(request: Request) -> AsyncIterator[AsyncSession]:
 DatabaseSession = Annotated[AsyncSession, Depends(database_session, scope="function")]
 
 
-def task_sessionmaker(
-    state: TaskiqState = TaskiqDepends(),
-) -> async_sessionmaker[AsyncSession]:
-    sessionmaker: async_sessionmaker[AsyncSession] = state.sessionmaker
+JOB_SESSIONMAKER_KEY = "sessionmaker"
+
+
+def job_sessionmaker(context: JobContext) -> async_sessionmaker[AsyncSession]:
+    sessionmaker = context.additional_context[JOB_SESSIONMAKER_KEY]
+    # additional_context is an untyped dict, so the check gives mypy the type.
+    if not isinstance(sessionmaker, async_sessionmaker):
+        raise TypeError(f"The job context holds {sessionmaker!r} as its sessionmaker.")
     return sessionmaker

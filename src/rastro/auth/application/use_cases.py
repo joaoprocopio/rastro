@@ -1,5 +1,6 @@
 from rastro.auth.application.dtos import (
     SessionGetOutput,
+    SessionRemoveExpiredOutput,
     SessionStartInput,
     SessionStartOutput,
     UserRegisterInput,
@@ -89,6 +90,14 @@ async def session_end(
     token: SessionToken | None, *, sessions: SessionRepository
 ) -> None:
     await sessions.remove(await _stored_session(token, sessions=sessions))
+
+
+async def session_remove_expired(
+    *, sessions: SessionRepository, clock: Clock
+) -> SessionRemoveExpiredOutput:
+    return SessionRemoveExpiredOutput(
+        count=await sessions.remove_expired(at=clock.now())
+    )
 
 
 async def _active_session(

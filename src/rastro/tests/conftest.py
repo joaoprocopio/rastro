@@ -4,7 +4,6 @@ from collections.abc import AsyncIterator
 import httpx
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from taskiq import InMemoryBroker
 
 from rastro.app import create_app
 from rastro.settings import Settings
@@ -32,7 +31,6 @@ async def openapi_client(
     app = create_app(
         settings=settings.model_copy(update={"openapi_enabled": openapi_enabled}),
         sessionmaker=async_sessionmaker(),
-        broker=InMemoryBroker(),
     )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://testserver"
@@ -51,7 +49,6 @@ async def cors_client(
     app = create_app(
         settings=Settings.model_validate(settings.model_dump(by_alias=True) | update),
         sessionmaker=async_sessionmaker(),
-        broker=InMemoryBroker(),
     )
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="https://testserver"
