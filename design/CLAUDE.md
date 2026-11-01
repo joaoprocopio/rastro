@@ -6,11 +6,24 @@ Each `.excalidraw` file is a rough visual guide for building the UI, not a pixel
 
 Our references are Linear, Notion, and Apple. Before you design a screen, read the screenshots in `references/` and invoke the `apple-design` skill.
 
+- From Notion, take only the sidebar and the flush square layout. From Linear, take everything else, headers included.
 - From Linear, take the behavior and the details: pill filters under the header, list-detail split for records, icon actions on the right of the header, two-level filter menus, context menus with shortcuts, status chips, and dense lists with no table header.
 - From Notion, take the layout, the sizes, and the proportions: a flush sidebar with square edges and a gray background, a 240 px sidebar, 30 px rows, 14 px body text, and centered pages with a reading width for documents.
 - From Apple, take the principles: hierarchy through gray tones, specific labels, wayfinding, and feedback before the user hits a wall.
 - When Linear and Notion disagree, use Notion's layout and Linear's behavior.
 - When a screen has no reference, find the closest screen in Linear or Notion, name it in a red note, and draw from it.
+
+## Rejected patterns
+
+The user rejected these patterns, so draw the alternative instead:
+
+- Notion's side peek: open the record as a full page, like a Linear issue.
+- A page title on a list page: the breadcrumb names the list. Put a large title only on a single record, such as a letter, a form, or a guest.
+- Linear's floating card over a background sidebar: draw the content flush against the sidebar, with square edges.
+- Keyboard shortcuts in menus and buttons.
+- Favorites (a star on a page).
+- A "what's new" card in the sidebar.
+- Tour House business terms (SPEC, Nº Job, coordenador RSVP or aéreo, célula): the product is a white-label RSVP platform.
 
 ## Drawing
 
