@@ -7,8 +7,9 @@ Each `.excalidraw` file is a rough visual guide for building the UI, not a pixel
 Our references are Linear, Notion, and Apple. Before you design a screen, read the screenshots in `references/` and invoke the `apple-design` skill.
 
 - From Notion, take only the sidebar and the flush square layout. From Linear, take everything else, headers included.
-- From Linear, take the behavior and the details: pill filters under the header, list-detail split for records, icon actions on the right of the header, two-level filter menus, context menus with shortcuts, status chips, and dense lists with no table header.
-- From Notion, take the layout, the sizes, and the proportions: a flush sidebar with square edges and a gray background, a 240 px sidebar, 30 px rows, 14 px body text, and centered pages with a reading width for documents.
+- From Linear, take the behavior and the details: a two-row header, pill filters under the header, list-detail split for records, icon actions on the right of the header, two-level filter menus and display options as Linear draws them, context menus with shortcuts, status chips, and dense lists with no table header.
+- Draw a single record like a Linear issue: content on the left, and the properties in a column on the right.
+- From Notion, take the layout, the sizes, and the proportions: a flush sidebar with square edges and a gray background, a 240 px sidebar, 30 px rows, and 14 px body text.
 - From Apple, take the principles: hierarchy through gray tones, specific labels, wayfinding, and feedback before the user hits a wall.
 - When Linear and Notion disagree, use Notion's layout and Linear's behavior.
 - When a screen has no reference, find the closest screen in Linear or Notion, name it in a red note, and draw from it.
@@ -23,6 +24,9 @@ The user rejected these patterns, so draw the alternative instead:
 - Keyboard shortcuts in menus and buttons.
 - Favorites (a star on a page).
 - A "what's new" card in the sidebar.
+- Grouped lists with collapsible group headers: draw a flat list in the order that the display options set.
+- View tabs beside the breadcrumb: put them in the second header row, beside the filter and display buttons. A list with one view has no tabs.
+- Notion's block editor and centered document page: draw a rich-text editor like the description of a Linear issue.
 - Tour House business terms (SPEC, Nº Job, coordenador RSVP or aéreo, célula): the product is a white-label RSVP platform.
 
 ## Drawing
