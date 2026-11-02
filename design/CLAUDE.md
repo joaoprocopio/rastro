@@ -27,6 +27,7 @@ The user rejected these patterns, so draw the alternative instead:
 - Grouped lists with collapsible group headers: draw a flat list in the order that the display options set.
 - View tabs beside the breadcrumb: put them in the second header row, beside the filter and display buttons. A list with one view has no tabs.
 - Notion's block editor and centered document page: draw a rich-text editor like the description of a Linear issue.
+- Bulk imports, with spreadsheet uploads, preview and result steps, and import jobs: draw a direct action instead, such as a dialog that accepts pasted rows and validates each row, or a bulk action on a selection.
 - Tour House business terms (SPEC, Nº Job, coordenador RSVP or aéreo, célula): the product is a white-label RSVP platform.
 
 ## Drawing
