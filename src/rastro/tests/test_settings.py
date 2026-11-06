@@ -12,7 +12,10 @@ ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
 def _example_variables() -> dict[str, str]:
     lines = ENV_EXAMPLE.read_text().splitlines()
-    return dict(line.split("=", 1) for line in lines if line)
+    # Compose reads the `_PORT` variables, and Settings reads the others.
+    pairs = (line.split("=", 1) for line in lines if line and "_PORT=" not in line)
+    # `uv run --env-file` strips double quotes inside a bare value, so JSON sits in single quotes.
+    return {name: value.strip("'") for name, value in pairs}
 
 
 def test_env_example_lists_every_variable(empty_environment: None) -> None:
@@ -44,7 +47,7 @@ def test_env_example_loads(
         ("service_name", "rastro"),
         ("deployment_id", "local"),
         ("deployment_environment", "dev"),
-        ("otel_grpc_endpoint", "localhost:4317"),
+        ("otel_http_endpoint", "http://localhost:4318"),
         ("session_lifetime", SessionLifetime(timedelta(days=14))),
         ("session_cookie_name", "rastro_session"),
         ("session_cookie_secure", True),

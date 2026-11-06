@@ -174,3 +174,4 @@ pyrightconfig.json
 
 .import_linter_cache/
 .claude/
+worktrees/
