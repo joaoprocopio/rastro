@@ -16,7 +16,7 @@ Write a comment, docstring or new Markdown file only when no code search answers
 
 Before you call a change done, run the checks in `README.md`.
 
-Before you change a tracked file, create a worktree with `scripts/worktree.sh [--from branch]`, because parallel sessions share the main checkout. It starts from `main` by default and gives the worktree its own stack ports. Then give its branch the real name with `git branch -m`. In a worktree you created another way, run `scripts/ports.sh` before you start the stack.
+Before you change a tracked file, create a worktree with `scripts/worktree.sh`, because parallel sessions share the main checkout. It starts from `main` and gives the worktree its own stack ports. Then give its branch the real name with `git branch -m`. In a worktree you created another way, run `scripts/ports.sh` before you start the stack.
 
 After the checks over the whole branch diff pass, before the push, remove the stack of your worktree, as "Run a second stack beside another worktree's" in `README.md` shows. Start it again if the pipeline or a later review needs it.
 

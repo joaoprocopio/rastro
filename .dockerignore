@@ -1,4 +1,5 @@
-# The worktrees of other sessions sit under `.claude/`, each with its own `.env`, and `COPY . /app` would ship them.
+# The worktrees of other sessions sit under `worktrees/`, each with its own `.env`, and `COPY . /app` would ship them.
+worktrees/
 .claude/
 .env
 .env.example
@@ -23,7 +24,7 @@ docker/
 docs/
 scripts/
 tests/
-CLAUDE.md
+AGENTS.md
 CODING_STANDARDS.md
 GLOSSARY.md
 compose.yaml

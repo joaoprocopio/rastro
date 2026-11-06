@@ -2,9 +2,9 @@ import uuid
 
 from fastapi import FastAPI
 from opentelemetry import _logs, metrics, trace
-from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
@@ -37,8 +37,7 @@ def _resource(settings: Settings) -> Resource:
 def _setup_tracer(*, settings: Settings, resource: Resource) -> None:
     tracer_provider = TracerProvider(resource=resource)
     tracer_exporter = OTLPSpanExporter(
-        endpoint=settings.otel_grpc_endpoint,
-        insecure=True,
+        endpoint=f"{settings.otel_http_endpoint}/v1/traces"
     )
     tracer_provider.add_span_processor(BatchSpanProcessor(tracer_exporter))
     trace.set_tracer_provider(tracer_provider)
@@ -46,8 +45,7 @@ def _setup_tracer(*, settings: Settings, resource: Resource) -> None:
 
 def _setup_metrics(*, settings: Settings, resource: Resource) -> None:
     metric_exporter = OTLPMetricExporter(
-        endpoint=settings.otel_grpc_endpoint,
-        insecure=True,
+        endpoint=f"{settings.otel_http_endpoint}/v1/metrics"
     )
     metric_readers = [PeriodicExportingMetricReader(metric_exporter)]
     metrics.set_meter_provider(
@@ -56,10 +54,7 @@ def _setup_metrics(*, settings: Settings, resource: Resource) -> None:
 
 
 def _setup_logs(*, settings: Settings, resource: Resource) -> None:
-    log_exporter = OTLPLogExporter(
-        endpoint=settings.otel_grpc_endpoint,
-        insecure=True,
-    )
+    log_exporter = OTLPLogExporter(endpoint=f"{settings.otel_http_endpoint}/v1/logs")
     logger_provider = LoggerProvider(resource=resource)
     logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
     _logs.set_logger_provider(logger_provider)

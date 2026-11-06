@@ -5,7 +5,7 @@ Type: refactor
 
 ## Problem
 
-`src/rastro/telemetry.py` passes every exporter option in code: `endpoint=settings.otel_grpc_endpoint` and `insecure=True`, three times, and builds the `Resource` from `Settings` fields. An operator who wants to change the endpoint, the compression, or the batch sizes edits code, because the standard `OTEL_*` variables lose to the arguments. The file also mixes four jobs in one module: defaults, providers, instrumentors, and the entry point.
+`src/rastro/telemetry.py` passes every exporter option in code: `endpoint=f"{settings.otel_http_endpoint}/v1/{signal}"`, three times, and builds the `Resource` from `Settings` fields. An operator who wants to change the endpoint, the compression, or the batch sizes edits code, because the standard `OTEL_*` variables lose to the arguments. The file also mixes four jobs in one module: defaults, providers, instrumentors, and the entry point.
 
 ## Solution
 
@@ -80,5 +80,4 @@ Request and response hooks live in this module, next to the table. A hook that s
 
 - `instrument_app`, `instrument_engine`, and `instrument_broker` take an object, so they do not fit a table of `instrument(**options)` calls. Do they stay as functions in `instrumentors.py`, or does `instrument()` take the app, the engine, and the broker?
 - `OTELResourceDetector` sets no `service.instance.id`, and `telemetry.py` sets a `uuid4` today. Do two workers with DELTA temporality merge their points into one series without it?
-- Do the `RASTRO_*` settings `service_name`, `service_namespace`, `deployment_id`, `deployment_environment`, and `otel_grpc_endpoint` stay in `Settings` as the source of the defaults, or does `.env.example` set the `OTEL_*` variables directly?
-- The exporters use gRPC today. Does the package keep gRPC, or move to OTLP over HTTP?
+- Do the `RASTRO_*` settings `service_name`, `service_namespace`, `deployment_id`, `deployment_environment`, and `otel_http_endpoint` stay in `Settings` as the source of the defaults, or does `.env.example` set the `OTEL_*` variables directly?

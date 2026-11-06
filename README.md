@@ -4,7 +4,10 @@ An experimental FastAPI project that defines the patterns other projects copy, b
 
 ## Run the stack
 
+Every `docker compose` command on this page reads the published ports from `.env`, so copy `.env.example` first:
+
 ```shell
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -12,7 +15,7 @@ The `migrate` service runs the Alembic migrations. Then the API answers on `http
 
 ## Run the API locally
 
-`.env.example` holds the local value of every setting. Only `RASTRO_POSTGRES_URL` is required, and every other setting has a default:
+`.env.example` holds the local value of every setting and every published port. Only `RASTRO_POSTGRES_URL` is required, and every other setting has a default:
 
 ```shell
 docker compose up -d --wait postgres
@@ -42,16 +45,15 @@ uv run pytest
 
 ## Run a second stack beside another worktree's
 
-Each worktree under `.claude/worktrees/` can run its own stack, so two agents can run the API and the checks at the same time. To create a worktree from `main` with its own ports, run the first command. To start from another branch on origin, add `--from`:
+Each worktree under `worktrees/` can run its own stack, so two agents can run the API and the checks at the same time. To create a worktree from `main` with its own ports, run this command:
 
 ```shell
 scripts/worktree.sh
-scripts/worktree.sh --from feat/some_branch
 ```
 
 The script names the worktree and its branch `wt-` and a random suffix, so give the branch its real name with `git branch -m`. It then runs `scripts/ports.sh`, which you run by hand in a worktree you created another way.
 
-`scripts/ports.sh` takes eight random ports from 20000 to 32767 that no process listens on, and prints them. It writes the ports, the compose project name, `RASTRO_POSTGRES_URL`, and `RASTRO_OTEL_GRPC_ENDPOINT` into `.env`, and it keeps every other value. Run it again and it keeps the ports.
+`scripts/ports.sh` takes seven random ports from 20000 to 32767 that no process listens on, and prints them. It writes the ports, the compose project name, `RASTRO_POSTGRES_URL`, and `RASTRO_OTEL_HTTP_ENDPOINT` into `.env`, and it keeps every other value. Run it again and it keeps the ports.
 
 Every `docker compose` command on this page then works unchanged. The `uv run` commands that read the settings load `.env` in place of `.env.example`, because `.env.example` keeps the default ports:
 

@@ -8,7 +8,6 @@
 - **Acceptance criterion**: the agent that verifies a criterion ticks its checkbox, so an empty checkbox marks a criterion that nobody verified.
 - **Close**: work ends when its PR to `main` is open, as `docs/agents/github.md` describes.
 - **Review**: the maintainer reviews on the PR.
-- **Review ledger**: `/pr-review` records each finding and its verdict in `.scratch/<feature-slug>/review-ledger.md`, which stays in git with the spec.
 
 ## Wayfinding operations
 
