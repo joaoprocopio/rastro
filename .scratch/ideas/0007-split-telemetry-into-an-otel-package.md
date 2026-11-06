@@ -1,6 +1,6 @@
 # Split telemetry into an otel package
 
-Status: needs-triage
+Status: resolved
 Type: refactor
 
 ## Problem
@@ -72,9 +72,9 @@ Request and response hooks live in this module, next to the table. A hook that s
 
 ## Acceptance criteria
 
-- [ ] `src/rastro/telemetry.py` is gone, and `main.py` and `worker.py` call `rastro.otel`.
-- [ ] Every exporter option comes from an `OTEL_*` variable, and an `OTEL_*` variable from the environment overrides each default in `defaults.py`.
-- [ ] The tests in `src/rastro/auth/tests/views/test_telemetry.py`, `src/rastro/common/tests/test_tasks.py`, and `src/rastro/auth/tests/repositories/test_sql_user_repository.py` pass.
+- [x] `src/rastro/telemetry.py` is gone, and `main.py` and `worker.py` call `rastro.otel`.
+- [x] Every exporter option comes from an `OTEL_*` variable, and an `OTEL_*` variable from the environment overrides each default in `defaults.py`.
+- [x] The tests in `src/rastro/auth/tests/views/test_telemetry.py`, `src/rastro/common/tests/test_tasks.py`, and `src/rastro/auth/tests/repositories/test_sql_user_repository.py` pass.
 
 ## Open questions
 

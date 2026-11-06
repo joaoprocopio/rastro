@@ -1,4 +1,4 @@
-from rastro import telemetry
+from rastro import otel
 from rastro.common.infrastructure.database import (
     create_database_engine,
     create_sessionmaker,
@@ -9,10 +9,10 @@ from rastro.task_app import create_task_app
 # A missing variable stops the process here, and the error names it.
 settings = Settings()
 
-telemetry.instrument(settings=settings)
+otel.instrument(settings=settings)
 
 engine = create_database_engine(settings)
-telemetry.instrument_engine(engine)
+otel.instrument_engine(engine)
 
 # The procrastinate command opens this App and runs its worker.
 app = create_task_app(settings=settings, sessionmaker=create_sessionmaker(engine))

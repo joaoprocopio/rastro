@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from rastro import telemetry
+from rastro import otel
 from rastro.app import ERROR_STATUSES, create_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
@@ -111,7 +111,7 @@ async def engine(settings: Settings) -> AsyncIterator[AsyncEngine]:
         await connection.execute(text(f'CREATE DATABASE "{url.database}"'))
 
     engine = create_async_engine(url, poolclass=NullPool)
-    telemetry.instrument_engine(engine)
+    otel.instrument_engine(engine)
     async with engine.begin() as connection:
         await connection.run_sync(_migrate)
 
@@ -217,7 +217,7 @@ def app(
     clock: Clock,
 ) -> FastAPI:
     app = create_app(settings=settings, sessionmaker=sessionmaker)
-    telemetry.instrument_app(app)
+    otel.instrument_app(app)
     # Each process-wide adapter gets a fake, so no test runs a real one by accident.
     app.dependency_overrides[auth_dependencies.password_hasher] = lambda: (
         password_hasher

@@ -12,7 +12,7 @@ The `migrate` service runs the Alembic migrations. Then the API answers on `http
 
 ## Run the API locally
 
-`.env.example` holds the local value of every setting. Only `RASTRO_POSTGRES_URL` is required, and every other setting has a default:
+`.env.example` holds the local value of every setting. Only `RASTRO_POSTGRES_URL` is required, and every other setting has a default. Without `OTEL_EXPORTER_OTLP_ENDPOINT`, the process exports no telemetry:
 
 ```shell
 docker compose up -d --wait postgres

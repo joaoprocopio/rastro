@@ -201,6 +201,8 @@ To upgrade Procrastinate, stop at each version that adds a file to the package's
 
 Each process entry calls `instrument` before the other instrumentations, because each instrumentation reads the global provider. `create_app`, `create_database_engine`, and `create_task_app` stay free of telemetry, so a test builds them with no exporter. Application code uses only the OpenTelemetry API, never the SDK, and the API already separates the code from its exporter, so telemetry is not a port.
 
+The SDK reads every export option from the standard `OTEL_*` variables, so an exporter takes no argument. `rastro.otel.defaults` sets a default only for a variable that the environment leaves unset, and it builds the service name and the resource attributes from `Settings`. Without `OTEL_EXPORTER_OTLP_ENDPOINT`, `instrument` logs one warning and exports nothing, because the exporter's default endpoint is localhost. The defaults leave `OTEL_SEMCONV_STABILITY_OPT_IN` unset, because the Grafana dashboards read `http.status_code`, and the stable name is `http.response.status_code`.
+
 A module that logs declares `logger = logging.getLogger(__name__)` below its imports and adds no handler, because `instrument` adds the handler that sends each record of the root logger to the collector.
 
 A span never holds personal data. The FastAPI span keeps the URL with its query string, so personal data never goes into a query string.

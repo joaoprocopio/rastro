@@ -18,7 +18,10 @@ def _example_variables() -> dict[str, str]:
 def test_env_example_lists_every_variable(empty_environment: None) -> None:
     variables = {field.alias for field in Settings.model_fields.values()}
 
-    assert set(_example_variables()) == variables
+    rastro_variables = {
+        name for name in _example_variables() if name.startswith("RASTRO_")
+    }
+    assert rastro_variables == variables
 
 
 def test_env_example_loads(
@@ -44,7 +47,6 @@ def test_env_example_loads(
         ("service_name", "rastro"),
         ("deployment_id", "local"),
         ("deployment_environment", "dev"),
-        ("otel_grpc_endpoint", "localhost:4317"),
         ("session_lifetime", SessionLifetime(timedelta(days=14))),
         ("session_cookie_name", "rastro_session"),
         ("session_cookie_secure", True),
