@@ -34,7 +34,7 @@ services:
       otel:
         condition: service_started
     ports:
-      - published: 8000
+      - published: ${API_PORT:-8000}
         target: 8000
 
   worker:
@@ -59,7 +59,8 @@ services:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
     ports:
-      - "5432:5432"
+      - published: ${POSTGRES_PORT:-5432}
+        target: 5432
     healthcheck:
       test: [
           "CMD-SHELL",
@@ -82,10 +83,10 @@ services:
       CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: Native
-        published: 9000
+        published: ${CLICKHOUSE_NATIVE_PORT:-9000}
         target: 9000
       - name: HTTP
-        published: 8123
+        published: ${CLICKHOUSE_HTTP_PORT:-8123}
         target: 8123
     healthcheck:
       test: [
@@ -109,13 +110,13 @@ services:
       RASTRO_OTEL_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: Healthcheck
-        published: 13133
+        published: ${OTEL_HEALTHCHECK_PORT:-13133}
         target: 13133
       - name: HTTP
-        published: 4318
+        published: ${OTEL_HTTP_PORT:-4318}
         target: 4318
       - name: gRPC
-        published: 4317
+        published: ${OTEL_GRPC_PORT:-4317}
         target: 4317
     depends_on:
       clickhouse:
@@ -134,7 +135,7 @@ services:
       RASTRO_GF_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: UI
-        published: 7141
+        published: ${GRAFANA_PORT:-7141}
         target: 3000
     volumes:
       # TODO: bind local dashboards and data sources
