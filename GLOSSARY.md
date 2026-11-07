@@ -13,12 +13,16 @@ The email address and password that a person presents to prove that they own a U
 _Avoid_: Login data, auth data
 
 **Session**:
-The period in which a client acts as one User, from the moment rastro accepts its Credentials until the Session ends. A Session ends when the client ends it or when its lifetime runs out, and a Session whose lifetime has run out is expired.
+The period in which a client acts as one User, from the moment rastro accepts its Credentials until the Session ends. A Session ends when the client ends it, when its lifetime runs out, or when the User resets the password, and a Session whose lifetime has run out is expired.
 _Avoid_: Login (as a noun), token (the Session token only identifies a Session)
 
 **Session token**:
 The random secret that a client presents to act in its Session. Whoever holds it acts as the User of that Session.
 _Avoid_: Session id, session key
+
+**Reset token**:
+The random, single-use secret that lets a person who controls the email address of a User choose a new password.
+_Avoid_: Reset code, recovery token
 
 # Security (security)
 
