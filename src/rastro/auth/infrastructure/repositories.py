@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from psycopg.errors import UniqueViolation
-from sqlalchemy import CursorResult, delete, func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +29,11 @@ from rastro.auth.infrastructure.models import (
     UserRow,
 )
 from rastro.common.domain.value_objects import Id
-from rastro.common.infrastructure.repositories import existing_row, next_id
+from rastro.common.infrastructure.repositories import (
+    existing_row,
+    next_id,
+    removed_count,
+)
 
 
 class SqlUserRepository:
@@ -105,13 +109,10 @@ class SqlSessionRepository:
         )
 
     async def remove_expired(self, *, at: datetime) -> int:
-        result = await self._db_session.execute(
-            delete(SessionRow).where(SessionRow.expires_at <= at)
+        return await removed_count(
+            self._db_session,
+            statement=delete(SessionRow).where(SessionRow.expires_at <= at),
         )
-        # AsyncSession.execute types a Result, and only a CursorResult has a rowcount.
-        if not isinstance(result, CursorResult):
-            raise TypeError(f"The DELETE returned {result!r}, not a CursorResult.")
-        return result.rowcount
 
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken
@@ -166,3 +167,9 @@ class SqlResetTokenRepository:
             .returning(ResetTokenRow)
         )
         return None if row is None else reset_token_from_row(row)
+
+    async def remove_expired(self, *, at: datetime) -> int:
+        return await removed_count(
+            self._db_session,
+            statement=delete(ResetTokenRow).where(ResetTokenRow.expires_at <= at),
+        )

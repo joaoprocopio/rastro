@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import Awaitable, Callable
 
 import pydantic
 import pytest
@@ -26,6 +25,7 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from rastro.auth.tests.conftest import until_a_statement_waits
 from rastro.auth.tests.fakes import (
     FakeClock,
     FakePasswordHasher,
@@ -117,7 +117,6 @@ async def test_a_confirmation_that_runs_second_removes_the_new_session_and_keeps
     raced_user: User,
     password_hasher: PasswordHasher,
     clock: FakeClock,
-    until_a_statement_waits: Callable[[str], Awaitable[None]],
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
 
@@ -125,6 +124,7 @@ async def test_a_confirmation_that_runs_second_removes_the_new_session_and_keeps
     async with (
         sessionmaker() as signing_in,
         sessionmaker() as confirming,
+        sessionmaker() as probe,
         asyncio.TaskGroup() as tasks,
     ):
         users = PausingUserRepository(SqlUserRepository(signing_in))
@@ -151,7 +151,7 @@ async def test_a_confirmation_that_runs_second_removes_the_new_session_and_keeps
                 clock=clock,
             )
         )
-        await until_a_statement_waits(UPDATE_OF_THE_USER)
+        await until_a_statement_waits(probe, statement=UPDATE_OF_THE_USER)
         users.resume.set()
         output = await sign_in
         await signing_in.commit()
@@ -174,11 +174,14 @@ async def test_a_confirmation_that_runs_first_makes_the_old_password_fail(
     raced_user: User,
     password_hasher: PasswordHasher,
     clock: FakeClock,
-    until_a_statement_waits: Callable[[str], Awaitable[None]],
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
 
-    async with sessionmaker() as confirming, sessionmaker() as signing_in:
+    async with (
+        sessionmaker() as confirming,
+        sessionmaker() as signing_in,
+        sessionmaker() as probe,
+    ):
         await password_reset_confirm(
             CONFIRMATION,
             users=SqlUserRepository(confirming),
@@ -200,7 +203,7 @@ async def test_a_confirmation_that_runs_first_makes_the_old_password_fail(
                         token_bytes=TOKEN_BYTES,
                     )
                 )
-                await until_a_statement_waits(LOCKED_READ)
+                await until_a_statement_waits(probe, statement=LOCKED_READ)
                 await confirming.commit()
 
     async with sessionmaker() as reader:
@@ -214,7 +217,6 @@ async def test_a_second_sign_in_waits_for_the_first_and_reads_its_new_hash(
     committed_user: User,
     password_hasher: FakePasswordHasher,
     clock: FakeClock,
-    until_a_statement_waits: Callable[[str], Awaitable[None]],
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
     committed_user.hashed_password = HashedPassword("outdated$password")
@@ -224,6 +226,7 @@ async def test_a_second_sign_in_waits_for_the_first_and_reads_its_new_hash(
     async with (
         sessionmaker() as first,
         sessionmaker() as second,
+        sessionmaker() as probe,
         asyncio.TaskGroup() as tasks,
     ):
         users = PausingUserRepository(SqlUserRepository(first))
@@ -251,7 +254,7 @@ async def test_a_second_sign_in_waits_for_the_first_and_reads_its_new_hash(
                 token_bytes=TOKEN_BYTES,
             )
         )
-        await until_a_statement_waits(LOCKED_READ)
+        await until_a_statement_waits(probe, statement=LOCKED_READ)
         users.resume.set()
         await first_sign_in
         await first.commit()

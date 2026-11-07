@@ -3,14 +3,19 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from email import message_from_bytes, policy
 from email.message import EmailMessage
+from enum import StrEnum
 
 import httpx
 import pytest
 from aiosmtpd.smtp import SMTP, AuthResult, Envelope, LoginPassword
 from aiosmtpd.smtp import Session as SmtpSession
 from fastapi import FastAPI
+from procrastinate import App
+from procrastinate.jobs import Status
+from procrastinate.testing import InMemoryConnector
 from pydantic import SecretStr
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.ports import PasswordHasher
@@ -29,8 +34,32 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from rastro.auth.presentation.tasks import (
+    PASSWORD_RESET_QUEUE,
+    password_reset_send_task,
+)
 from rastro.common.domain.value_objects import Id
 from rastro.settings import Settings, SmtpPort, SmtpSecurity
+
+STATEMENTS_THAT_WAIT = text(
+    "SELECT count(*) FROM pg_stat_activity"
+    " WHERE datname = current_database()"
+    " AND wait_event_type = 'Lock' AND query LIKE :statement"
+)
+
+
+async def until_a_statement_waits(probe: AsyncSession, *, statement: str) -> None:
+    async with asyncio.timeout(5):
+        while not await probe.scalar(STATEMENTS_THAT_WAIT, {"statement": statement}):
+            await probe.rollback()
+
+
+@pytest.fixture
+def connector(worker_app: App) -> InMemoryConnector:
+    """The connector of `worker_app`, whose job rows a test reads and makes due."""
+    connector = worker_app.connector
+    assert isinstance(connector, InMemoryConnector)
+    return connector
 
 
 @pytest.fixture
@@ -158,6 +187,99 @@ def password_reset_email() -> OutgoingEmail:
     )
 
 
+@pytest.fixture
+async def other_user_reset_token(
+    db_session: AsyncSession, password_hasher: PasswordHasher, settings: Settings
+) -> IssuedResetToken:
+    """A committed Reset token of a second User, issued now by the wall clock."""
+    users = SqlUserRepository(db_session)
+    other_user = User(
+        id=await users.next_id(),
+        email=Email("bia@example.com"),
+        display_name=DisplayName("Bia"),
+        hashed_password=password_hasher.hash(
+            password=RawPassword(SecretStr("password"))
+        ),
+    )
+    await users.add(other_user)
+    reset_tokens = SqlResetTokenRepository(db_session)
+    reset_token = IssuedResetToken.issue(
+        id=await reset_tokens.next_id(),
+        user_id=other_user.id,
+        token=ResetToken(SecretStr("other")),
+        at=datetime.now(UTC),
+        lifetime=settings.reset_token_lifetime,
+    )
+    await reset_tokens.replace(reset_token)
+    await db_session.commit()
+    return reset_token
+
+
+@pytest.fixture
+async def postgres_worker_app(
+    unbound_worker_app: App, engine: AsyncEngine
+) -> AsyncIterator[App]:
+    """`unbound_worker_app` on its real connector, whose jobs commit in the test database."""
+    async with unbound_worker_app.open_async():
+        yield unbound_worker_app
+        # These rows sit outside the transaction of the test, so no rollback removes them.
+        connector = unbound_worker_app.connector
+        await connector.execute_query_async("DELETE FROM procrastinate_jobs")
+        await connector.execute_query_async("DELETE FROM procrastinate_workers")
+
+
+@pytest.fixture(params=["worker_app", "postgres_worker_app"])
+def connector_app(request: pytest.FixtureRequest) -> App:
+    """The App of a job test that runs once on `InMemoryConnector` and once on Postgres."""
+    app: App = request.getfixturevalue(request.param)
+    return app
+
+
+class JobHistory:
+    """Writes reset jobs that finished in the past, and reads the jobs of its App."""
+
+    def __init__(self, app: App) -> None:
+        self._app = app
+
+    async def finish(
+        self, *, status: Status, age: timedelta, queue: str = PASSWORD_RESET_QUEUE
+    ) -> int:
+        deferrer = password_reset_send_task.configure(
+            queue=queue, task_kwargs={"email": "ana@example.com"}
+        )
+        job_id = await deferrer.defer_async()
+        job_manager = self._app.job_manager
+        job = await job_manager.fetch_job(
+            queues=[queue], worker_id=await job_manager.register_worker()
+        )
+        assert job is not None
+        await job_manager.finish_job(job, status=status, delete_job=False)
+        await self._move_events(job_id, at=datetime.now(UTC) - age)
+        return job_id
+
+    async def statuses(self) -> dict[int | None, str | None]:
+        jobs = await self._app.job_manager.list_jobs_async()
+        return {job.id: job.status for job in jobs}
+
+    # remove_old_jobs reads the age of a job from its last event.
+    async def _move_events(self, job_id: int, *, at: datetime) -> None:
+        connector = self._app.connector
+        if isinstance(connector, InMemoryConnector):
+            for event in connector.events[job_id]:
+                event["at"] = at
+        else:
+            await connector.execute_query_async(
+                "UPDATE procrastinate_events SET at = %(at)s WHERE job_id = %(job_id)s",
+                at=at,
+                job_id=job_id,
+            )
+
+
+@pytest.fixture
+def job_history(connector_app: App) -> JobHistory:
+    return JobHistory(connector_app)
+
+
 class SmtpRecorder:
     """The handler of `smtp_server`, which records what the server receives."""
 
@@ -206,6 +328,102 @@ async def smtp_settings(
         host="127.0.0.1",
         port=0,
     )
+    yield settings.model_copy(
+        update={
+            "smtp_host": "127.0.0.1",
+            "smtp_port": SmtpPort(server.sockets[0].getsockname()[1]),
+            "smtp_security": SmtpSecurity.NONE,
+        }
+    )
+    server.close()
+    await server.wait_closed()
+
+
+class SmtpFault(StrEnum):
+    """What `SmtpScript` does at a step in place of a reply."""
+
+    CLOSE = "close"
+    SILENCE = "silence"
+    BAD_TLS = "bad_tls"
+
+
+class SmtpScript:
+    """The handler of `scripted_smtp_settings`, whose `replies` a test sets for each step."""
+
+    def __init__(self) -> None:
+        self.replies: dict[str, str | SmtpFault] = {
+            "GREETING": "220 Ready",
+            "EHLO": "250-test\r\n250-AUTH PLAIN\r\n250 STARTTLS",
+            "HELO": "250 OK",
+            "AUTH": "235 OK",
+            "STARTTLS": "220 Go",
+            "MAIL": "250 OK",
+            "RCPT": "250 OK",
+            "DATA": "354 Go",
+            "BODY": "250 OK",
+            "RSET": "250 OK",
+            "QUIT": "221 Bye",
+        }
+
+    async def handle(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            await self._converse(reader, writer)
+        except ConnectionError:
+            pass
+        finally:
+            writer.close()
+
+    async def _converse(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        if not await self._answer("GREETING", reader, writer):
+            return
+        while line := await reader.readline():
+            step = line.split()[0].decode().upper()
+            if not await self._answer(step, reader, writer) or step == "QUIT":
+                return
+            if step == "DATA" and self.replies[step] == "354 Go":
+                await reader.readuntil(b"\r\n.\r\n")
+                if not await self._answer("BODY", reader, writer):
+                    return
+
+    async def _answer(
+        self, step: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> bool:
+        reply = self.replies[step]
+        match reply:
+            case SmtpFault.CLOSE:
+                return False
+            case SmtpFault.SILENCE:
+                # The read ends when the client gives up and closes the connection.
+                await reader.read()
+                return False
+            case SmtpFault.BAD_TLS:
+                writer.write(b"220 Go\r\n")
+                await writer.drain()
+                await reader.read(1)
+                writer.write(b"not a TLS record\r\n")
+                await writer.drain()
+                return False
+            case _:
+                writer.write(f"{reply}\r\n".encode())
+                await writer.drain()
+                return True
+
+
+@pytest.fixture
+def smtp_script() -> SmtpScript:
+    return SmtpScript()
+
+
+@pytest.fixture
+async def scripted_smtp_settings(
+    settings: Settings, smtp_script: SmtpScript
+) -> AsyncIterator[Settings]:
+    """Settings that reach a local SMTP server, which answers as `smtp_script` says."""
+    server = await asyncio.start_server(smtp_script.handle, host="127.0.0.1", port=0)
     yield settings.model_copy(
         update={
             "smtp_host": "127.0.0.1",

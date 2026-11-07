@@ -182,6 +182,16 @@ class FakeResetTokenRepository:
                 return reset_token
         return None
 
+    async def remove_expired(self, *, at: datetime) -> int:
+        expired = [
+            user_id
+            for user_id, reset_token in self.reset_tokens.items()
+            if reset_token.is_expired(at=at)
+        ]
+        for user_id in expired:
+            del self.reset_tokens[user_id]
+        return len(expired)
+
 
 class FakeClock:
     def __init__(self, now: datetime) -> None:
@@ -195,8 +205,11 @@ class FakeEmailSender:
     def __init__(self) -> None:
         self.sent: list[OutgoingEmail] = []
         self.error: Exception | None = None
+        self.hold: asyncio.Event | None = None
 
     async def send(self, email: OutgoingEmail) -> None:
+        if self.hold is not None:
+            await self.hold.wait()
         if self.error is not None:
             raise self.error
         self.sent.append(email)

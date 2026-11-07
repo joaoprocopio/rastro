@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_security: SmtpSecurity = SmtpSecurity.STARTTLS
     smtp_sender: Email = Email("no-reply@rastro.example")
+    smtp_timeout: Annotated[timedelta, Field(gt=timedelta(0))] = timedelta(seconds=60)
 
     # A relay with click tracking rewrites the link and reads the token, so turn it off.
     reset_link_url: ResetLinkUrl = ResetLinkUrl("http://localhost:5173/password-reset")

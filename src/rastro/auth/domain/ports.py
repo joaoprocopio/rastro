@@ -75,8 +75,11 @@ class ResetTokenRepository(Protocol):
         self, hashed_token: HashedResetToken
     ) -> IssuedResetToken | None: ...
 
+    async def remove_expired(self, *, at: datetime) -> int: ...
+
 
 class EmailSender(Protocol):
+    # Raises EmailTemporaryError, EmailRefusedError, or EmailNoAnswerError.
     async def send(self, email: OutgoingEmail) -> None: ...
 
 

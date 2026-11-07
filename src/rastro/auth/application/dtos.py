@@ -43,6 +43,14 @@ class PasswordResetSendInput(DTO):
     email: Email
 
 
+class PasswordResetSendOutput(DTO):
+    no_answer: bool
+
+
 class PasswordResetConfirmInput(DTO):
     token: ResetToken
     password: RawPassword
+
+
+class ResetTokenRemoveExpiredOutput(DTO):
+    count: int
