@@ -1,8 +1,8 @@
 # GitHub
 
-Use `gh` for pull requests, check runs, and reviews, and local `git` for branches and commits.
+Use `gh` for pull requests, issues, check runs, and reviews, and local `git` for branches and commits.
 
-Read anything whenever the task needs it, and create or update PRs and comments without asking. Before you approve, request changes on, merge, or close a PR, delete a branch, or start a workflow, show the user the command and run it once the user approves.
+Read anything whenever the task needs it, and create or update PRs, issues, and comments without asking. Before you approve, request changes on, merge, or close a PR, delete a branch, or start a workflow, show the user the command and run it once the user approves.
 
 ## Pull requests
 
