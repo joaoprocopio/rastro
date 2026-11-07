@@ -3,11 +3,11 @@ from http import HTTPStatus
 
 import pytest
 
+from rastro.api_app import ERROR_STATUSES
 from rastro.common.domain.errors import BaseError
 from rastro.common.tests.sample.presentation.views import (
     ERROR_STATUSES as SAMPLE_ERROR_STATUSES,
 )
-from rastro.server_app import ERROR_STATUSES
 from tests.architecture.rules import error_classes, status_violations
 
 CODE_FORM = re.compile(r"[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*")

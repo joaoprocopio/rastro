@@ -1,9 +1,9 @@
 from rastro import otel
+from rastro.api_app import create_api_app
 from rastro.common.infrastructure.database import (
     create_database_engine,
     create_sessionmaker,
 )
-from rastro.server_app import create_app
 from rastro.settings import Settings
 
 # A missing or invalid variable stops the process here, and the error names it.
@@ -14,5 +14,5 @@ otel.instrument(settings=settings)
 engine = create_database_engine(settings)
 otel.instrument_engine(engine)
 
-app = create_app(settings=settings, sessionmaker=create_sessionmaker(engine))
+app = create_api_app(settings=settings, sessionmaker=create_sessionmaker(engine))
 otel.instrument_app(app)

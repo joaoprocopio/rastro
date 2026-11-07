@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from rastro import otel
+from rastro.api_app import ERROR_STATUSES, create_api_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
 from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
@@ -42,9 +43,8 @@ from rastro.common.tests.sample.presentation.views import (
 )
 from rastro.common.tests.sample.presentation.views import router as sample_router
 from rastro.otel import defaults
-from rastro.server_app import ERROR_STATUSES, create_app
 from rastro.settings import Settings
-from rastro.task_app import create_task_app
+from rastro.worker_app import create_worker_app
 
 ROOT = Path(__file__).parent
 
@@ -141,7 +141,7 @@ async def connection(engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
 
 @pytest.fixture(scope="session")
 def unbound_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    """The sessionmaker of `worker_app`, which `sessionmaker` binds to each test."""
+    """The sessionmaker of `unbound_worker_app`, which `sessionmaker` binds to each test."""
     # Each request or task transaction becomes a savepoint in the test's transaction.
     return async_sessionmaker(
         join_transaction_mode="create_savepoint", expire_on_commit=False
@@ -181,12 +181,12 @@ def adapter(request: pytest.FixtureRequest) -> RepositoryKind:
 
 
 @pytest.fixture(scope="session")
-def worker_app(
+def unbound_worker_app(
     settings: Settings, unbound_sessionmaker: async_sessionmaker[AsyncSession]
 ) -> App:
     """The App that the worker builds, with the sample tasks added."""
     # add_tasks_from binds each task to its App, so the test run builds one App.
-    app = create_task_app(settings=settings, sessionmaker=unbound_sessionmaker)
+    app = create_worker_app(settings=settings, sessionmaker=unbound_sessionmaker)
     app.add_tasks_from(sample_blueprint, namespace="sample")
     # A run defers no periodic job, so a test runs only the jobs that it defers.
     app.periodic_defaults["max_delay"] = -1
@@ -197,11 +197,11 @@ def worker_app(
 
 
 @pytest.fixture
-async def task_app(
-    worker_app: App, sessionmaker: async_sessionmaker[AsyncSession]
+async def worker_app(
+    unbound_worker_app: App, sessionmaker: async_sessionmaker[AsyncSession]
 ) -> AsyncIterator[App]:
-    """`worker_app` with no job, whose jobs run in the test's transaction."""
-    with worker_app.replace_connector(InMemoryConnector()) as app:
+    """`unbound_worker_app` with no job, whose jobs run in the test's transaction."""
+    with unbound_worker_app.replace_connector(InMemoryConnector()) as app:
         async with app.open_async():
             yield app
 
@@ -223,7 +223,7 @@ def app(
     password_hasher: PasswordHasher,
     clock: Clock,
 ) -> FastAPI:
-    app = create_app(settings=settings, sessionmaker=sessionmaker)
+    app = create_api_app(settings=settings, sessionmaker=sessionmaker)
     otel.instrument_app(app)
     # Each process-wide adapter gets a fake, so no test runs a real one by accident.
     app.dependency_overrides[auth_dependencies.password_hasher] = lambda: (

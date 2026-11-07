@@ -11,7 +11,7 @@ from rastro.auth.presentation.tasks import session_remove_expired_task
 
 
 async def test_the_task_removes_the_expired_session_and_logs_the_count(
-    task_app: App,
+    worker_app: App,
     reader: AsyncSession,
     active_session: Session,
     expired_session: Session,
@@ -22,7 +22,7 @@ async def test_the_task_removes_the_expired_session_and_logs_the_count(
     await deferrer.defer_async()
 
     with caplog.at_level(logging.INFO, logger=tasks.__name__):
-        await task_app.run_worker_async()
+        await worker_app.run_worker_async()
 
     read_sessions = SqlSessionRepository(reader)
     assert await read_sessions.get_by_hashed_token(active_session.hashed_token) == (
