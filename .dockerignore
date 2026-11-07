@@ -18,7 +18,6 @@ worktrees/
 **/__pycache__/
 
 # None of this runs in a container. README.md stays, because pyproject.toml names it as the readme.
-.scratch/
 docker/
 docs/
 scripts/

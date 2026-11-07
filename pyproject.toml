@@ -54,10 +54,6 @@ addopts = "--cov src/"
 anyio_mode = "auto"
 testpaths = ["src", "tests"]
 
-[tool.ruff]
-# The specs quote code as written at the time, so ruff leaves them alone.
-extend-exclude = [".scratch"]
-
 [tool.ruff.lint]
 extend-select = ["TID251"]
 
