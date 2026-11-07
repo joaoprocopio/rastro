@@ -9,7 +9,7 @@ x-rastro-environment: &rastro-environment
   RASTRO_SERVICE_NAME: "rastro"
   RASTRO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
   RASTRO_DEPLOYMENT_ENVIRONMENT: "prod"
-  RASTRO_OTEL_HTTP_ENDPOINT: "http://otel:4318"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4318"
 
 services:
   migrate:

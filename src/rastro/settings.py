@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # The alias makes a validation error name the variable, not the field.
     model_config = SettingsConfigDict(
         alias_generator=_variable,
-        # `.env.example` also holds the ports that compose reads.
+        # An env file also holds the OTEL_* variables, which the SDK reads, and the ports, which compose reads.
         extra="ignore",
         frozen=True,
         hide_input_in_errors=True,
@@ -53,7 +53,6 @@ class Settings(BaseSettings):
     service_name: str = "rastro"
     deployment_id: str = "local"
     deployment_environment: str = "dev"
-    otel_http_endpoint: str = "http://localhost:4318"
 
     session_lifetime: SessionLifetime = SessionLifetime(timedelta(days=14))
     session_cookie_name: str = "rastro_session"

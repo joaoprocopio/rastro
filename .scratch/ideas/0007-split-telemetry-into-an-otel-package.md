@@ -1,6 +1,6 @@
 # Split telemetry into an otel package
 
-Status: needs-triage
+Status: resolved
 Type: refactor
 
 ## Problem
@@ -63,18 +63,17 @@ _INSTRUMENTORS: tuple[tuple[type[BaseInstrumentor], dict[str, Any]], ...] = (
 )
 ```
 
-Request and response hooks live in this module, next to the table. A hook that sets `user.id` on the server span belongs here, because the Grafana dashboards in `docker/grafana/provisioning/dashboards/` filter on `SpanAttributes['user.id']`.
+Request and response hooks live in this module, next to the table. A hook that sets `user.id` on the server span belongs here.
 
 ## Out of scope
 
 - New instrumentors or new span attributes, beyond what `telemetry.py` exports today.
-- Changes to the Grafana dashboards.
 
 ## Acceptance criteria
 
-- [ ] `src/rastro/telemetry.py` is gone, and `main.py` and `worker.py` call `rastro.otel`.
-- [ ] Every exporter option comes from an `OTEL_*` variable, and an `OTEL_*` variable from the environment overrides each default in `defaults.py`.
-- [ ] The tests in `src/rastro/auth/tests/views/test_telemetry.py`, `src/rastro/common/tests/test_tasks.py`, and `src/rastro/auth/tests/repositories/test_sql_user_repository.py` pass.
+- [x] `src/rastro/telemetry.py` is gone, and `main.py` and `worker.py` call `rastro.otel`.
+- [x] Every exporter option comes from an `OTEL_*` variable, and an `OTEL_*` variable from the environment overrides each default in `defaults.py`.
+- [x] The tests in `src/rastro/auth/tests/views/test_telemetry.py`, `src/rastro/common/tests/test_tasks.py`, and `src/rastro/auth/tests/repositories/test_sql_user_repository.py` pass.
 
 ## Open questions
 

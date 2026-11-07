@@ -15,7 +15,7 @@ The `migrate` service runs the Alembic migrations. Then the API answers on `http
 
 ## Run the API locally
 
-`.env.example` holds the local value of every setting and every published port. Only `RASTRO_POSTGRES_URL` is required, and every other setting has a default:
+`.env.example` holds the local value of every setting and every published port. Only `RASTRO_POSTGRES_URL` is required, and every other setting has a default. Without `OTEL_EXPORTER_OTLP_ENDPOINT`, the process exports no telemetry:
 
 ```shell
 docker compose up -d --wait postgres
@@ -53,7 +53,7 @@ scripts/worktree.sh
 
 The script names the worktree and its branch `wt-` and a random suffix, so give the branch its real name with `git branch -m`. It then runs `scripts/ports.sh`, which you run by hand in a worktree you created another way.
 
-`scripts/ports.sh` takes seven random ports from 20000 to 32767 that no process listens on, and prints them. It writes the ports, the compose project name, `RASTRO_POSTGRES_URL`, and `RASTRO_OTEL_HTTP_ENDPOINT` into `.env`, and it keeps every other value. Run it again and it keeps the ports.
+`scripts/ports.sh` takes seven random ports from 20000 to 32767 that no process listens on, and prints them. It writes the ports, the compose project name, `RASTRO_POSTGRES_URL`, and `OTEL_EXPORTER_OTLP_ENDPOINT` into `.env`, and it keeps every other value. Run it again and it keeps the ports.
 
 Every `docker compose` command on this page then works unchanged. The `uv run` commands that read the settings load `.env` in place of `.env.example`, because `.env.example` keeps the default ports:
 

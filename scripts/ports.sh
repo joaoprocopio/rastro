@@ -32,7 +32,7 @@ if ! grep -qs '^COMPOSE_PROJECT_NAME=' .env; then
     "RASTRO_OTEL_HTTP_PORT=$otel_http" \
     "RASTRO_GRAFANA_PORT=$grafana" \
     "RASTRO_POSTGRES_URL=postgresql+psycopg://postgres:postgres@localhost:$postgres/postgres" \
-    "RASTRO_OTEL_HTTP_ENDPOINT=http://localhost:$otel_http"
+    "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$otel_http"
 fi
 
 grep -E '^(COMPOSE_PROJECT_NAME|[A-Z_]+_PORT)=' .env

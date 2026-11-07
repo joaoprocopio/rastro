@@ -5,7 +5,7 @@ Type: feature
 
 ## Problem
 
-The Grafana dashboards in `docker/grafana/provisioning/dashboards/` show only what the API and the worker export. A page that loads slowly, a JavaScript error, or a failed `fetch` in the browser leaves no span or log, so a trace starts at the API and never at the user's click.
+Grafana shows only what the API and the worker export. A page that loads slowly, a JavaScript error, or a failed `fetch` in the browser leaves no span or log, so a trace starts at the API and never at the user's click.
 
 ## Solution
 
