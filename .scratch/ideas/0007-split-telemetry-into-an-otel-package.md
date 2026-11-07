@@ -63,12 +63,11 @@ _INSTRUMENTORS: tuple[tuple[type[BaseInstrumentor], dict[str, Any]], ...] = (
 )
 ```
 
-Request and response hooks live in this module, next to the table. A hook that sets `user.id` on the server span belongs here, because the Grafana dashboards in `docker/grafana/provisioning/dashboards/` filter on `SpanAttributes['user.id']`.
+Request and response hooks live in this module, next to the table. A hook that sets `user.id` on the server span belongs here.
 
 ## Out of scope
 
 - New instrumentors or new span attributes, beyond what `telemetry.py` exports today.
-- Changes to the Grafana dashboards.
 
 ## Acceptance criteria
 
