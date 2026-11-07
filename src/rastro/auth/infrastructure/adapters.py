@@ -21,6 +21,11 @@ from rastro.auth.domain.value_objects import (
 from rastro.settings import Settings, SmtpSecurity
 
 
+# JSON can hold a lone surrogate, which only surrogatepass encodes, and the bytes of other text stay the same.
+def _password_bytes(password: RawPassword) -> bytes:
+    return password.root.get_secret_value().encode("utf-8", "surrogatepass")
+
+
 class Argon2PasswordHasher:
     def __init__(self) -> None:
         self._hasher = argon2.PasswordHasher()
@@ -30,7 +35,7 @@ class Argon2PasswordHasher:
 
     def hash(self, *, password: RawPassword) -> HashedPassword:
         return HashedPassword.model_validate(
-            self._hasher.hash(password.root.get_secret_value())
+            self._hasher.hash(_password_bytes(password))
         )
 
     def verify(
@@ -40,7 +45,7 @@ class Argon2PasswordHasher:
         checked = self._fixed_hash if hashed is None else hashed
         # Any other argon2 error means a corrupted hash, so it answers 500.
         try:
-            self._hasher.verify(checked.root, password.root.get_secret_value())
+            self._hasher.verify(checked.root, _password_bytes(password))
         except argon2.exceptions.VerifyMismatchError:
             return PasswordCheck(is_correct=False, new_hash=None)
         if hashed is None:

@@ -104,11 +104,10 @@ def test_raw_password_rejects_7_characters() -> None:
 
 
 @pytest.mark.parametrize("raw", ["\ud800aaaaaaaa", SecretStr("\ud800aaaaaaaa")])
-def test_raw_password_rejects_a_lone_surrogate(raw: str | SecretStr) -> None:
-    with pytest.raises(pydantic.ValidationError) as excinfo:
-        RawPassword.model_validate(raw)
+def test_raw_password_allows_a_lone_surrogate(raw: str | SecretStr) -> None:
+    password = RawPassword.model_validate(raw)
 
-    assert [error["type"] for error in excinfo.value.errors()] == ["string_unicode"]
+    assert password.root.get_secret_value() == "\ud800aaaaaaaa"
 
 
 def test_a_rejected_password_keeps_the_input_out_of_the_message() -> None:

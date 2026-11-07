@@ -131,7 +131,7 @@ async def test_a_correct_sign_in_replaces_a_hash_with_outdated_parameters(
 
 
 @pytest.mark.parametrize("email", ["ana@example.com", "nobody@example.com"])
-async def test_a_password_with_a_lone_surrogate_starts_no_session(
+async def test_a_wrong_password_with_a_lone_surrogate_starts_no_session(
     client: httpx.AsyncClient, user: User, db_session: AsyncSession, email: str
 ) -> None:
     # The JSON encoder of httpx rejects a lone surrogate, so the body stays literal.
@@ -141,12 +141,8 @@ async def test_a_password_with_a_lone_surrogate_starts_no_session(
         headers={"Content-Type": "application/json"},
     )
 
-    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    assert response.json() == {
-        "type": "request.validation_failed",
-        "status": 422,
-        "errors": [{"pointer": "#/password", "type": "request.invalid_format"}],
-    }
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json() == {"type": "auth.incorrect_credentials", "status": 401}
     count = await db_session.scalar(select(func.count()).select_from(SessionRow))
     assert count == 0
 
