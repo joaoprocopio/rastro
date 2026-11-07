@@ -29,7 +29,6 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
 )
 from rastro.auth.presentation import tasks
-from rastro.auth.presentation.dependencies import JOB_EMAIL_SENDER_KEY
 from rastro.auth.presentation.tasks import (
     password_reset_remove_old_jobs_task,
     password_reset_send_task,
@@ -40,12 +39,12 @@ from rastro.auth.tests.conftest import JobHistory, until_a_statement_waits
 from rastro.auth.tests.fakes import FakeEmailSender
 from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.common.presentation.dependencies import (
-    JOB_SESSIONMAKER_KEY,
     JOB_SETTINGS_KEY,
 )
 from rastro.settings import Settings
 
 CONFIRM_PATH = "/api/v1/auth/password-reset/confirm"
+NEW_PASSWORD = "newpassword"
 SEVEN_DAYS = timedelta(days=7)
 MINUTE = timedelta(minutes=1)
 
@@ -287,27 +286,7 @@ async def test_a_second_job_within_the_default_cooldown_sends_nothing(
     assert email_sender.sent == []
 
 
-@pytest.fixture
-def held_email_sender() -> FakeEmailSender:
-    """A fake whose send waits for its `hold`, so the job keeps its transaction open."""
-    email_sender = FakeEmailSender()
-    email_sender.hold = asyncio.Event()
-    return email_sender
-
-
-@pytest.fixture
-def committing_job_context(
-    engine: AsyncEngine, settings: Settings, held_email_sender: FakeEmailSender
-) -> dict[str, object]:
-    """The context of a job that commits on its own connection, as in production."""
-    return {
-        JOB_SESSIONMAKER_KEY: create_sessionmaker(engine),
-        JOB_SETTINGS_KEY: settings,
-        JOB_EMAIL_SENDER_KEY: held_email_sender,
-    }
-
-
-async def _run_two_jobs_until_one_waits_for_the_other(
+async def _run_two_jobs_where_one_waits_for_the_other(
     worker_app: App,
     *,
     user: User,
@@ -350,7 +329,7 @@ async def test_two_jobs_at_the_same_time_send_one_email_whose_token_works(
     committing_client: httpx.AsyncClient,
     committed_user: User,
 ) -> None:
-    job_ids = await _run_two_jobs_until_one_waits_for_the_other(
+    job_ids = await _run_two_jobs_where_one_waits_for_the_other(
         worker_app,
         user=committed_user,
         context=committing_job_context,
@@ -361,17 +340,45 @@ async def test_two_jobs_at_the_same_time_send_one_email_whose_token_works(
     for job_id in job_ids:
         status = await worker_app.job_manager.get_job_status_async(job_id)
         assert status == Status.SUCCEEDED
-    assert len(held_email_sender.sent) == 1
+    (email,) = held_email_sender.sent
+    assert email.to == committed_user.email
     token = held_email_sender.last_reset_token()
     assert await _stored_digest(engine, user=committed_user) == token.digest().root
     confirmed = await committing_client.post(
         CONFIRM_PATH,
-        json={"token": token.root.get_secret_value(), "password": "newpassword"},
+        json={"token": token.root.get_secret_value(), "password": NEW_PASSWORD},
     )
     assert confirmed.status_code == HTTPStatus.NO_CONTENT
 
 
 async def test_a_job_that_rolls_back_leaves_the_write_and_the_email_to_the_waiting_job(
+    worker_app: App,
+    engine: AsyncEngine,
+    committing_job_context: dict[str, object],
+    held_email_sender: FakeEmailSender,
+    committed_user: User,
+) -> None:
+    held_email_sender.next_error = EmailTemporaryError()
+
+    job_ids = await _run_two_jobs_where_one_waits_for_the_other(
+        worker_app,
+        user=committed_user,
+        context=committing_job_context,
+        engine=engine,
+        held_email_sender=held_email_sender,
+    )
+
+    statuses = {
+        await worker_app.job_manager.get_job_status_async(job_id) for job_id in job_ids
+    }
+    assert statuses == {Status.TODO, Status.SUCCEEDED}
+    assert len(held_email_sender.sent) == 1
+    assert await _stored_digest(engine, user=committed_user) == (
+        held_email_sender.last_reset_token().digest().root
+    )
+
+
+async def test_the_retry_of_a_job_that_rolled_back_keeps_the_token_of_the_last_email(
     worker_app: App,
     connector: InMemoryConnector,
     engine: AsyncEngine,
@@ -381,36 +388,30 @@ async def test_a_job_that_rolls_back_leaves_the_write_and_the_email_to_the_waiti
     committed_user: User,
 ) -> None:
     held_email_sender.next_error = EmailTemporaryError()
-
-    job_ids = await _run_two_jobs_until_one_waits_for_the_other(
+    await _run_two_jobs_where_one_waits_for_the_other(
         worker_app,
         user=committed_user,
         context=committing_job_context,
         engine=engine,
         held_email_sender=held_email_sender,
     )
-
-    statuses = {
-        job_id: await worker_app.job_manager.get_job_status_async(job_id)
-        for job_id in job_ids
-    }
-    assert set(statuses.values()) == {Status.SUCCEEDED, Status.TODO}
-    assert len(held_email_sender.sent) == 1
-    token = held_email_sender.last_reset_token()
-    assert await _stored_digest(engine, user=committed_user) == token.digest().root
-
-    # The retry of the job that rolled back finds a young token, so it sends nothing.
-    (retried,) = [job_id for job_id in job_ids if statuses[job_id] == Status.TODO]
+    (retried,) = [
+        job_id
+        for job_id, job in connector.jobs.items()
+        if job["status"] == Status.TODO.value
+    ]
     connector.jobs[retried]["scheduled_at"] = None
+
     await worker_app.run_worker_async(additional_context=committing_job_context)
 
     status = await worker_app.job_manager.get_job_status_async(retried)
     assert status == Status.SUCCEEDED
     assert len(held_email_sender.sent) == 1
+    token = held_email_sender.last_reset_token()
     assert await _stored_digest(engine, user=committed_user) == token.digest().root
     confirmed = await committing_client.post(
         CONFIRM_PATH,
-        json={"token": token.root.get_secret_value(), "password": "newpassword"},
+        json={"token": token.root.get_secret_value(), "password": NEW_PASSWORD},
     )
     assert confirmed.status_code == HTTPStatus.NO_CONTENT
 

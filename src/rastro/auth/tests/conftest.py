@@ -37,12 +37,18 @@ from rastro.auth.infrastructure.repositories import (
     SqlUserRepository,
 )
 from rastro.auth.presentation import dependencies
+from rastro.auth.presentation.dependencies import JOB_EMAIL_SENDER_KEY
 from rastro.auth.presentation.tasks import (
     PASSWORD_RESET_QUEUE,
     password_reset_send_task,
 )
+from rastro.auth.tests.fakes import FakeEmailSender
 from rastro.common.domain.value_objects import Id
 from rastro.common.infrastructure.database import create_sessionmaker
+from rastro.common.presentation.dependencies import (
+    JOB_SESSIONMAKER_KEY,
+    JOB_SETTINGS_KEY,
+)
 from rastro.settings import Settings, SmtpPort, SmtpSecurity
 
 STATEMENTS_THAT_WAIT = text(
@@ -478,6 +484,26 @@ async def committing_client(
         headers={settings.csrf_header_name: csrf_token},
     ) as client:
         yield client
+
+
+@pytest.fixture
+def held_email_sender() -> FakeEmailSender:
+    """A fake whose send waits for its `hold`, so the job keeps its transaction open."""
+    email_sender = FakeEmailSender()
+    email_sender.hold = asyncio.Event()
+    return email_sender
+
+
+@pytest.fixture
+def committing_job_context(
+    engine: AsyncEngine, settings: Settings, held_email_sender: FakeEmailSender
+) -> dict[str, object]:
+    """The context of a job that commits on its own connection, as in production."""
+    return {
+        JOB_SESSIONMAKER_KEY: create_sessionmaker(engine),
+        JOB_SETTINGS_KEY: settings,
+        JOB_EMAIL_SENDER_KEY: held_email_sender,
+    }
 
 
 @pytest.fixture

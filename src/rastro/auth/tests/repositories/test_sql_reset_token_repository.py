@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 
 import pydantic
@@ -99,8 +100,27 @@ def raced_user_id(request: pytest.FixtureRequest, committed_user: User) -> Id:
     return committed_user.id
 
 
-async def test_a_write_waits_for_a_concurrent_write_and_then_writes_nothing(
-    engine: AsyncEngine, raced_user_id: Id
+@pytest.mark.parametrize(
+    ("end_first", "second_at", "second_writes"),
+    [
+        pytest.param(
+            AsyncSession.commit, LATER, False, id="commit_within_the_cooldown"
+        ),
+        pytest.param(
+            AsyncSession.commit,
+            LATER + RESET_TOKEN_COOLDOWN.root,
+            True,
+            id="commit_past_the_cooldown",
+        ),
+        pytest.param(AsyncSession.rollback, LATER, True, id="rollback"),
+    ],
+)
+async def test_a_write_waits_for_a_concurrent_write_and_then_applies_the_cooldown_to_its_row(
+    engine: AsyncEngine,
+    raced_user_id: Id,
+    end_first: Callable[[AsyncSession], Awaitable[None]],
+    second_at: datetime,
+    second_writes: bool,
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
 
@@ -109,97 +129,28 @@ async def test_a_write_waits_for_a_concurrent_write_and_then_writes_nothing(
         sessionmaker() as second,
         sessionmaker() as probe,
     ):
-        winner = await _issue(first, user_id=raced_user_id, token="winner", at=LATER)
-        loser = await _issue(second, user_id=raced_user_id, token="loser", at=LATER)
+        first_token = await _issue(first, user_id=raced_user_id, token="1st", at=LATER)
+        second_token = await _issue(
+            second, user_id=raced_user_id, token="2nd", at=second_at
+        )
         assert await SqlResetTokenRepository(first).replace_after_cooldown(
-            winner, cooldown=RESET_TOKEN_COOLDOWN
+            first_token, cooldown=RESET_TOKEN_COOLDOWN
         )
         waiting = asyncio.create_task(
             SqlResetTokenRepository(second).replace_after_cooldown(
-                loser, cooldown=RESET_TOKEN_COOLDOWN
+                second_token, cooldown=RESET_TOKEN_COOLDOWN
             )
         )
         await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
 
-        await first.commit()
+        await end_first(first)
 
-        assert await waiting is False
+        assert await waiting is second_writes
         await second.commit()
 
     async with sessionmaker() as reader:
         stored = await SqlResetTokenRepository(reader).get_by_user_id(raced_user_id)
-    assert stored == winner
-
-
-async def test_a_write_that_rolls_back_leaves_the_row_to_a_waiting_write(
-    engine: AsyncEngine, raced_user_id: Id
-) -> None:
-    sessionmaker = create_sessionmaker(engine)
-
-    async with (
-        sessionmaker() as first,
-        sessionmaker() as second,
-        sessionmaker() as probe,
-    ):
-        rolled_back = await _issue(
-            first, user_id=raced_user_id, token="rolled_back", at=LATER
-        )
-        last = await _issue(second, user_id=raced_user_id, token="last", at=LATER)
-        assert await SqlResetTokenRepository(first).replace_after_cooldown(
-            rolled_back, cooldown=RESET_TOKEN_COOLDOWN
-        )
-        waiting = asyncio.create_task(
-            SqlResetTokenRepository(second).replace_after_cooldown(
-                last, cooldown=RESET_TOKEN_COOLDOWN
-            )
-        )
-        await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
-
-        await first.rollback()
-
-        assert await waiting is True
-        await second.commit()
-
-    async with sessionmaker() as reader:
-        stored = await SqlResetTokenRepository(reader).get_by_user_id(raced_user_id)
-    assert stored == last
-
-
-async def test_a_write_past_the_cooldown_of_a_concurrent_write_waits_and_the_last_one_stays(
-    engine: AsyncEngine, raced_user_id: Id
-) -> None:
-    sessionmaker = create_sessionmaker(engine)
-
-    async with (
-        sessionmaker() as first,
-        sessionmaker() as second,
-        sessionmaker() as probe,
-    ):
-        earlier = await _issue(first, user_id=raced_user_id, token="earlier", at=LATER)
-        last = await _issue(
-            second,
-            user_id=raced_user_id,
-            token="last",
-            at=LATER + RESET_TOKEN_COOLDOWN.root,
-        )
-        assert await SqlResetTokenRepository(first).replace_after_cooldown(
-            earlier, cooldown=RESET_TOKEN_COOLDOWN
-        )
-        waiting = asyncio.create_task(
-            SqlResetTokenRepository(second).replace_after_cooldown(
-                last, cooldown=RESET_TOKEN_COOLDOWN
-            )
-        )
-        await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
-
-        await first.commit()
-
-        assert await waiting is True
-        await second.commit()
-
-    async with sessionmaker() as reader:
-        stored = await SqlResetTokenRepository(reader).get_by_user_id(raced_user_id)
-    assert stored == last
+    assert stored == (second_token if second_writes else first_token)
 
 
 async def test_the_table_holds_one_row_per_user(
