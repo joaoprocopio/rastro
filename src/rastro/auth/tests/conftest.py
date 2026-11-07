@@ -343,6 +343,16 @@ def smtp_recorder() -> SmtpRecorder:
     return SmtpRecorder()
 
 
+def _local_smtp_settings(settings: Settings, *, server: asyncio.Server) -> Settings:
+    return settings.model_copy(
+        update={
+            "smtp_host": "127.0.0.1",
+            "smtp_port": SmtpPort(server.sockets[0].getsockname()[1]),
+            "smtp_security": SmtpSecurity.NONE,
+        }
+    )
+
+
 @pytest.fixture
 async def smtp_settings(
     settings: Settings, smtp_recorder: SmtpRecorder
@@ -358,15 +368,8 @@ async def smtp_settings(
         host="127.0.0.1",
         port=0,
     )
-    yield settings.model_copy(
-        update={
-            "smtp_host": "127.0.0.1",
-            "smtp_port": SmtpPort(server.sockets[0].getsockname()[1]),
-            "smtp_security": SmtpSecurity.NONE,
-        }
-    )
-    server.close()
-    await server.wait_closed()
+    async with server:
+        yield _local_smtp_settings(settings, server=server)
 
 
 class SmtpFault(StrEnum):
@@ -454,15 +457,8 @@ async def scripted_smtp_settings(
 ) -> AsyncIterator[Settings]:
     """Settings that reach a local SMTP server, which answers as `smtp_script` says."""
     server = await asyncio.start_server(smtp_script.handle, host="127.0.0.1", port=0)
-    yield settings.model_copy(
-        update={
-            "smtp_host": "127.0.0.1",
-            "smtp_port": SmtpPort(server.sockets[0].getsockname()[1]),
-            "smtp_security": SmtpSecurity.NONE,
-        }
-    )
-    server.close()
-    await server.wait_closed()
+    async with server:
+        yield _local_smtp_settings(settings, server=server)
 
 
 @pytest.fixture
