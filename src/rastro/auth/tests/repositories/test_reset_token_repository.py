@@ -132,7 +132,6 @@ async def test_a_write_applies_the_cooldown_it_receives(
         issued_reset_token, cooldown=RESET_TOKEN_COOLDOWN
     )
 
-    # `newer_reset_token` comes one hour after `issued_reset_token`.
     wrote = await reset_tokens.replace_after_cooldown(
         newer_reset_token, cooldown=ResetTokenCooldown(timedelta(hours=2))
     )

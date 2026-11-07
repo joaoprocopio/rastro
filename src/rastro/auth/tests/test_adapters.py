@@ -25,6 +25,7 @@ from rastro.auth.tests.conftest import SmtpFault, SmtpRecorder, SmtpScript
 from rastro.settings import Settings, SmtpPort, SmtpSecurity, SmtpTimeout
 
 PASSWORD = RawPassword(SecretStr("password"))
+LONE_SURROGATE_PASSWORD = RawPassword(SecretStr("\ud800aaaaaaaa"))
 TOKEN = "a-token-longer-than-the-78-columns-that-email-allows-before-it-folds-a-line"
 SHORT_TIMEOUT = SmtpTimeout(timedelta(milliseconds=250))
 # Argon2PasswordHasher made these two when it passed argon2 the str of the password.
@@ -84,9 +85,11 @@ def test_argon2_returns_a_current_hash_for_an_outdated_one() -> None:
 
 def test_argon2_accepts_a_password_with_a_lone_surrogate() -> None:
     hasher = Argon2PasswordHasher()
-    password = RawPassword(SecretStr("\ud800aaaaaaaa"))
 
-    check = hasher.verify(password=password, hashed=hasher.hash(password=password))
+    check = hasher.verify(
+        password=LONE_SURROGATE_PASSWORD,
+        hashed=hasher.hash(password=LONE_SURROGATE_PASSWORD),
+    )
 
     assert check == PasswordCheck(is_correct=True, new_hash=None)
 
@@ -98,7 +101,7 @@ def test_argon2_rejects_a_wrong_password_for_a_password_with_a_lone_surrogate(
     wrong: str,
 ) -> None:
     hasher = Argon2PasswordHasher()
-    hashed = hasher.hash(password=RawPassword(SecretStr("\ud800aaaaaaaa")))
+    hashed = hasher.hash(password=LONE_SURROGATE_PASSWORD)
 
     check = hasher.verify(password=RawPassword(SecretStr(wrong)), hashed=hashed)
 
@@ -106,10 +109,8 @@ def test_argon2_rejects_a_wrong_password_for_a_password_with_a_lone_surrogate(
 
 
 def test_argon2_rejects_a_lone_surrogate_with_no_hash() -> None:
-    password = RawPassword(SecretStr("\ud800aaaaaaaa"))
-
     assert Argon2PasswordHasher().verify(
-        password=password, hashed=None
+        password=LONE_SURROGATE_PASSWORD, hashed=None
     ) == PasswordCheck(is_correct=False, new_hash=None)
 
 
