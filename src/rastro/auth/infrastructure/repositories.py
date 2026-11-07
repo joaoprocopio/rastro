@@ -12,6 +12,7 @@ from rastro.auth.domain.value_objects import (
     Email,
     HashedResetToken,
     HashedSessionToken,
+    ResetTokenCooldown,
 )
 from rastro.auth.infrastructure.mappers import (
     reset_token_from_row,
@@ -130,7 +131,9 @@ class SqlResetTokenRepository:
     async def next_id(self) -> Id:
         return await next_id(self._db_session, column=ResetTokenRow.id)
 
-    async def replace(self, reset_token: IssuedResetToken) -> None:
+    async def replace_after_cooldown(
+        self, reset_token: IssuedResetToken, *, cooldown: ResetTokenCooldown
+    ) -> bool:
         row = reset_token_to_row(reset_token)
         statement = insert(ResetTokenRow).values(
             id=row.id,
@@ -139,8 +142,8 @@ class SqlResetTokenRepository:
             issued_at=row.issued_at,
             expires_at=row.expires_at,
         )
-        # A concurrent writer holds the row, so this one waits and then overwrites it.
-        await self._db_session.execute(
+        # A concurrent writer holds the row, so this one waits, and the WHERE then reads what that writer left.
+        written_id = await self._db_session.scalar(
             statement.on_conflict_do_update(
                 constraint=RESET_TOKEN_USER_KEY,
                 set_={
@@ -150,8 +153,10 @@ class SqlResetTokenRepository:
                     "expires_at": statement.excluded.expires_at,
                     "updated_at": func.now(),
                 },
-            )
+                where=ResetTokenRow.issued_at <= reset_token.issued_at - cooldown.root,
+            ).returning(ResetTokenRow.id)
         )
+        return written_id is not None
 
     async def get_by_user_id(self, user_id: Id) -> IssuedResetToken | None:
         row = await self._db_session.scalar(

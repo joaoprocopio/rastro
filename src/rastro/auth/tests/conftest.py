@@ -17,6 +17,7 @@ from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from rastro.api_app import create_api_app
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.ports import PasswordHasher
 from rastro.auth.domain.value_objects import (
@@ -35,6 +36,7 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
+from rastro.auth.presentation import dependencies
 from rastro.auth.presentation.tasks import (
     PASSWORD_RESET_QUEUE,
     password_reset_send_task,
@@ -145,17 +147,18 @@ async def _committed_reset_token(
     user: User,
     token: ResetToken,
     at: datetime,
-    lifetime: ResetTokenLifetime,
+    settings: Settings,
 ) -> ResetToken:
     reset_tokens = SqlResetTokenRepository(db_session)
-    await reset_tokens.replace(
+    await reset_tokens.replace_after_cooldown(
         IssuedResetToken.issue(
             id=await reset_tokens.next_id(),
             user_id=user.id,
             token=token,
             at=at,
-            lifetime=lifetime,
-        )
+            lifetime=settings.reset_token_lifetime,
+        ),
+        cooldown=settings.reset_token_cooldown,
     )
     await db_session.commit()
     return token
@@ -171,7 +174,7 @@ async def reset_token(
         user=user,
         token=ResetToken(SecretStr("reset")),
         at=datetime.now(UTC),
-        lifetime=settings.reset_token_lifetime,
+        settings=settings,
     )
 
 
@@ -185,7 +188,7 @@ async def expired_reset_token(
         user=user,
         token=ResetToken(SecretStr("expired")),
         at=datetime.now(UTC) - settings.reset_token_lifetime.root,
-        lifetime=settings.reset_token_lifetime,
+        settings=settings,
     )
 
 
@@ -235,7 +238,9 @@ async def other_user_reset_token(
         at=datetime.now(UTC),
         lifetime=settings.reset_token_lifetime,
     )
-    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace_after_cooldown(
+        reset_token, cooldown=settings.reset_token_cooldown
+    )
     await db_session.commit()
     return reset_token
 
@@ -458,6 +463,25 @@ async def scripted_smtp_settings(
     )
     server.close()
     await server.wait_closed()
+
+
+@pytest.fixture
+async def committing_client(
+    engine: AsyncEngine,
+    settings: Settings,
+    csrf_token: str,
+    password_hasher: PasswordHasher,
+) -> AsyncIterator[httpx.AsyncClient]:
+    """A client whose requests each commit on their own connection, as in production."""
+    app = create_api_app(settings=settings, sessionmaker=create_sessionmaker(engine))
+    app.dependency_overrides[dependencies.password_hasher] = lambda: password_hasher
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="https://testserver",
+        cookies={settings.csrf_cookie_name: csrf_token},
+        headers={settings.csrf_header_name: csrf_token},
+    ) as client:
+        yield client
 
 
 @pytest.fixture

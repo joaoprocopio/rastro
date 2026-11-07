@@ -9,6 +9,7 @@ from rastro.auth.domain.value_objects import (
     HashedSessionToken,
     OutgoingEmail,
     RawPassword,
+    ResetTokenCooldown,
 )
 from rastro.common.domain.value_objects import Id
 
@@ -65,8 +66,10 @@ class SessionRepository(Protocol):
 class ResetTokenRepository(Protocol):
     async def next_id(self) -> Id: ...
 
-    # A User holds one Reset token, so a new one takes the place of the last one.
-    async def replace(self, reset_token: IssuedResetToken) -> None: ...
+    # A new Reset token takes the place of the last one, unless that one is younger than the cooldown, and the result tells whether it did.
+    async def replace_after_cooldown(
+        self, reset_token: IssuedResetToken, *, cooldown: ResetTokenCooldown
+    ) -> bool: ...
 
     async def get_by_user_id(self, user_id: Id) -> IssuedResetToken | None: ...
 

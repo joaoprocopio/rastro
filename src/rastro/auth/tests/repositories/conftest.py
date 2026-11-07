@@ -15,6 +15,7 @@ from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
     ResetToken,
+    ResetTokenCooldown,
     ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
@@ -35,6 +36,7 @@ from rastro.common.tests.adapter import RepositoryKind
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 LIFETIME = SessionLifetime(timedelta(days=14))
 RESET_TOKEN_LIFETIME = ResetTokenLifetime(timedelta(hours=1))
+RESET_TOKEN_COOLDOWN = ResetTokenCooldown(timedelta(seconds=60))
 COMMITTED_TOKEN = ResetToken(SecretStr("committed"))
 
 
@@ -210,7 +212,9 @@ async def committed_reset_token(
             at=START,
             lifetime=RESET_TOKEN_LIFETIME,
         )
-        await reset_tokens.replace(issued_reset_token)
+        await reset_tokens.replace_after_cooldown(
+            issued_reset_token, cooldown=RESET_TOKEN_COOLDOWN
+        )
     return issued_reset_token
 
 

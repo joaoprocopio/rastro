@@ -9,7 +9,6 @@ from pydantic import SecretStr
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from rastro.api_app import create_api_app
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.ports import PasswordHasher
 from rastro.auth.domain.value_objects import (
@@ -23,7 +22,6 @@ from rastro.auth.infrastructure.repositories import (
     SqlResetTokenRepository,
     SqlUserRepository,
 )
-from rastro.auth.presentation import dependencies
 from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.settings import Settings
 
@@ -234,14 +232,15 @@ async def raced_user(
             ),
         )
         await users.add(user)
-        await reset_tokens.replace(
+        await reset_tokens.replace_after_cooldown(
             IssuedResetToken.issue(
                 id=await reset_tokens.next_id(),
                 user_id=user.id,
                 token=RACED_TOKEN,
                 at=datetime.now(UTC),
                 lifetime=settings.reset_token_lifetime,
-            )
+            ),
+            cooldown=settings.reset_token_cooldown,
         )
 
     yield user
@@ -251,25 +250,6 @@ async def raced_user(
         await db_session.execute(
             text("DELETE FROM auth_user WHERE id = :id"), {"id": user.id.root}
         )
-
-
-@pytest.fixture
-async def committing_client(
-    engine: AsyncEngine,
-    settings: Settings,
-    csrf_token: str,
-    password_hasher: PasswordHasher,
-) -> AsyncIterator[httpx.AsyncClient]:
-    """A client whose requests each commit on their own connection, as in production."""
-    app = create_api_app(settings=settings, sessionmaker=create_sessionmaker(engine))
-    app.dependency_overrides[dependencies.password_hasher] = lambda: password_hasher
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="https://testserver",
-        cookies={settings.csrf_cookie_name: csrf_token},
-        headers={settings.csrf_header_name: csrf_token},
-    ) as client:
-        yield client
 
 
 async def test_two_concurrent_confirmations_of_one_token_answer_204_and_400(

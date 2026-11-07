@@ -145,15 +145,19 @@ async def password_reset_send(
     if current is not None and current.is_younger_than(cooldown, at=now):
         return PasswordResetSendOutput(no_answer=False)
     token = ResetToken.generate(nbytes=token_bytes)
-    await reset_tokens.replace(
+    wrote = await reset_tokens.replace_after_cooldown(
         IssuedResetToken.issue(
             id=await reset_tokens.next_id(),
             user_id=user.id,
             token=token,
             at=now,
             lifetime=lifetime,
-        )
+        ),
+        cooldown=cooldown,
     )
+    # A concurrent job can commit its Reset token after the read above.
+    if not wrote:
+        return PasswordResetSendOutput(no_answer=False)
     try:
         await email_sender.send(
             OutgoingEmail.password_reset(

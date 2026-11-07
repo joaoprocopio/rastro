@@ -9,6 +9,7 @@ from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
     ResetToken,
+    ResetTokenCooldown,
     ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
@@ -23,6 +24,7 @@ from rastro.auth.tests.fakes import (
 
 LIFETIME = SessionLifetime(timedelta(seconds=1))
 RESET_TOKEN_LIFETIME = ResetTokenLifetime(timedelta(hours=1))
+RESET_TOKEN_COOLDOWN = ResetTokenCooldown(timedelta(seconds=60))
 
 
 @pytest.fixture
@@ -113,14 +115,15 @@ async def reset_token(
 ) -> ResetToken:
     """The token of a Reset token of `ana` in `reset_tokens`, issued at `clock.now()`."""
     token = ResetToken(SecretStr("reset"))
-    await reset_tokens.replace(
+    await reset_tokens.replace_after_cooldown(
         IssuedResetToken.issue(
             id=await reset_tokens.next_id(),
             user_id=ana.id,
             token=token,
             at=clock.now(),
             lifetime=RESET_TOKEN_LIFETIME,
-        )
+        ),
+        cooldown=RESET_TOKEN_COOLDOWN,
     )
     return token
 
@@ -144,5 +147,5 @@ async def expired_reset_token(
         at=clock.now() - RESET_TOKEN_LIFETIME.root,
         lifetime=RESET_TOKEN_LIFETIME,
     )
-    await reset_tokens.replace(expired)
+    await reset_tokens.replace_after_cooldown(expired, cooldown=RESET_TOKEN_COOLDOWN)
     return expired

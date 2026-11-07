@@ -13,6 +13,7 @@ from rastro.auth.domain.value_objects import (
     OutgoingEmail,
     RawPassword,
     ResetToken,
+    ResetTokenCooldown,
 )
 from rastro.common.domain.value_objects import Id
 
@@ -162,16 +163,28 @@ class FakeSessionRepository:
 class FakeResetTokenRepository:
     def __init__(self) -> None:
         self.reset_tokens: dict[Id, IssuedResetToken] = {}
+        # A read finds nothing, as in a job that reads before a concurrent job commits.
+        self.stale_reads = False
         self._last_id = 0
 
     async def next_id(self) -> Id:
         self._last_id += 1
         return Id(self._last_id)
 
-    async def replace(self, reset_token: IssuedResetToken) -> None:
+    async def replace_after_cooldown(
+        self, reset_token: IssuedResetToken, *, cooldown: ResetTokenCooldown
+    ) -> bool:
+        stored = self.reset_tokens.get(reset_token.user_id)
+        if stored is not None and stored.is_younger_than(
+            cooldown, at=reset_token.issued_at
+        ):
+            return False
         self.reset_tokens[reset_token.user_id] = reset_token.model_copy()
+        return True
 
     async def get_by_user_id(self, user_id: Id) -> IssuedResetToken | None:
+        if self.stale_reads:
+            return None
         reset_token = self.reset_tokens.get(user_id)
         return None if reset_token is None else reset_token.model_copy()
 
@@ -205,11 +218,15 @@ class FakeEmailSender:
     def __init__(self) -> None:
         self.sent: list[OutgoingEmail] = []
         self.error: Exception | None = None
+        self.next_error: Exception | None = None
         self.hold: asyncio.Event | None = None
 
     async def send(self, email: OutgoingEmail) -> None:
         if self.hold is not None:
             await self.hold.wait()
+        if self.next_error is not None:
+            error, self.next_error = self.next_error, None
+            raise error
         if self.error is not None:
             raise self.error
         self.sent.append(email)

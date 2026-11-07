@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta
 
 import pydantic
 import pytest
@@ -16,9 +17,16 @@ from rastro.auth.domain.value_objects import ResetToken
 from rastro.auth.infrastructure.models import ResetTokenRow
 from rastro.auth.infrastructure.repositories import SqlResetTokenRepository
 from rastro.auth.tests.conftest import until_a_statement_waits
-from rastro.auth.tests.repositories.conftest import RESET_TOKEN_LIFETIME, START
+from rastro.auth.tests.repositories.conftest import (
+    RESET_TOKEN_COOLDOWN,
+    RESET_TOKEN_LIFETIME,
+    START,
+)
+from rastro.common.domain.value_objects import Id
 from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.common.tests.adapter import RepositoryKind
+
+LATER = START + timedelta(hours=1)
 
 
 @pytest.fixture
@@ -70,38 +78,128 @@ async def test_a_consume_that_rolls_back_leaves_the_token_for_a_waiting_consume(
         await second.rollback()
 
 
-async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
-    engine: AsyncEngine, committed_reset_token: IssuedResetToken
+async def _issue(
+    db_session: AsyncSession, *, user_id: Id, token: str, at: datetime
+) -> IssuedResetToken:
+    reset_tokens = SqlResetTokenRepository(db_session)
+    return IssuedResetToken.issue(
+        id=await reset_tokens.next_id(),
+        user_id=user_id,
+        token=ResetToken(SecretStr(token)),
+        at=at,
+        lifetime=RESET_TOKEN_LIFETIME,
+    )
+
+
+@pytest.fixture(params=[False, True], ids=["no_stored_token", "old_stored_token"])
+def raced_user_id(request: pytest.FixtureRequest, committed_user: User) -> Id:
+    """The id of `committed_user`, with no Reset token or one older than the cooldown."""
+    if request.param:
+        request.getfixturevalue("committed_reset_token")
+    return committed_user.id
+
+
+async def test_a_write_waits_for_a_concurrent_write_and_then_writes_nothing(
+    engine: AsyncEngine, raced_user_id: Id
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
-    user_id = committed_reset_token.user_id
-
-    async def issue(db_session: AsyncSession, *, token: str) -> IssuedResetToken:
-        reset_tokens = SqlResetTokenRepository(db_session)
-        return IssuedResetToken.issue(
-            id=await reset_tokens.next_id(),
-            user_id=user_id,
-            token=ResetToken(SecretStr(token)),
-            at=START,
-            lifetime=RESET_TOKEN_LIFETIME,
-        )
 
     async with (
         sessionmaker() as first,
         sessionmaker() as second,
         sessionmaker() as probe,
     ):
-        earlier = await issue(first, token="earlier")
-        last = await issue(second, token="last")
-        await SqlResetTokenRepository(first).replace(earlier)
-        waiting = asyncio.create_task(SqlResetTokenRepository(second).replace(last))
+        winner = await _issue(first, user_id=raced_user_id, token="winner", at=LATER)
+        loser = await _issue(second, user_id=raced_user_id, token="loser", at=LATER)
+        assert await SqlResetTokenRepository(first).replace_after_cooldown(
+            winner, cooldown=RESET_TOKEN_COOLDOWN
+        )
+        waiting = asyncio.create_task(
+            SqlResetTokenRepository(second).replace_after_cooldown(
+                loser, cooldown=RESET_TOKEN_COOLDOWN
+            )
+        )
         await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
+
         await first.commit()
-        await waiting
+
+        assert await waiting is False
         await second.commit()
 
     async with sessionmaker() as reader:
-        assert await SqlResetTokenRepository(reader).get_by_user_id(user_id) == last
+        stored = await SqlResetTokenRepository(reader).get_by_user_id(raced_user_id)
+    assert stored == winner
+
+
+async def test_a_write_that_rolls_back_leaves_the_row_to_a_waiting_write(
+    engine: AsyncEngine, raced_user_id: Id
+) -> None:
+    sessionmaker = create_sessionmaker(engine)
+
+    async with (
+        sessionmaker() as first,
+        sessionmaker() as second,
+        sessionmaker() as probe,
+    ):
+        rolled_back = await _issue(
+            first, user_id=raced_user_id, token="rolled_back", at=LATER
+        )
+        last = await _issue(second, user_id=raced_user_id, token="last", at=LATER)
+        assert await SqlResetTokenRepository(first).replace_after_cooldown(
+            rolled_back, cooldown=RESET_TOKEN_COOLDOWN
+        )
+        waiting = asyncio.create_task(
+            SqlResetTokenRepository(second).replace_after_cooldown(
+                last, cooldown=RESET_TOKEN_COOLDOWN
+            )
+        )
+        await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
+
+        await first.rollback()
+
+        assert await waiting is True
+        await second.commit()
+
+    async with sessionmaker() as reader:
+        stored = await SqlResetTokenRepository(reader).get_by_user_id(raced_user_id)
+    assert stored == last
+
+
+async def test_a_write_past_the_cooldown_of_a_concurrent_write_waits_and_the_last_one_stays(
+    engine: AsyncEngine, raced_user_id: Id
+) -> None:
+    sessionmaker = create_sessionmaker(engine)
+
+    async with (
+        sessionmaker() as first,
+        sessionmaker() as second,
+        sessionmaker() as probe,
+    ):
+        earlier = await _issue(first, user_id=raced_user_id, token="earlier", at=LATER)
+        last = await _issue(
+            second,
+            user_id=raced_user_id,
+            token="last",
+            at=LATER + RESET_TOKEN_COOLDOWN.root,
+        )
+        assert await SqlResetTokenRepository(first).replace_after_cooldown(
+            earlier, cooldown=RESET_TOKEN_COOLDOWN
+        )
+        waiting = asyncio.create_task(
+            SqlResetTokenRepository(second).replace_after_cooldown(
+                last, cooldown=RESET_TOKEN_COOLDOWN
+            )
+        )
+        await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
+
+        await first.commit()
+
+        assert await waiting is True
+        await second.commit()
+
+    async with sessionmaker() as reader:
+        stored = await SqlResetTokenRepository(reader).get_by_user_id(raced_user_id)
+    assert stored == last
 
 
 async def test_the_table_holds_one_row_per_user(
@@ -110,7 +208,9 @@ async def test_the_table_holds_one_row_per_user(
     issued_reset_token: IssuedResetToken,
     newer_reset_token: IssuedResetToken,
 ) -> None:
-    await reset_tokens.replace(issued_reset_token)
+    await reset_tokens.replace_after_cooldown(
+        issued_reset_token, cooldown=RESET_TOKEN_COOLDOWN
+    )
 
     db_session.add(
         ResetTokenRow(
@@ -131,7 +231,9 @@ async def test_the_row_of_a_reset_token_goes_away_with_its_user(
     issued_reset_token: IssuedResetToken,
     ana: User,
 ) -> None:
-    await reset_tokens.replace(issued_reset_token)
+    await reset_tokens.replace_after_cooldown(
+        issued_reset_token, cooldown=RESET_TOKEN_COOLDOWN
+    )
 
     await db_session.execute(
         text("DELETE FROM auth_user WHERE id = :id"), {"id": ana.id.root}
@@ -160,12 +262,14 @@ async def test_a_row_with_the_id_0_fails_to_become_a_reset_token(
         await reset_tokens.get_by_user_id(ana.id)
 
 
-async def test_replace_leaves_created_at_and_updated_at_to_the_database(
+async def test_a_write_leaves_created_at_and_updated_at_to_the_database(
     db_session: AsyncSession,
     reset_tokens: ResetTokenRepository,
     issued_reset_token: IssuedResetToken,
 ) -> None:
-    await reset_tokens.replace(issued_reset_token)
+    await reset_tokens.replace_after_cooldown(
+        issued_reset_token, cooldown=RESET_TOKEN_COOLDOWN
+    )
 
     # now() is the start time of the transaction, so the row holds it exactly.
     audit = await db_session.execute(
@@ -183,7 +287,9 @@ async def test_a_query_span_keeps_the_statement_and_no_parameters(
     issued_reset_token: IssuedResetToken,
     spans: InMemorySpanExporter,
 ) -> None:
-    await reset_tokens.replace(issued_reset_token)
+    await reset_tokens.replace_after_cooldown(
+        issued_reset_token, cooldown=RESET_TOKEN_COOLDOWN
+    )
     await reset_tokens.consume(issued_reset_token.hashed_token)
 
     attributes = [dict(span.attributes or {}) for span in spans.get_finished_spans()]
