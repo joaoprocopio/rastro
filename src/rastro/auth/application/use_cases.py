@@ -30,6 +30,7 @@ from rastro.auth.domain.value_objects import (
     OutgoingEmail,
     ResetLinkUrl,
     ResetToken,
+    ResetTokenCooldown,
     ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
@@ -129,11 +130,16 @@ async def password_reset_send(
     email_sender: EmailSender,
     clock: Clock,
     lifetime: ResetTokenLifetime,
+    cooldown: ResetTokenCooldown,
     token_bytes: TokenBytes,
     link_url: ResetLinkUrl,
 ) -> None:
     user = await users.get_by_email(input.email)
     if user is None:
+        return
+    now = clock.now()
+    current = await reset_tokens.get_by_user_id(user.id)
+    if current is not None and current.is_younger_than(cooldown, at=now):
         return
     token = ResetToken.generate(nbytes=token_bytes)
     await reset_tokens.replace(
@@ -141,7 +147,7 @@ async def password_reset_send(
             id=await reset_tokens.next_id(),
             user_id=user.id,
             token=token,
-            at=clock.now(),
+            at=now,
             lifetime=lifetime,
         )
     )

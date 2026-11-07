@@ -1,3 +1,4 @@
+import asyncio
 import re
 from datetime import datetime
 
@@ -170,8 +171,11 @@ class FakeEmailSender:
     def __init__(self) -> None:
         self.sent: list[OutgoingEmail] = []
         self.error: Exception | None = None
+        self.hold: asyncio.Event | None = None
 
     async def send(self, email: OutgoingEmail) -> None:
+        if self.hold is not None:
+            await self.hold.wait()
         if self.error is not None:
             raise self.error
         self.sent.append(email)

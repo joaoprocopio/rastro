@@ -13,6 +13,7 @@ from procrastinate import App
 from procrastinate.jobs import Status
 from procrastinate.testing import InMemoryConnector
 from pydantic import SecretStr
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
@@ -34,6 +35,19 @@ from rastro.auth.presentation.tasks import (
     password_reset_send_task,
 )
 from rastro.settings import Settings, SmtpSecurity
+
+STATEMENTS_THAT_WAIT = text(
+    "SELECT count(*) FROM pg_stat_activity"
+    " WHERE datname = current_database()"
+    " AND wait_event_type = 'Lock' AND query LIKE :statement"
+)
+
+
+async def until_a_statement_waits(probe: AsyncSession, *, statement: str) -> None:
+    async with asyncio.timeout(5):
+        while not await probe.scalar(STATEMENTS_THAT_WAIT, {"statement": statement}):
+            await probe.rollback()
+            await asyncio.sleep(0.01)
 
 
 @pytest.fixture
