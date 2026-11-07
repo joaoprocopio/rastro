@@ -12,7 +12,10 @@ ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
 def _example_variables() -> dict[str, str]:
     lines = ENV_EXAMPLE.read_text().splitlines()
-    return dict(line.split("=", 1) for line in lines if line)
+    # Compose reads the `_PORT` variables, and Settings reads the others.
+    pairs = (line.split("=", 1) for line in lines if line and "_PORT=" not in line)
+    # `uv run --env-file` strips double quotes inside a bare value, so JSON sits in single quotes.
+    return {name: value.strip("'") for name, value in pairs}
 
 
 def test_env_example_lists_every_variable(empty_environment: None) -> None:

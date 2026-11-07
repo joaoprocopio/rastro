@@ -37,7 +37,6 @@ exporter = processor.span_exporter
 print(json.dumps({
     "attributes": dict(provider.resource.attributes),
     "endpoint": exporter._endpoint,
-    "insecure": exporter._insecure,
     "compression": exporter._compression.name,
     "handler_levels": [
         handler.level
@@ -126,13 +125,12 @@ def test_the_log_handler_drops_debug(no_otel_variables: None) -> None:
 
 def test_an_endpoint_enables_the_export_with_the_defaults() -> None:
     output = _run_instrument_script(
-        OTEL_EXPORTER_OTLP_ENDPOINT="http://collector:4317",
+        OTEL_EXPORTER_OTLP_ENDPOINT="http://collector:4318",
         RASTRO_SERVICE_NAME="rastro-worker",
     )
 
-    assert output["endpoint"] == "collector:4317"
-    assert output["insecure"] is True
-    assert output["compression"] == "Gzip"
+    assert output["endpoint"] == "http://collector:4318/v1/traces"
+    assert output["compression"] == "GZIP"
     assert output["handler_levels"] == [logging.INFO]
     attributes = output["attributes"]
     assert isinstance(attributes, dict)
@@ -144,7 +142,7 @@ def test_an_endpoint_enables_the_export_with_the_defaults() -> None:
 
 def test_an_https_endpoint_from_the_environment_uses_tls() -> None:
     output = _run_instrument_script(
-        OTEL_EXPORTER_OTLP_ENDPOINT="https://collector:4317"
+        OTEL_EXPORTER_OTLP_ENDPOINT="https://collector:4318"
     )
 
-    assert output["insecure"] is False
+    assert output["endpoint"] == "https://collector:4318/v1/traces"

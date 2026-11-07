@@ -1,0 +1,31 @@
+# The worktrees of other sessions sit under `worktrees/`, each with its own `.env`, and `COPY . /app` would ship them.
+worktrees/
+.claude/
+.env
+.env.example
+
+# History and tooling
+.git/
+.github/
+.gitignore
+.vscode/
+.venv/
+.import_linter_cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+**/__pycache__/
+
+# None of this runs in a container. README.md stays, because pyproject.toml names it as the readme.
+.scratch/
+design/
+docker/
+docs/
+scripts/
+tests/
+AGENTS.md
+CODING_STANDARDS.md
+GLOSSARY.md
+compose.yaml
+conftest.py

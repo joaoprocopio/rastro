@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # The alias makes a validation error name the variable, not the field.
     model_config = SettingsConfigDict(
         alias_generator=_variable,
-        # An env file also holds the OTEL_* variables, which the SDK reads.
+        # An env file also holds the OTEL_* variables, which the SDK reads, and the ports, which compose reads.
         extra="ignore",
         frozen=True,
         hide_input_in_errors=True,

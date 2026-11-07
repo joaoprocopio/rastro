@@ -9,7 +9,7 @@ x-rastro-environment: &rastro-environment
   RASTRO_SERVICE_NAME: "rastro"
   RASTRO_DEPLOYMENT_ID: "6da45eb569938b3ec583769821fe0ef6320e1275"
   RASTRO_DEPLOYMENT_ENVIRONMENT: "prod"
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4317"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4318"
 
 services:
   migrate:
@@ -34,7 +34,7 @@ services:
       otel:
         condition: service_started
     ports:
-      - published: 8000
+      - published: ${RASTRO_API_PORT}
         target: 8000
 
   worker:
@@ -59,7 +59,8 @@ services:
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
     ports:
-      - "5432:5432"
+      - published: ${RASTRO_POSTGRES_PORT}
+        target: 5432
     healthcheck:
       test: [
           "CMD-SHELL",
@@ -82,10 +83,10 @@ services:
       CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: Native
-        published: 9000
+        published: ${RASTRO_CLICKHOUSE_NATIVE_PORT}
         target: 9000
       - name: HTTP
-        published: 8123
+        published: ${RASTRO_CLICKHOUSE_HTTP_PORT}
         target: 8123
     healthcheck:
       test: [
@@ -109,14 +110,11 @@ services:
       RASTRO_OTEL_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: Healthcheck
-        published: 13133
+        published: ${RASTRO_OTEL_HEALTHCHECK_PORT}
         target: 13133
       - name: HTTP
-        published: 4318
+        published: ${RASTRO_OTEL_HTTP_PORT}
         target: 4318
-      - name: gRPC
-        published: 4317
-        target: 4317
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -134,7 +132,7 @@ services:
       RASTRO_GF_CLICKHOUSE_PASSWORD: "clickhouse"
     ports:
       - name: UI
-        published: 7141
+        published: ${RASTRO_GRAFANA_PORT}
         target: 3000
     volumes:
       # TODO: bind local dashboards and data sources
