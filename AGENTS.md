@@ -20,7 +20,7 @@ Before you change a tracked file, create a worktree with `scripts/worktree.sh`, 
 
 After the checks over the whole branch diff pass, before the push, remove the stack of your worktree, as "Run a second stack beside another worktree's" in `README.md` shows. Start it again if the pipeline or a later review needs it.
 
-Every change ends with an open PR to `main`, and opening it needs no approval. When the work has a spec and tickets, commit them in `.scratch/` first, push, and open the PR at the start. With several tickets, only the integration branch has a PR.
+Every change ends with an open PR to `main`, and opening it needs no approval. When the work has a spec and tickets, publish them as GitHub issues first, and open the PR at the first push. With several tickets, only the integration branch has a PR.
 
 A change to behavior or infrastructure needs the code review before the next push, and a change to docs alone skips it. To push, run the checks over the whole branch diff, push, and wait for the PR pipeline.
 
@@ -40,7 +40,7 @@ Before you push or open a PR, read `docs/agents/github.md`, which lists what nee
 
 ### Issue tracker
 
-Local Markdown in `.scratch/`. See `docs/agents/issue-tracker.md`.
+GitHub Issues. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
