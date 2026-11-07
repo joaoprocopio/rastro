@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email import message_from_bytes, policy
 from email.message import EmailMessage
 
@@ -17,8 +17,11 @@ from rastro.auth.domain.ports import PasswordHasher
 from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
+    OutgoingEmail,
     RawPassword,
+    ResetLinkUrl,
     ResetToken,
+    ResetTokenLifetime,
     SessionToken,
 )
 from rastro.auth.infrastructure.repositories import (
@@ -26,7 +29,8 @@ from rastro.auth.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
-from rastro.settings import Settings, SmtpSecurity
+from rastro.common.domain.value_objects import Id
+from rastro.settings import Settings, SmtpPort, SmtpSecurity
 
 
 @pytest.fixture
@@ -81,24 +85,40 @@ async def expired_session(
     return session
 
 
-@pytest.fixture
-async def reset_token(
-    db_session: AsyncSession, user: User, settings: Settings
+async def _committed_reset_token(
+    db_session: AsyncSession,
+    *,
+    user: User,
+    token: ResetToken,
+    at: datetime,
+    lifetime: ResetTokenLifetime,
 ) -> ResetToken:
-    """The token of a committed Reset token of `user`, issued now by the wall clock."""
-    token = ResetToken(SecretStr("reset"))
     reset_tokens = SqlResetTokenRepository(db_session)
     await reset_tokens.replace(
         IssuedResetToken.issue(
             id=await reset_tokens.next_id(),
             user_id=user.id,
             token=token,
-            at=datetime.now(UTC),
-            lifetime=settings.reset_token_lifetime,
+            at=at,
+            lifetime=lifetime,
         )
     )
     await db_session.commit()
     return token
+
+
+@pytest.fixture
+async def reset_token(
+    db_session: AsyncSession, user: User, settings: Settings
+) -> ResetToken:
+    """The token of a committed Reset token of `user`, issued now by the wall clock."""
+    return await _committed_reset_token(
+        db_session,
+        user=user,
+        token=ResetToken(SecretStr("reset")),
+        at=datetime.now(UTC),
+        lifetime=settings.reset_token_lifetime,
+    )
 
 
 @pytest.fixture
@@ -106,19 +126,36 @@ async def expired_reset_token(
     db_session: AsyncSession, user: User, settings: Settings
 ) -> ResetToken:
     """The token of a committed Reset token of `user` whose lifetime runs out now."""
-    token = ResetToken(SecretStr("expired"))
-    reset_tokens = SqlResetTokenRepository(db_session)
-    await reset_tokens.replace(
-        IssuedResetToken.issue(
-            id=await reset_tokens.next_id(),
-            user_id=user.id,
-            token=token,
-            at=datetime.now(UTC) - settings.reset_token_lifetime.root,
-            lifetime=settings.reset_token_lifetime,
-        )
+    return await _committed_reset_token(
+        db_session,
+        user=user,
+        token=ResetToken(SecretStr("expired")),
+        at=datetime.now(UTC) - settings.reset_token_lifetime.root,
+        lifetime=settings.reset_token_lifetime,
     )
-    await db_session.commit()
-    return token
+
+
+@pytest.fixture
+def one_hour_reset_token() -> IssuedResetToken:
+    """A Reset token in no repository, with a lifetime of one hour."""
+    return IssuedResetToken.issue(
+        id=Id(1),
+        user_id=Id(2),
+        token=ResetToken(SecretStr("token")),
+        at=datetime(2026, 1, 1, 9, 0, tzinfo=UTC),
+        lifetime=ResetTokenLifetime(timedelta(hours=1)),
+    )
+
+
+@pytest.fixture
+def password_reset_email() -> OutgoingEmail:
+    """The email to `ana@x.com` with the token `abc` and a link that works for one hour."""
+    return OutgoingEmail.password_reset(
+        to=Email("ana@x.com"),
+        link_url=ResetLinkUrl("https://rastro.example/password-reset"),
+        token=ResetToken(SecretStr("abc")),
+        lifetime=ResetTokenLifetime(timedelta(hours=1)),
+    )
 
 
 class SmtpRecorder:
@@ -172,7 +209,7 @@ async def smtp_settings(
     yield settings.model_copy(
         update={
             "smtp_host": "127.0.0.1",
-            "smtp_port": server.sockets[0].getsockname()[1],
+            "smtp_port": SmtpPort(server.sockets[0].getsockname()[1]),
             "smtp_security": SmtpSecurity.NONE,
         }
     )

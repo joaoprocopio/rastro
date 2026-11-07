@@ -30,7 +30,7 @@ def _nfkc(value: object) -> object:
     return unicodedata.normalize("NFKC", value) if isinstance(value, str) else value
 
 
-def _counted(count: int, unit: str) -> str:
+def _counted(count: int, *, unit: str) -> str:
     return f"{count} {unit}" if count == 1 else f"{count} {unit}s"
 
 
@@ -115,10 +115,10 @@ class ResetTokenLifetime(
     def in_words(self) -> str:
         seconds = int(self.root.total_seconds())
         if seconds % 3600 == 0:
-            return _counted(seconds // 3600, "hour")
+            return _counted(seconds // 3600, unit="hour")
         if seconds % 60 == 0:
-            return _counted(seconds // 60, "minute")
-        return _counted(seconds, "second")
+            return _counted(seconds // 60, unit="minute")
+        return _counted(seconds, unit="second")
 
 
 class ResetTokenCooldown(

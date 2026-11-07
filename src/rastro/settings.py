@@ -13,7 +13,7 @@ from rastro.auth.domain.value_objects import (
     ResetTokenLifetime,
     SessionLifetime,
 )
-from rastro.common.domain.value_objects import TokenBytes
+from rastro.common.domain.value_objects import RootValueObject, TokenBytes
 
 
 # The scheme names the SQLAlchemy driver, so another driver fails at startup.
@@ -34,6 +34,10 @@ class SameSite(StrEnum):
     LAX = "lax"
     STRICT = "strict"
     NONE = "none"
+
+
+class SmtpPort(RootValueObject[Annotated[int, Field(ge=1, le=65535, strict=False)]]):
+    pass
 
 
 class SmtpSecurity(StrEnum):
@@ -84,7 +88,7 @@ class Settings(BaseSettings):
     csrf_header_name: str = "X-CSRF-Token"
 
     smtp_host: str = "localhost"
-    smtp_port: Annotated[int, Field(ge=1, le=65535)] = 587
+    smtp_port: SmtpPort = SmtpPort(587)
     smtp_user: str | None = None
     smtp_password: SecretStr | None = None
     smtp_security: SmtpSecurity = SmtpSecurity.STARTTLS

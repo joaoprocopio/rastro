@@ -21,8 +21,6 @@ from rastro.auth.domain.value_objects import (
 )
 from rastro.common.domain.value_objects import TokenBytes
 
-ONE_HOUR = ResetTokenLifetime(timedelta(hours=1))
-
 
 def test_email_strips_spaces_and_lowercases_the_whole_address() -> None:
     assert Email(" Ana@X.com ").root == "ana@x.com"
@@ -250,19 +248,24 @@ def test_reset_link_url_rejects_another_scheme_or_a_fragment(url: str) -> None:
 def test_a_password_reset_email_states_the_lifetime_in_words(
     lifetime: timedelta, words: str
 ) -> None:
-    email = _password_reset_email(lifetime=ResetTokenLifetime(lifetime))
+    email = OutgoingEmail.password_reset(
+        to=Email("ana@x.com"),
+        link_url=ResetLinkUrl("https://rastro.example/password-reset"),
+        token=ResetToken(SecretStr("abc")),
+        lifetime=ResetTokenLifetime(lifetime),
+    )
 
     assert f"The link works for {words} and only once" in (
         email.body.get_secret_value()
     )
 
 
-def test_a_password_reset_email_holds_the_token_in_the_fragment_of_its_link() -> None:
-    email = _password_reset_email()
-
-    assert email.to == Email("ana@x.com")
-    assert email.subject == "Reset your rastro password"
-    assert email.body.get_secret_value().splitlines() == [
+def test_a_password_reset_email_holds_the_token_in_the_fragment_of_its_link(
+    password_reset_email: OutgoingEmail,
+) -> None:
+    assert password_reset_email.to == Email("ana@x.com")
+    assert password_reset_email.subject == "Reset your rastro password"
+    assert password_reset_email.body.get_secret_value().splitlines() == [
         "Someone asked to reset your rastro password.",
         "",
         (
@@ -276,14 +279,7 @@ def test_a_password_reset_email_holds_the_token_in_the_fragment_of_its_link() ->
     ]
 
 
-def test_the_repr_of_a_password_reset_email_hides_the_token() -> None:
-    assert "abc" not in repr(_password_reset_email())
-
-
-def _password_reset_email(*, lifetime: ResetTokenLifetime = ONE_HOUR) -> OutgoingEmail:
-    return OutgoingEmail.password_reset(
-        to=Email("ana@x.com"),
-        link_url=ResetLinkUrl("https://rastro.example/password-reset"),
-        token=ResetToken(SecretStr("abc")),
-        lifetime=lifetime,
-    )
+def test_the_repr_of_a_password_reset_email_hides_the_token(
+    password_reset_email: OutgoingEmail,
+) -> None:
+    assert "abc" not in repr(password_reset_email)

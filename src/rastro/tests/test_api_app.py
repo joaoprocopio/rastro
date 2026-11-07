@@ -14,7 +14,7 @@ from rastro.settings import CorsOrigin, Settings
 from rastro.tests.conftest import POSTGRES_URL
 
 # Each process binds its tasks once, so this script runs in its own process.
-DEFER_SCRIPT = """
+TASK_NAME_SCRIPT = """
 import rastro.api
 from rastro.auth.presentation.tasks import password_reset_send_task
 
@@ -43,7 +43,7 @@ def test_the_api_process_binds_each_task_under_the_name_that_the_worker_reads() 
     }
 
     result = subprocess.run(
-        [sys.executable, "-c", DEFER_SCRIPT],
+        [sys.executable, "-c", TASK_NAME_SCRIPT],
         env={**kept, "RASTRO_POSTGRES_URL": POSTGRES_URL},
         capture_output=True,
         text=True,

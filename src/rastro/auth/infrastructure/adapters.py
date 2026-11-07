@@ -68,7 +68,7 @@ class SmtpEmailSender:
         await aiosmtplib.send(
             message,
             hostname=settings.smtp_host,
-            port=settings.smtp_port,
+            port=settings.smtp_port.root,
             username=settings.smtp_user,
             password=None if password is None else password.get_secret_value(),
             use_tls=settings.smtp_security is SmtpSecurity.TLS,

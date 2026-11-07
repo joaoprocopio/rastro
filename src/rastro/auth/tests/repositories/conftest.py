@@ -1,7 +1,10 @@
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.ports import (
@@ -28,6 +31,7 @@ from rastro.auth.tests.fakes import (
     FakeSessionRepository,
     FakeUserRepository,
 )
+from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.common.tests.adapter import RepositoryKind
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -150,7 +154,7 @@ async def bia(users: UserRepository) -> User:
 
 
 @pytest.fixture
-async def reset_token(
+async def issued_reset_token(
     reset_tokens: ResetTokenRepository, users: UserRepository, ana: User
 ) -> IssuedResetToken:
     """A Reset token of the added `ana`, which the test has not stored yet."""
@@ -166,9 +170,9 @@ async def reset_token(
 
 @pytest.fixture
 async def newer_reset_token(
-    reset_tokens: ResetTokenRepository, reset_token: IssuedResetToken, ana: User
+    reset_tokens: ResetTokenRepository, issued_reset_token: IssuedResetToken, ana: User
 ) -> IssuedResetToken:
-    """A Reset token of `ana` issued one hour after `reset_token`, not stored yet."""
+    """A Reset token of `ana` issued one hour after `issued_reset_token`, not stored yet."""
     return IssuedResetToken.issue(
         id=await reset_tokens.next_id(),
         user_id=ana.id,
@@ -176,3 +180,44 @@ async def newer_reset_token(
         at=START + timedelta(hours=1),
         lifetime=RESET_TOKEN_LIFETIME,
     )
+
+
+@pytest.fixture
+async def committed_user(engine: AsyncEngine) -> AsyncIterator[User]:
+    """A User that every connection sees, which the test does not roll back."""
+    sessionmaker = create_sessionmaker(engine)
+    async with sessionmaker.begin() as db_session:
+        users = SqlUserRepository(db_session)
+        user = User(
+            id=await users.next_id(),
+            email=Email("committed@x.com"),
+            display_name=DisplayName("Committed"),
+            hashed_password=HashedPassword("fake$password"),
+        )
+        await users.add(user)
+
+    yield user
+
+    # The foreign key deletes each Session and the Reset token with their User.
+    async with sessionmaker.begin() as db_session:
+        await db_session.execute(
+            text("DELETE FROM auth_user WHERE id = :id"), {"id": user.id.root}
+        )
+
+
+@pytest.fixture
+async def committed_reset_token(
+    engine: AsyncEngine, committed_user: User
+) -> IssuedResetToken:
+    """A Reset token of `committed_user` that every connection sees."""
+    async with create_sessionmaker(engine).begin() as db_session:
+        reset_tokens = SqlResetTokenRepository(db_session)
+        issued_reset_token = IssuedResetToken.issue(
+            id=await reset_tokens.next_id(),
+            user_id=committed_user.id,
+            token=ResetToken(SecretStr("committed")),
+            at=START,
+            lifetime=RESET_TOKEN_LIFETIME,
+        )
+        await reset_tokens.replace(issued_reset_token)
+    return issued_reset_token

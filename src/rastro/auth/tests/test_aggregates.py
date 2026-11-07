@@ -66,23 +66,15 @@ def test_a_reset_token_is_issued_with_its_digest_and_expires_a_lifetime_later() 
     )
 
 
-def test_a_reset_token_is_not_expired_before_its_expiry() -> None:
-    issued = _issued_reset_token()
+def test_a_reset_token_is_not_expired_before_its_expiry(
+    one_hour_reset_token: IssuedResetToken,
+) -> None:
+    before_its_expiry = one_hour_reset_token.expires_at - timedelta(seconds=1)
 
-    assert not issued.is_expired(at=TEN_O_CLOCK - timedelta(seconds=1))
-
-
-def test_a_reset_token_is_expired_from_the_moment_of_its_expiry() -> None:
-    issued = _issued_reset_token()
-
-    assert issued.is_expired(at=TEN_O_CLOCK)
+    assert not one_hour_reset_token.is_expired(at=before_its_expiry)
 
 
-def _issued_reset_token() -> IssuedResetToken:
-    return IssuedResetToken.issue(
-        id=Id(1),
-        user_id=Id(2),
-        token=ResetToken(SecretStr("token")),
-        at=TEN_O_CLOCK - timedelta(hours=1),
-        lifetime=ResetTokenLifetime(timedelta(hours=1)),
-    )
+def test_a_reset_token_is_expired_from_the_moment_of_its_expiry(
+    one_hour_reset_token: IssuedResetToken,
+) -> None:
+    assert one_hour_reset_token.is_expired(at=one_hour_reset_token.expires_at)

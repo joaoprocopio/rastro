@@ -16,7 +16,6 @@ from rastro.common.presentation.tasks import (
 from rastro.common.tests.sample.domain.errors import NoteRejectedError
 from rastro.common.tests.sample.presentation.tasks import (
     note_create_task,
-    note_paint_task,
     note_reject_task,
 )
 
@@ -75,7 +74,11 @@ async def test_a_job_rolls_back_with_the_transaction_that_defers_it(
 async def test_a_deferred_job_keeps_the_arguments_that_its_task_declares(
     worker_app: App, db_session: AsyncSession
 ) -> None:
-    job_id = await defer_in_transaction(note_paint_task, db_session=db_session)(
+    @worker_app.task(name="wall_paint_task")
+    async def wall_paint_task(*, color: str) -> None:
+        pass
+
+    job_id = await defer_in_transaction(wall_paint_task, db_session=db_session)(
         color="yellow"
     )
 

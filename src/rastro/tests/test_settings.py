@@ -11,7 +11,7 @@ from rastro.auth.domain.value_objects import (
     SessionLifetime,
 )
 from rastro.common.domain.value_objects import TokenBytes
-from rastro.settings import CorsOrigin, SameSite, Settings, SmtpSecurity
+from rastro.settings import CorsOrigin, SameSite, Settings, SmtpPort, SmtpSecurity
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
@@ -50,7 +50,7 @@ def test_env_example_loads(
     )
     assert settings.openapi_enabled is True
     assert settings.cors_allowed_origins == [CorsOrigin("http://localhost:5173")]
-    assert settings.smtp_port == 1025
+    assert settings.smtp_port == SmtpPort(1025)
     assert settings.smtp_security == SmtpSecurity.NONE
 
 
@@ -87,7 +87,7 @@ def test_an_empty_variable_of_the_env_example_counts_as_unset(
         ("csrf_token_bytes", TokenBytes(32)),
         ("csrf_header_name", "X-CSRF-Token"),
         ("smtp_host", "localhost"),
-        ("smtp_port", 587),
+        ("smtp_port", SmtpPort(587)),
         ("smtp_user", None),
         ("smtp_password", None),
         ("smtp_security", SmtpSecurity.STARTTLS),

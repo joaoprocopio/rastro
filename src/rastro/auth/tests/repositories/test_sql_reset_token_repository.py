@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import AsyncIterator
 
 import pydantic
 import pytest
@@ -13,22 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from rastro.auth.domain.aggregates import IssuedResetToken, User
 from rastro.auth.domain.ports import ResetTokenRepository, UserRepository
-from rastro.auth.domain.value_objects import (
-    DisplayName,
-    Email,
-    HashedPassword,
-    ResetToken,
-)
+from rastro.auth.domain.value_objects import ResetToken
 from rastro.auth.infrastructure.models import ResetTokenRow
-from rastro.auth.infrastructure.repositories import (
-    SqlResetTokenRepository,
-    SqlUserRepository,
-)
+from rastro.auth.infrastructure.repositories import SqlResetTokenRepository
 from rastro.auth.tests.repositories.conftest import RESET_TOKEN_LIFETIME, START
 from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.common.tests.adapter import RepositoryKind
 
-COMMITTED_TOKEN = ResetToken(SecretStr("committed"))
 STATEMENTS_THAT_WAIT = text(
     "SELECT count(*) FROM pg_stat_activity"
     " WHERE wait_event_type = 'Lock' AND query LIKE :statement"
@@ -39,38 +29,6 @@ STATEMENTS_THAT_WAIT = text(
 def adapter() -> RepositoryKind:
     """The tests of this module run only on Postgres."""
     return RepositoryKind.SQL
-
-
-@pytest.fixture
-async def committed_reset_token(engine: AsyncEngine) -> AsyncIterator[IssuedResetToken]:
-    """A Reset token that every connection sees, which the test does not roll back."""
-    sessionmaker = create_sessionmaker(engine)
-    async with sessionmaker.begin() as db_session:
-        users = SqlUserRepository(db_session)
-        reset_tokens = SqlResetTokenRepository(db_session)
-        user = User(
-            id=await users.next_id(),
-            email=Email("committed@x.com"),
-            display_name=DisplayName("Committed"),
-            hashed_password=HashedPassword("fake$password"),
-        )
-        await users.add(user)
-        reset_token = IssuedResetToken.issue(
-            id=await reset_tokens.next_id(),
-            user_id=user.id,
-            token=COMMITTED_TOKEN,
-            at=START,
-            lifetime=RESET_TOKEN_LIFETIME,
-        )
-        await reset_tokens.replace(reset_token)
-
-    yield reset_token
-
-    # The foreign key deletes the Reset token with its User.
-    async with sessionmaker.begin() as db_session:
-        await db_session.execute(
-            text("DELETE FROM auth_user WHERE id = :id"), {"id": user.id.root}
-        )
 
 
 async def _until_a_statement_waits(probe: AsyncSession, *, statement: str) -> None:
@@ -129,7 +87,7 @@ async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
     sessionmaker = create_sessionmaker(engine)
     user_id = committed_reset_token.user_id
 
-    async def issue(db_session: AsyncSession, token: str) -> IssuedResetToken:
+    async def issue(db_session: AsyncSession, *, token: str) -> IssuedResetToken:
         reset_tokens = SqlResetTokenRepository(db_session)
         return IssuedResetToken.issue(
             id=await reset_tokens.next_id(),
@@ -144,8 +102,8 @@ async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
         sessionmaker() as second,
         sessionmaker() as probe,
     ):
-        earlier = await issue(first, "earlier")
-        last = await issue(second, "last")
+        earlier = await issue(first, token="earlier")
+        last = await issue(second, token="last")
         await SqlResetTokenRepository(first).replace(earlier)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).replace(last))
         await _until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
@@ -160,10 +118,10 @@ async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
 async def test_the_table_holds_one_row_per_user(
     db_session: AsyncSession,
     reset_tokens: ResetTokenRepository,
-    reset_token: IssuedResetToken,
+    issued_reset_token: IssuedResetToken,
     newer_reset_token: IssuedResetToken,
 ) -> None:
-    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace(issued_reset_token)
 
     db_session.add(
         ResetTokenRow(
@@ -181,10 +139,10 @@ async def test_the_table_holds_one_row_per_user(
 async def test_the_row_of_a_reset_token_goes_away_with_its_user(
     db_session: AsyncSession,
     reset_tokens: ResetTokenRepository,
-    reset_token: IssuedResetToken,
+    issued_reset_token: IssuedResetToken,
     ana: User,
 ) -> None:
-    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace(issued_reset_token)
 
     await db_session.execute(
         text("DELETE FROM auth_user WHERE id = :id"), {"id": ana.id.root}
@@ -216,9 +174,9 @@ async def test_a_row_with_the_id_0_fails_to_become_a_reset_token(
 async def test_replace_leaves_created_at_and_updated_at_to_the_database(
     db_session: AsyncSession,
     reset_tokens: ResetTokenRepository,
-    reset_token: IssuedResetToken,
+    issued_reset_token: IssuedResetToken,
 ) -> None:
-    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace(issued_reset_token)
 
     # now() is the start time of the transaction, so the row holds it exactly.
     audit = await db_session.execute(
@@ -226,21 +184,21 @@ async def test_replace_leaves_created_at_and_updated_at_to_the_database(
             "SELECT created_at = now(), updated_at = now() FROM auth_reset_token"
             " WHERE id = :id"
         ),
-        {"id": reset_token.id.root},
+        {"id": issued_reset_token.id.root},
     )
     assert tuple(audit.one()) == (True, True)
 
 
 async def test_a_query_span_keeps_the_statement_and_no_parameters(
     reset_tokens: ResetTokenRepository,
-    reset_token: IssuedResetToken,
+    issued_reset_token: IssuedResetToken,
     spans: InMemorySpanExporter,
 ) -> None:
-    await reset_tokens.replace(reset_token)
-    await reset_tokens.consume(reset_token.hashed_token)
+    await reset_tokens.replace(issued_reset_token)
+    await reset_tokens.consume(issued_reset_token.hashed_token)
 
     attributes = [dict(span.attributes or {}) for span in spans.get_finished_spans()]
     statements = [str(a["db.query.text"]) for a in attributes if "db.query.text" in a]
     assert any(s.startswith("INSERT INTO auth_reset_token ") for s in statements)
     assert any(s.startswith("DELETE FROM auth_reset_token ") for s in statements)
-    assert repr(reset_token.hashed_token.root) not in str(attributes)
+    assert repr(issued_reset_token.hashed_token.root) not in str(attributes)
