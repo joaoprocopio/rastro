@@ -1,9 +1,10 @@
+import asyncio
 import re
 from datetime import datetime
 
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.errors import EmailInUseError
-from rastro.auth.domain.ports import PasswordCheck
+from rastro.auth.domain.ports import PasswordCheck, UserRepository
 from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
@@ -70,6 +71,10 @@ class FakeUserRepository:
             None,
         )
 
+    # A use case test runs no concurrent writer, so the fake has no row to lock.
+    async def get_by_email_locked(self, email: Email) -> User | None:
+        return await self.get_by_email(email)
+
     def _store(self, user: User) -> None:
         if any(
             stored.email == user.email and stored.id != user.id
@@ -77,6 +82,36 @@ class FakeUserRepository:
         ):
             raise EmailInUseError()
         self.users[user.id] = user.model_copy()
+
+
+class PausingUserRepository:
+    """Wraps a repository and waits after its locked read, until a test sets `resume`."""
+
+    def __init__(self, users: UserRepository) -> None:
+        self._users = users
+        self.read = asyncio.Event()
+        self.resume = asyncio.Event()
+
+    async def next_id(self) -> Id:
+        return await self._users.next_id()
+
+    async def add(self, user: User) -> None:
+        await self._users.add(user)
+
+    async def update(self, user: User) -> None:
+        await self._users.update(user)
+
+    async def get_by_id(self, id: Id) -> User | None:
+        return await self._users.get_by_id(id)
+
+    async def get_by_email(self, email: Email) -> User | None:
+        return await self._users.get_by_email(email)
+
+    async def get_by_email_locked(self, email: Email) -> User | None:
+        user = await self._users.get_by_email_locked(email)
+        self.read.set()
+        await self.resume.wait()
+        return user
 
 
 class FakeSessionRepository:

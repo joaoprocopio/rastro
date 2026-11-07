@@ -64,7 +64,8 @@ async def session_start(
     lifetime: SessionLifetime,
     token_bytes: TokenBytes,
 ) -> SessionStartOutput:
-    user = await users.get_by_email(input.email)
+    # The lock holds a confirmation back until the commit, as ADR 0002 records.
+    user = await users.get_by_email_locked(input.email)
     check = password_hasher.verify(
         password=input.password, hashed=None if user is None else user.hashed_password
     )
@@ -168,6 +169,7 @@ async def password_reset_confirm(
         # The foreign key deletes each Reset token with its User, so the User exists.
         raise LookupError(f"No User with the id {reset_token.user_id.root}.")
     user.hashed_password = password_hasher.hash(password=input.password)
+    # The update waits for a sign-in that holds the row, so the next line removes its Session.
     await users.update(user)
     await sessions.remove_by_user_id(user.id)
 

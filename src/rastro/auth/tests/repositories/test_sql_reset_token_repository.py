@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 
 import pydantic
 import pytest
@@ -19,11 +20,6 @@ from rastro.auth.tests.repositories.conftest import RESET_TOKEN_LIFETIME, START
 from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.common.tests.adapter import RepositoryKind
 
-STATEMENTS_THAT_WAIT = text(
-    "SELECT count(*) FROM pg_stat_activity"
-    " WHERE wait_event_type = 'Lock' AND query LIKE :statement"
-)
-
 
 @pytest.fixture
 def adapter() -> RepositoryKind:
@@ -31,27 +27,18 @@ def adapter() -> RepositoryKind:
     return RepositoryKind.SQL
 
 
-async def _until_a_statement_waits(probe: AsyncSession, *, statement: str) -> None:
-    async with asyncio.timeout(5):
-        while not await probe.scalar(STATEMENTS_THAT_WAIT, {"statement": statement}):
-            await probe.rollback()
-            await asyncio.sleep(0.01)
-
-
 async def test_a_consume_waits_for_a_concurrent_consume_and_then_finds_no_token(
-    engine: AsyncEngine, committed_reset_token: IssuedResetToken
+    engine: AsyncEngine,
+    committed_reset_token: IssuedResetToken,
+    until_a_statement_waits: Callable[[str], Awaitable[None]],
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
     digest = committed_reset_token.hashed_token
 
-    async with (
-        sessionmaker() as first,
-        sessionmaker() as second,
-        sessionmaker() as probe,
-    ):
+    async with sessionmaker() as first, sessionmaker() as second:
         consumed = await SqlResetTokenRepository(first).consume(digest)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).consume(digest))
-        await _until_a_statement_waits(probe, statement="DELETE FROM auth_reset_token%")
+        await until_a_statement_waits("DELETE FROM auth_reset_token%")
 
         await first.commit()
 
@@ -61,19 +48,17 @@ async def test_a_consume_waits_for_a_concurrent_consume_and_then_finds_no_token(
 
 
 async def test_a_consume_that_rolls_back_leaves_the_token_for_a_waiting_consume(
-    engine: AsyncEngine, committed_reset_token: IssuedResetToken
+    engine: AsyncEngine,
+    committed_reset_token: IssuedResetToken,
+    until_a_statement_waits: Callable[[str], Awaitable[None]],
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
     digest = committed_reset_token.hashed_token
 
-    async with (
-        sessionmaker() as first,
-        sessionmaker() as second,
-        sessionmaker() as probe,
-    ):
+    async with sessionmaker() as first, sessionmaker() as second:
         await SqlResetTokenRepository(first).consume(digest)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).consume(digest))
-        await _until_a_statement_waits(probe, statement="DELETE FROM auth_reset_token%")
+        await until_a_statement_waits("DELETE FROM auth_reset_token%")
 
         await first.rollback()
 
@@ -82,7 +67,9 @@ async def test_a_consume_that_rolls_back_leaves_the_token_for_a_waiting_consume(
 
 
 async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
-    engine: AsyncEngine, committed_reset_token: IssuedResetToken
+    engine: AsyncEngine,
+    committed_reset_token: IssuedResetToken,
+    until_a_statement_waits: Callable[[str], Awaitable[None]],
 ) -> None:
     sessionmaker = create_sessionmaker(engine)
     user_id = committed_reset_token.user_id
@@ -97,16 +84,12 @@ async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
             lifetime=RESET_TOKEN_LIFETIME,
         )
 
-    async with (
-        sessionmaker() as first,
-        sessionmaker() as second,
-        sessionmaker() as probe,
-    ):
+    async with sessionmaker() as first, sessionmaker() as second:
         earlier = await issue(first, token="earlier")
         last = await issue(second, token="last")
         await SqlResetTokenRepository(first).replace(earlier)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).replace(last))
-        await _until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
+        await until_a_statement_waits("INSERT INTO auth_reset_token%")
         await first.commit()
         await waiting
         await second.commit()

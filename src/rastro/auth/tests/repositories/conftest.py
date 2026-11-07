@@ -1,4 +1,5 @@
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -37,6 +38,12 @@ from rastro.common.tests.adapter import RepositoryKind
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
 LIFETIME = SessionLifetime(timedelta(days=14))
 RESET_TOKEN_LIFETIME = ResetTokenLifetime(timedelta(hours=1))
+COMMITTED_TOKEN = ResetToken(SecretStr("committed"))
+STATEMENTS_THAT_WAIT = text(
+    "SELECT count(*) FROM pg_stat_activity"
+    " WHERE datname = current_database()"
+    " AND wait_event_type = 'Lock' AND query LIKE :statement"
+)
 
 
 @pytest.fixture
@@ -215,9 +222,41 @@ async def committed_reset_token(
         issued_reset_token = IssuedResetToken.issue(
             id=await reset_tokens.next_id(),
             user_id=committed_user.id,
-            token=ResetToken(SecretStr("committed")),
+            token=COMMITTED_TOKEN,
             at=START,
             lifetime=RESET_TOKEN_LIFETIME,
         )
         await reset_tokens.replace(issued_reset_token)
     return issued_reset_token
+
+
+@pytest.fixture
+async def raced_user(
+    engine: AsyncEngine,
+    committed_user: User,
+    committed_reset_token: IssuedResetToken,
+    request: pytest.FixtureRequest,
+) -> User:
+    """`committed_user`, with `COMMITTED_TOKEN` and each kind of hash of `password`."""
+    committed_user.hashed_password = HashedPassword(request.param)
+    async with create_sessionmaker(engine).begin() as db_session:
+        await SqlUserRepository(db_session).update(committed_user)
+    return committed_user
+
+
+@pytest.fixture
+async def until_a_statement_waits(
+    engine: AsyncEngine,
+) -> AsyncIterator[Callable[[str], Awaitable[None]]]:
+    """Return once a statement that matches the `LIKE` pattern waits for a lock."""
+    async with create_sessionmaker(engine)() as probe:
+
+        async def until(statement: str) -> None:
+            async with asyncio.timeout(5):
+                while not await probe.scalar(
+                    STATEMENTS_THAT_WAIT, {"statement": statement}
+                ):
+                    # A transaction reads pg_stat_activity once, so each read needs a new one.
+                    await probe.rollback()
+
+        yield until

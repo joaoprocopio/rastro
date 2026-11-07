@@ -42,6 +42,9 @@ class UserRepository(Protocol):
 
     async def get_by_email(self, email: Email) -> User | None: ...
 
+    # Holds the row until the transaction ends, so a concurrent writer of this User waits.
+    async def get_by_email_locked(self, email: Email) -> User | None: ...
+
 
 class SessionRepository(Protocol):
     async def next_id(self) -> Id: ...

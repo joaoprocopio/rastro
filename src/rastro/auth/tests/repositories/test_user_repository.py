@@ -7,7 +7,7 @@ from rastro.auth.domain.value_objects import DisplayName, Email, HashedPassword
 from rastro.common.domain.value_objects import Id
 
 
-async def test_get_by_id_and_get_by_email_read_back_every_field_that_add_wrote(
+async def test_each_get_reads_back_every_field_that_add_wrote(
     users: UserRepository, read_users: UserRepository, ana: User
 ) -> None:
 
@@ -15,13 +15,15 @@ async def test_get_by_id_and_get_by_email_read_back_every_field_that_add_wrote(
 
     assert await read_users.get_by_id(ana.id) == ana
     assert await read_users.get_by_email(ana.email) == ana
+    assert await read_users.get_by_email_locked(ana.email) == ana
 
 
-async def test_get_by_id_and_get_by_email_answer_none_for_an_unknown_user(
+async def test_each_get_answers_none_for_an_unknown_user(
     users: UserRepository,
 ) -> None:
     assert await users.get_by_id(Id(1)) is None
     assert await users.get_by_email(Email("nobody@x.com")) is None
+    assert await users.get_by_email_locked(Email("nobody@x.com")) is None
 
 
 async def test_two_next_id_calls_return_two_different_ids(
@@ -97,6 +99,9 @@ async def test_a_field_assigned_with_no_update_keeps_its_stored_value(
     read = await read_users.get_by_id(ana.id)
     assert read is not None
     read.display_name = DisplayName("Read")
+    locked = await read_users.get_by_email_locked(ana.email)
+    assert locked is not None
+    locked.display_name = DisplayName("Locked")
 
     stored = await read_users.get_by_id(ana.id)
 

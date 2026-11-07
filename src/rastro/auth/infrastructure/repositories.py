@@ -60,6 +60,15 @@ class SqlUserRepository:
         )
         return None if row is None else user_from_row(row)
 
+    async def get_by_email_locked(self, email: Email) -> User | None:
+        row = await self._db_session.scalar(
+            select(UserRow)
+            .where(UserRow.email == email.root)
+            # key_share renders FOR NO KEY UPDATE, the mode that ADR 0002 chooses.
+            .with_for_update(key_share=True)
+        )
+        return None if row is None else user_from_row(row)
+
     async def _flush(self) -> None:
         try:
             await self._db_session.flush()
