@@ -74,6 +74,7 @@ class ResetTokenRepository(Protocol):
 
 
 class EmailSender(Protocol):
+    # Raises EmailTemporaryError, EmailRefusedError, or EmailNoAnswerError.
     async def send(self, email: OutgoingEmail) -> None: ...
 
 

@@ -223,6 +223,8 @@ Every error response is an RFC 9457 problem with `application/problem+json`. Its
 
 An error is a `BaseError` subclass in the domain's `errors` module, its name ends in `Error`, and it declares `code = "<prefix>.<name>"`. The prefix is the app label, `request` for an HTTP error that every app shares, or `server` for a failure of rastro itself. An error carries no HTTP status, so a task raises the same error as a view. An error with data declares its own extensions class, which is a `ValueObject` for a domain error and a `DTO` for a request error.
 
+A failure that a port reports and that no client can cause, such as `EmailTemporaryError`, is a plain `Exception` subclass in the same `errors` module, with no code and no row in a table, because a use case or a retry strategy reads it and no response names it.
+
 The presentation layer chooses each status. Each app's `views` module declares an `ERROR_STATUSES` table, and `rastro/api_app.py` merges the tables. A new error therefore needs its class and a row in its app's table, and a new app needs its table in the merge. The handlers read the exact class, so a subclass needs its own row.
 
 `rastro.common.presentation.problems` is the only module that builds a problem body or reads a Pydantic error type. A new validation rule with data needs an error class with its extensions and one case in its `match`. No problem shows the input value, so `InvalidFormatError` has no extensions, and the pattern of a rule never reaches a response.

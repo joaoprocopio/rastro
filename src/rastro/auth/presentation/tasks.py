@@ -1,10 +1,11 @@
 import logging
 
-from procrastinate import Blueprint, JobContext
+from procrastinate import Blueprint, JobContext, RetryStrategy
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rastro.auth.application import use_cases
 from rastro.auth.application.dtos import PasswordResetSendInput
+from rastro.auth.domain.errors import EmailTemporaryError
 from rastro.auth.domain.ports import PasswordResetJobs
 from rastro.auth.domain.value_objects import Email
 from rastro.auth.presentation import dependencies
@@ -34,11 +35,17 @@ async def session_remove_expired_task(context: JobContext, timestamp: int) -> No
 
 
 # This task takes an email address in place of an id, which spec #20 accepts, so the job row and the job logs hold the address.
-@blueprint.task(pass_context=True, queue=PASSWORD_RESET_QUEUE)
+@blueprint.task(
+    pass_context=True,
+    queue=PASSWORD_RESET_QUEUE,
+    retry=RetryStrategy(
+        exponential_wait=2, max_attempts=10, retry_exceptions=[EmailTemporaryError]
+    ),
+)
 async def password_reset_send_task(context: JobContext, *, email: str) -> None:
     settings = job_settings(context)
     async with job_sessionmaker(context).begin() as db_session:
-        await use_cases.password_reset_send(
+        output = await use_cases.password_reset_send(
             PasswordResetSendInput(email=Email.model_validate(email)),
             users=dependencies.user_repository(db_session),
             reset_tokens=dependencies.reset_token_repository(db_session),
@@ -47,6 +54,12 @@ async def password_reset_send_task(context: JobContext, *, email: str) -> None:
             lifetime=settings.reset_token_lifetime,
             token_bytes=settings.reset_token_bytes,
             link_url=settings.reset_link_url,
+        )
+    if output.no_answer:
+        logger.warning(
+            "The SMTP server gave no answer to the reset email of job %s, "
+            "which may have gone out.",
+            context.job.id,
         )
 
 

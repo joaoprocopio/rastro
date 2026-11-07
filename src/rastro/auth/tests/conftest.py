@@ -3,12 +3,15 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from email import message_from_bytes, policy
 from email.message import EmailMessage
+from enum import StrEnum
 
 import httpx
 import pytest
 from aiosmtpd.smtp import SMTP, AuthResult, Envelope, LoginPassword
 from aiosmtpd.smtp import Session as SmtpSession
 from fastapi import FastAPI
+from procrastinate import App
+from procrastinate.testing import InMemoryConnector
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +30,14 @@ from rastro.auth.infrastructure.repositories import (
     SqlUserRepository,
 )
 from rastro.settings import Settings, SmtpSecurity
+
+
+@pytest.fixture
+def connector(worker_app: App) -> InMemoryConnector:
+    """The connector of `worker_app`, whose job rows a test reads and makes due."""
+    connector = worker_app.connector
+    assert isinstance(connector, InMemoryConnector)
+    return connector
 
 
 @pytest.fixture
@@ -169,6 +180,102 @@ async def smtp_settings(
         host="127.0.0.1",
         port=0,
     )
+    yield settings.model_copy(
+        update={
+            "smtp_host": "127.0.0.1",
+            "smtp_port": server.sockets[0].getsockname()[1],
+            "smtp_security": SmtpSecurity.NONE,
+        }
+    )
+    server.close()
+    await server.wait_closed()
+
+
+class SmtpFault(StrEnum):
+    """What `SmtpScript` does at a step in place of a reply."""
+
+    CLOSE = "close"
+    SILENCE = "silence"
+    BAD_TLS = "bad_tls"
+
+
+class SmtpScript:
+    """The handler of `scripted_smtp_settings`, whose `replies` a test sets for each step."""
+
+    def __init__(self) -> None:
+        self.replies: dict[str, str | SmtpFault] = {
+            "GREETING": "220 Ready",
+            "EHLO": "250-test\r\n250-AUTH PLAIN\r\n250 STARTTLS",
+            "HELO": "250 OK",
+            "AUTH": "235 OK",
+            "STARTTLS": "220 Go",
+            "MAIL": "250 OK",
+            "RCPT": "250 OK",
+            "DATA": "354 Go",
+            "BODY": "250 OK",
+            "RSET": "250 OK",
+            "QUIT": "221 Bye",
+        }
+
+    async def handle(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            await self._converse(reader, writer)
+        except ConnectionError:
+            pass
+        finally:
+            writer.close()
+
+    async def _converse(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        if not await self._answer("GREETING", reader, writer):
+            return
+        while line := await reader.readline():
+            step = line.split()[0].decode().upper()
+            if not await self._answer(step, reader, writer) or step == "QUIT":
+                return
+            if step == "DATA" and self.replies[step] == "354 Go":
+                await reader.readuntil(b"\r\n.\r\n")
+                if not await self._answer("BODY", reader, writer):
+                    return
+
+    async def _answer(
+        self, step: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> bool:
+        reply = self.replies[step]
+        match reply:
+            case SmtpFault.CLOSE:
+                return False
+            case SmtpFault.SILENCE:
+                # The read ends when the client gives up and closes the connection.
+                await reader.read()
+                return False
+            case SmtpFault.BAD_TLS:
+                writer.write(b"220 Go\r\n")
+                await writer.drain()
+                await reader.read(1)
+                writer.write(b"not a TLS record\r\n")
+                await writer.drain()
+                return False
+            case _:
+                writer.write(f"{reply}\r\n".encode())
+                await writer.drain()
+                return True
+
+
+@pytest.fixture
+def smtp_script() -> SmtpScript:
+    return SmtpScript()
+
+
+@pytest.fixture
+async def scripted_smtp_settings(
+    settings: Settings, smtp_script: SmtpScript
+) -> AsyncIterator[Settings]:
+    """Settings that reach a local SMTP server, which answers as `smtp_script` says."""
+    server = await asyncio.start_server(smtp_script.handle, host="127.0.0.1", port=0)
     yield settings.model_copy(
         update={
             "smtp_host": "127.0.0.1",

@@ -1,8 +1,15 @@
 from datetime import timedelta
 
-from rastro.auth.application.dtos import PasswordResetSendInput
+import pytest
+
+from rastro.auth.application.dtos import PasswordResetSendInput, PasswordResetSendOutput
 from rastro.auth.application.use_cases import password_reset_send
 from rastro.auth.domain.aggregates import IssuedResetToken, User
+from rastro.auth.domain.errors import (
+    EmailNoAnswerError,
+    EmailRefusedError,
+    EmailTemporaryError,
+)
 from rastro.auth.domain.value_objects import (
     Email,
     ResetLinkUrl,
@@ -29,8 +36,8 @@ async def _send(
     reset_tokens: FakeResetTokenRepository,
     email_sender: FakeEmailSender,
     clock: FakeClock,
-) -> None:
-    await password_reset_send(
+) -> PasswordResetSendOutput:
+    return await password_reset_send(
         input,
         users=users,
         reset_tokens=reset_tokens,
@@ -148,3 +155,80 @@ async def test_a_second_send_replaces_the_token_of_the_user(
     assert stored is not None
     assert stored.hashed_token != reset_token.digest()
     assert stored.hashed_token == email_sender.last_reset_token().digest()
+
+
+async def test_an_accepted_send_reports_an_answer(
+    users: FakeUserRepository,
+    reset_tokens: FakeResetTokenRepository,
+    email_sender: FakeEmailSender,
+    clock: FakeClock,
+    ana: User,
+) -> None:
+    output = await _send(
+        ANA,
+        users=users,
+        reset_tokens=reset_tokens,
+        email_sender=email_sender,
+        clock=clock,
+    )
+
+    assert output == PasswordResetSendOutput(no_answer=False)
+
+
+async def test_an_address_with_no_user_reports_an_answer(
+    users: FakeUserRepository,
+    reset_tokens: FakeResetTokenRepository,
+    email_sender: FakeEmailSender,
+    clock: FakeClock,
+) -> None:
+    output = await _send(
+        ANA,
+        users=users,
+        reset_tokens=reset_tokens,
+        email_sender=email_sender,
+        clock=clock,
+    )
+
+    assert output == PasswordResetSendOutput(no_answer=False)
+
+
+async def test_a_send_with_no_answer_keeps_the_token_and_reports_it(
+    users: FakeUserRepository,
+    reset_tokens: FakeResetTokenRepository,
+    email_sender: FakeEmailSender,
+    clock: FakeClock,
+    ana: User,
+) -> None:
+    email_sender.error = EmailNoAnswerError()
+
+    output = await _send(
+        ANA,
+        users=users,
+        reset_tokens=reset_tokens,
+        email_sender=email_sender,
+        clock=clock,
+    )
+
+    assert output == PasswordResetSendOutput(no_answer=True)
+    assert await reset_tokens.get_by_user_id(ana.id) is not None
+
+
+@pytest.mark.parametrize("error", [EmailTemporaryError, EmailRefusedError])
+async def test_a_send_that_did_not_go_out_raises_its_error(
+    users: FakeUserRepository,
+    reset_tokens: FakeResetTokenRepository,
+    email_sender: FakeEmailSender,
+    clock: FakeClock,
+    ana: User,
+    error: type[Exception],
+) -> None:
+    email_sender.error = error()
+
+    with pytest.raises(error):
+        await _send(
+            ANA,
+            users=users,
+            reset_tokens=reset_tokens,
+            email_sender=email_sender,
+            clock=clock,
+        )

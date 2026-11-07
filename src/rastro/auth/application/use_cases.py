@@ -2,6 +2,7 @@ from rastro.auth.application.dtos import (
     PasswordResetConfirmInput,
     PasswordResetRequestInput,
     PasswordResetSendInput,
+    PasswordResetSendOutput,
     SessionGetOutput,
     SessionRemoveExpiredOutput,
     SessionStartInput,
@@ -12,6 +13,7 @@ from rastro.auth.application.mappers import session_get_output, session_start_ou
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.errors import (
     EmailInUseError,
+    EmailNoAnswerError,
     IncorrectCredentialsError,
     InvalidResetTokenError,
     NotAuthenticatedError,
@@ -130,10 +132,10 @@ async def password_reset_send(
     lifetime: ResetTokenLifetime,
     token_bytes: TokenBytes,
     link_url: ResetLinkUrl,
-) -> None:
+) -> PasswordResetSendOutput:
     user = await users.get_by_email(input.email)
     if user is None:
-        return
+        return PasswordResetSendOutput(no_answer=False)
     token = ResetToken.generate(nbytes=token_bytes)
     await reset_tokens.replace(
         IssuedResetToken.issue(
@@ -144,11 +146,16 @@ async def password_reset_send(
             lifetime=lifetime,
         )
     )
-    await email_sender.send(
-        OutgoingEmail.password_reset(
-            to=user.email, link_url=link_url, token=token, lifetime=lifetime
+    try:
+        await email_sender.send(
+            OutgoingEmail.password_reset(
+                to=user.email, link_url=link_url, token=token, lifetime=lifetime
+            )
         )
-    )
+    except EmailNoAnswerError:
+        # The email may have gone out, so its token commits and no retry sends a second one.
+        return PasswordResetSendOutput(no_answer=True)
+    return PasswordResetSendOutput(no_answer=False)
 
 
 async def password_reset_confirm(
