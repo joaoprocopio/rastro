@@ -11,7 +11,14 @@ from rastro.auth.domain.value_objects import (
     SessionLifetime,
 )
 from rastro.common.domain.value_objects import TokenBytes
-from rastro.settings import CorsOrigin, SameSite, Settings, SmtpPort, SmtpSecurity
+from rastro.settings import (
+    CorsOrigin,
+    SameSite,
+    Settings,
+    SmtpPort,
+    SmtpSecurity,
+    SmtpTimeout,
+)
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
@@ -92,7 +99,7 @@ def test_an_empty_variable_of_the_env_example_counts_as_unset(
         ("smtp_password", None),
         ("smtp_security", SmtpSecurity.STARTTLS),
         ("smtp_sender", Email("no-reply@rastro.example")),
-        ("smtp_timeout", timedelta(seconds=60)),
+        ("smtp_timeout", SmtpTimeout(timedelta(seconds=60))),
         ("reset_link_url", ResetLinkUrl("http://localhost:5173/password-reset")),
         ("reset_token_lifetime", ResetTokenLifetime(timedelta(hours=1))),
         ("reset_token_cooldown", ResetTokenCooldown(timedelta(seconds=60))),
@@ -220,6 +227,14 @@ def test_an_smtp_port_outside_the_tcp_range_stops_the_settings(
 
     with pytest.raises(ValueError, match=r"(?m)^RASTRO_SMTP_PORT\n  "):
         Settings()
+
+
+def test_the_smtp_timeout_reads_an_iso_8601_duration(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_TIMEOUT", "PT5S")
+
+    assert Settings().smtp_timeout == SmtpTimeout(timedelta(seconds=5))
 
 
 @pytest.mark.parametrize("value", ["PT0S", "-PT1S"])

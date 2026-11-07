@@ -22,11 +22,11 @@ from rastro.auth.domain.value_objects import (
 )
 from rastro.auth.infrastructure.adapters import Argon2PasswordHasher, SmtpEmailSender
 from rastro.auth.tests.conftest import SmtpFault, SmtpRecorder, SmtpScript
-from rastro.settings import Settings, SmtpPort, SmtpSecurity
+from rastro.settings import Settings, SmtpPort, SmtpSecurity, SmtpTimeout
 
 PASSWORD = RawPassword(SecretStr("password"))
 TOKEN = "a-token-longer-than-the-78-columns-that-email-allows-before-it-folds-a-line"
-SHORT_TIMEOUT = timedelta(milliseconds=250)
+SHORT_TIMEOUT = SmtpTimeout(timedelta(milliseconds=250))
 # Argon2PasswordHasher made these two when it passed argon2 the str of the password.
 ASCII_HASH_MADE_FROM_A_STR = (
     "$argon2id$v=19$m=65536,t=3,p=4$uoa+XKroLFsFNBQVI5GLrg"

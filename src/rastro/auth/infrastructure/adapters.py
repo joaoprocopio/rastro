@@ -114,7 +114,7 @@ class SmtpEmailSender:
                 password=None if password is None else password.get_secret_value(),
                 use_tls=settings.smtp_security is SmtpSecurity.TLS,
                 start_tls=settings.smtp_security is SmtpSecurity.STARTTLS,
-                timeout=settings.smtp_timeout.total_seconds(),
+                timeout=settings.smtp_timeout.root.total_seconds(),
             )
         except (aiosmtplib.SMTPException, ssl.SSLError) as error:
             raise _port_error(error) from error

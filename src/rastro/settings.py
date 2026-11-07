@@ -40,6 +40,12 @@ class SmtpPort(RootValueObject[Annotated[int, Field(ge=1, le=65535, strict=False
     pass
 
 
+class SmtpTimeout(
+    RootValueObject[Annotated[timedelta, Field(gt=timedelta(0), strict=False)]]
+):
+    pass
+
+
 class SmtpSecurity(StrEnum):
     NONE = "none"
     STARTTLS = "starttls"
@@ -93,7 +99,7 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_security: SmtpSecurity = SmtpSecurity.STARTTLS
     smtp_sender: Email = Email("no-reply@rastro.example")
-    smtp_timeout: Annotated[timedelta, Field(gt=timedelta(0))] = timedelta(seconds=60)
+    smtp_timeout: SmtpTimeout = SmtpTimeout(timedelta(seconds=60))
 
     # A relay with click tracking rewrites the link and reads the token, so turn it off.
     reset_link_url: ResetLinkUrl = ResetLinkUrl("http://localhost:5173/password-reset")
