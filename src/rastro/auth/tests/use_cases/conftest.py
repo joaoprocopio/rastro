@@ -3,17 +3,26 @@ from datetime import timedelta
 import pytest
 from pydantic import SecretStr
 
-from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    ResetToken,
+    ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
 )
-from rastro.auth.tests.fakes import FakeClock, FakeSessionRepository, FakeUserRepository
+from rastro.auth.tests.fakes import (
+    FakeClock,
+    FakePasswordResetJobs,
+    FakeResetTokenRepository,
+    FakeSessionRepository,
+    FakeUserRepository,
+)
 
 LIFETIME = SessionLifetime(timedelta(seconds=1))
+RESET_TOKEN_LIFETIME = ResetTokenLifetime(timedelta(hours=1))
 
 
 @pytest.fixture
@@ -24,6 +33,16 @@ def users() -> FakeUserRepository:
 @pytest.fixture
 def sessions() -> FakeSessionRepository:
     return FakeSessionRepository()
+
+
+@pytest.fixture
+def reset_tokens() -> FakeResetTokenRepository:
+    return FakeResetTokenRepository()
+
+
+@pytest.fixture
+def password_reset_jobs() -> FakePasswordResetJobs:
+    return FakePasswordResetJobs()
 
 
 @pytest.fixture
@@ -86,3 +105,21 @@ async def expired_session(
     )
     await sessions.add(session)
     return session
+
+
+@pytest.fixture
+async def reset_token(
+    ana: User, reset_tokens: FakeResetTokenRepository, clock: FakeClock
+) -> ResetToken:
+    """The token of a Reset token of `ana` in `reset_tokens`, issued at `clock.now()`."""
+    token = ResetToken(SecretStr("reset"))
+    await reset_tokens.replace(
+        IssuedResetToken.issue(
+            id=await reset_tokens.next_id(),
+            user_id=ana.id,
+            token=token,
+            at=clock.now(),
+            lifetime=RESET_TOKEN_LIFETIME,
+        )
+    )
+    return token

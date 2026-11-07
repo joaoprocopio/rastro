@@ -1,25 +1,32 @@
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from email import message_from_bytes, policy
+from email.message import EmailMessage
 
 import httpx
 import pytest
+from aiosmtpd.smtp import SMTP, AuthResult, Envelope, LoginPassword
+from aiosmtpd.smtp import Session as SmtpSession
 from fastapi import FastAPI
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.ports import PasswordHasher
 from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     RawPassword,
+    ResetToken,
     SessionToken,
 )
 from rastro.auth.infrastructure.repositories import (
+    SqlResetTokenRepository,
     SqlSessionRepository,
     SqlUserRepository,
 )
-from rastro.settings import Settings
+from rastro.settings import Settings, SmtpSecurity
 
 
 @pytest.fixture
@@ -72,6 +79,105 @@ async def expired_session(
     await sessions.add(session)
     await db_session.commit()
     return session
+
+
+@pytest.fixture
+async def reset_token(
+    db_session: AsyncSession, user: User, settings: Settings
+) -> ResetToken:
+    """The token of a committed Reset token of `user`, issued now by the wall clock."""
+    token = ResetToken(SecretStr("reset"))
+    reset_tokens = SqlResetTokenRepository(db_session)
+    await reset_tokens.replace(
+        IssuedResetToken.issue(
+            id=await reset_tokens.next_id(),
+            user_id=user.id,
+            token=token,
+            at=datetime.now(UTC),
+            lifetime=settings.reset_token_lifetime,
+        )
+    )
+    await db_session.commit()
+    return token
+
+
+@pytest.fixture
+async def expired_reset_token(
+    db_session: AsyncSession, user: User, settings: Settings
+) -> ResetToken:
+    """The token of a committed Reset token of `user` whose lifetime runs out now."""
+    token = ResetToken(SecretStr("expired"))
+    reset_tokens = SqlResetTokenRepository(db_session)
+    await reset_tokens.replace(
+        IssuedResetToken.issue(
+            id=await reset_tokens.next_id(),
+            user_id=user.id,
+            token=token,
+            at=datetime.now(UTC) - settings.reset_token_lifetime.root,
+            lifetime=settings.reset_token_lifetime,
+        )
+    )
+    await db_session.commit()
+    return token
+
+
+class SmtpRecorder:
+    """The handler of `smtp_server`, which records what the server receives."""
+
+    def __init__(self) -> None:
+        self.messages: list[EmailMessage] = []
+        self.logins: list[tuple[str, str]] = []
+
+    async def handle_DATA(
+        self, server: SMTP, session: SmtpSession, envelope: Envelope
+    ) -> str:
+        assert isinstance(envelope.content, bytes)
+        message = message_from_bytes(envelope.content, policy=policy.default)
+        assert isinstance(message, EmailMessage)
+        self.messages.append(message)
+        return "250 OK"
+
+    def authenticate(
+        self,
+        server: SMTP,
+        session: SmtpSession,
+        envelope: Envelope,
+        mechanism: str,
+        auth_data: LoginPassword,
+    ) -> AuthResult:
+        self.logins.append((auth_data.login.decode(), auth_data.password.decode()))
+        return AuthResult(success=True)
+
+
+@pytest.fixture
+def smtp_recorder() -> SmtpRecorder:
+    return SmtpRecorder()
+
+
+@pytest.fixture
+async def smtp_settings(
+    settings: Settings, smtp_recorder: SmtpRecorder
+) -> AsyncIterator[Settings]:
+    """Settings that reach a local SMTP server with no TLS, which `smtp_recorder` reads."""
+    # The server shares the event loop of the test, so a test needs no thread.
+    server = await asyncio.get_running_loop().create_server(
+        lambda: SMTP(
+            smtp_recorder,
+            authenticator=smtp_recorder.authenticate,
+            auth_require_tls=False,
+        ),
+        host="127.0.0.1",
+        port=0,
+    )
+    yield settings.model_copy(
+        update={
+            "smtp_host": "127.0.0.1",
+            "smtp_port": server.sockets[0].getsockname()[1],
+            "smtp_security": SmtpSecurity.NONE,
+        }
+    )
+    server.close()
+    await server.wait_closed()
 
 
 @pytest.fixture

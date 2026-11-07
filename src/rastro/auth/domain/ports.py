@@ -1,11 +1,13 @@
 from datetime import datetime
 from typing import NamedTuple, Protocol
 
-from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
+    HashedResetToken,
     HashedSessionToken,
+    OutgoingEmail,
     RawPassword,
 )
 from rastro.common.domain.value_objects import Id
@@ -48,8 +50,33 @@ class SessionRepository(Protocol):
 
     async def remove(self, session: Session) -> None: ...
 
+    async def remove_by_user_id(self, user_id: Id) -> None: ...
+
     async def remove_expired(self, *, at: datetime) -> int: ...
 
     async def get_by_hashed_token(
         self, hashed_token: HashedSessionToken
     ) -> Session | None: ...
+
+
+class ResetTokenRepository(Protocol):
+    async def next_id(self) -> Id: ...
+
+    # A User holds one Reset token, so a new one takes the place of the last one.
+    async def replace(self, reset_token: IssuedResetToken) -> None: ...
+
+    async def get_by_user_id(self, user_id: Id) -> IssuedResetToken | None: ...
+
+    # Removes and returns the token in one step, so only one caller can use it.
+    async def consume(
+        self, hashed_token: HashedResetToken
+    ) -> IssuedResetToken | None: ...
+
+
+class EmailSender(Protocol):
+    async def send(self, email: OutgoingEmail) -> None: ...
+
+
+class PasswordResetJobs(Protocol):
+    # The job commits or rolls back with the transaction of the caller.
+    async def defer_send(self, email: Email) -> None: ...

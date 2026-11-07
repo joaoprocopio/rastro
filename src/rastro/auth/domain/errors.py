@@ -11,3 +11,7 @@ class IncorrectCredentialsError(BaseError):
 
 class NotAuthenticatedError(BaseError):
     code = "auth.not_authenticated"
+
+
+class InvalidResetTokenError(BaseError):
+    code = "auth.invalid_reset_token"

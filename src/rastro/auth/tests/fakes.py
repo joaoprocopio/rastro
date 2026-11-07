@@ -1,13 +1,17 @@
+import re
 from datetime import datetime
 
-from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.errors import EmailInUseError
 from rastro.auth.domain.ports import PasswordCheck
 from rastro.auth.domain.value_objects import (
     Email,
     HashedPassword,
+    HashedResetToken,
     HashedSessionToken,
+    OutgoingEmail,
     RawPassword,
+    ResetToken,
 )
 from rastro.common.domain.value_objects import Id
 
@@ -92,6 +96,13 @@ class FakeSessionRepository:
             raise LookupError(f"No Session with the id {session.id.root}.")
         del self.sessions[session.id]
 
+    async def remove_by_user_id(self, user_id: Id) -> None:
+        self.sessions = {
+            id: session
+            for id, session in self.sessions.items()
+            if session.user_id != user_id
+        }
+
     async def remove_expired(self, *, at: datetime) -> int:
         expired = [
             id for id, session in self.sessions.items() if not session.is_active(at=at)
@@ -113,9 +124,58 @@ class FakeSessionRepository:
         )
 
 
+class FakeResetTokenRepository:
+    def __init__(self) -> None:
+        self.reset_tokens: dict[Id, IssuedResetToken] = {}
+        self._last_id = 0
+
+    async def next_id(self) -> Id:
+        self._last_id += 1
+        return Id(self._last_id)
+
+    async def replace(self, reset_token: IssuedResetToken) -> None:
+        self.reset_tokens[reset_token.user_id] = reset_token.model_copy()
+
+    async def get_by_user_id(self, user_id: Id) -> IssuedResetToken | None:
+        reset_token = self.reset_tokens.get(user_id)
+        return None if reset_token is None else reset_token.model_copy()
+
+    async def consume(self, hashed_token: HashedResetToken) -> IssuedResetToken | None:
+        for user_id, reset_token in self.reset_tokens.items():
+            if reset_token.hashed_token == hashed_token:
+                del self.reset_tokens[user_id]
+                return reset_token
+        return None
+
+
 class FakeClock:
     def __init__(self, now: datetime) -> None:
         self.current = now
 
     def now(self) -> datetime:
         return self.current
+
+
+class FakeEmailSender:
+    def __init__(self) -> None:
+        self.sent: list[OutgoingEmail] = []
+        self.error: Exception | None = None
+
+    async def send(self, email: OutgoingEmail) -> None:
+        if self.error is not None:
+            raise self.error
+        self.sent.append(email)
+
+    def last_reset_token(self) -> ResetToken:
+        """The Reset token in the link of the last email."""
+        match = re.search(r"#token=(\S+)", self.sent[-1].body.get_secret_value())
+        assert match is not None
+        return ResetToken.model_validate(match[1])
+
+
+class FakePasswordResetJobs:
+    def __init__(self) -> None:
+        self.deferred_sends: list[Email] = []
+
+    async def defer_send(self, email: Email) -> None:
+        self.deferred_sends.append(email)

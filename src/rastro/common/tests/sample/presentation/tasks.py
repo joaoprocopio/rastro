@@ -14,6 +14,11 @@ async def note_create_task(context: JobContext) -> None:
 
 
 @blueprint.task(pass_context=True)
+async def note_paint_task(context: JobContext, *, color: str) -> None:
+    pass
+
+
+@blueprint.task(pass_context=True)
 async def note_reject_task(context: JobContext) -> None:
     async with job_sessionmaker(context).begin() as db_session:
         await note_reject(notes=note_repository(db_session))

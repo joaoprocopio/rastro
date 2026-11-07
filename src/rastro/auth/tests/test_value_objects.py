@@ -8,12 +8,20 @@ from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    HashedResetToken,
     HashedSessionToken,
+    OutgoingEmail,
     RawPassword,
+    ResetLinkUrl,
+    ResetToken,
+    ResetTokenCooldown,
+    ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
 )
 from rastro.common.domain.value_objects import TokenBytes
+
+ONE_HOUR = ResetTokenLifetime(timedelta(hours=1))
 
 
 def test_email_strips_spaces_and_lowercases_the_whole_address() -> None:
@@ -129,13 +137,48 @@ def test_two_new_session_tokens_differ() -> None:
     )
 
 
+def test_the_digest_of_a_reset_token_is_its_sha256() -> None:
+    # The SHA-256 of "abc" from FIPS 180-2, appendix B.1.
+    expected = bytes.fromhex(
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    )
+
+    assert ResetToken(SecretStr("abc")).digest() == HashedResetToken(expected)
+
+
+def test_a_new_reset_token_of_16_bytes_has_22_characters() -> None:
+    token = ResetToken.generate(nbytes=TokenBytes(16))
+
+    assert len(token.root.get_secret_value()) == 22
+
+
+def test_two_new_reset_tokens_differ() -> None:
+    assert ResetToken.generate(nbytes=TokenBytes(16)) != ResetToken.generate(
+        nbytes=TokenBytes(16)
+    )
+
+
+def test_a_reset_token_has_no_format_rule() -> None:
+    assert ResetToken.model_validate("").root.get_secret_value() == ""
+
+
+def test_a_reset_token_with_a_lone_surrogate_has_a_digest() -> None:
+    token = ResetToken.model_validate("\ud800")
+
+    assert token.digest() == ResetToken.model_validate("\ud800").digest()
+
+
 @pytest.mark.parametrize(
     "secret",
-    [RawPassword(SecretStr("hunter22")), SessionToken(SecretStr("abc"))],
+    [
+        RawPassword(SecretStr("hunter22")),
+        SessionToken(SecretStr("abc")),
+        ResetToken(SecretStr("abc")),
+    ],
     ids=type,
 )
 def test_the_repr_of_a_secret_hides_its_value(
-    secret: RawPassword | SessionToken,
+    secret: RawPassword | SessionToken | ResetToken,
 ) -> None:
     assert "**********" in repr(secret)
     assert secret.root.get_secret_value() not in repr(secret)
@@ -147,3 +190,92 @@ def test_session_lifetime_rejects_a_duration_of_zero_or_less(
 ) -> None:
     with pytest.raises(pydantic.ValidationError):
         SessionLifetime(lifetime)
+
+
+@pytest.mark.parametrize("lifetime", [timedelta(0), timedelta(hours=-1)])
+def test_reset_token_lifetime_rejects_a_duration_of_zero_or_less(
+    lifetime: timedelta,
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        ResetTokenLifetime(lifetime)
+
+
+@pytest.mark.parametrize("cooldown", [timedelta(0), timedelta(seconds=-1)])
+def test_reset_token_cooldown_rejects_a_duration_of_zero_or_less(
+    cooldown: timedelta,
+) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        ResetTokenCooldown(cooldown)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:5173/password-reset",
+        "https://rastro.example/password-reset?source=email",
+    ],
+)
+def test_reset_link_url_accepts_a_web_address(url: str) -> None:
+    assert ResetLinkUrl(url).root == url
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["", "rastro.example/reset", "ftp://rastro.example", "https://x.com/#/reset"],
+)
+def test_reset_link_url_rejects_another_scheme_or_a_fragment(url: str) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        ResetLinkUrl(url)
+
+
+@pytest.mark.parametrize(
+    ("lifetime", "words"),
+    [
+        (timedelta(hours=1), "1 hour"),
+        (timedelta(hours=2), "2 hours"),
+        (timedelta(minutes=1), "1 minute"),
+        (timedelta(minutes=90), "90 minutes"),
+        (timedelta(seconds=1), "1 second"),
+        (timedelta(seconds=45), "45 seconds"),
+    ],
+)
+def test_a_password_reset_email_states_the_lifetime_in_words(
+    lifetime: timedelta, words: str
+) -> None:
+    email = _password_reset_email(lifetime=ResetTokenLifetime(lifetime))
+
+    assert f"The link works for {words} and only once" in (
+        email.body.get_secret_value()
+    )
+
+
+def test_a_password_reset_email_holds_the_token_in_the_fragment_of_its_link() -> None:
+    email = _password_reset_email()
+
+    assert email.to == Email("ana@x.com")
+    assert email.subject == "Reset your rastro password"
+    assert email.body.get_secret_value().splitlines() == [
+        "Someone asked to reset your rastro password.",
+        "",
+        (
+            "To choose a new password, open this link. "
+            "The link works for 1 hour and only once:"
+        ),
+        "",
+        "https://rastro.example/password-reset#token=abc",
+        "",
+        "If you did not ask for this, ignore this email. Your password stays the same.",
+    ]
+
+
+def test_the_repr_of_a_password_reset_email_hides_the_token() -> None:
+    assert "abc" not in repr(_password_reset_email())
+
+
+def _password_reset_email(*, lifetime: ResetTokenLifetime = ONE_HOUR) -> OutgoingEmail:
+    return OutgoingEmail.password_reset(
+        to=Email("ana@x.com"),
+        link_url=ResetLinkUrl("https://rastro.example/password-reset"),
+        token=ResetToken(SecretStr("abc")),
+        lifetime=lifetime,
+    )

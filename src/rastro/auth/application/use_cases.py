@@ -1,4 +1,7 @@
 from rastro.auth.application.dtos import (
+    PasswordResetConfirmInput,
+    PasswordResetRequestInput,
+    PasswordResetSendInput,
     SessionGetOutput,
     SessionRemoveExpiredOutput,
     SessionStartInput,
@@ -6,19 +9,30 @@ from rastro.auth.application.dtos import (
     UserRegisterInput,
 )
 from rastro.auth.application.mappers import session_get_output, session_start_output
-from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.errors import (
     EmailInUseError,
     IncorrectCredentialsError,
+    InvalidResetTokenError,
     NotAuthenticatedError,
 )
 from rastro.auth.domain.ports import (
     Clock,
+    EmailSender,
     PasswordHasher,
+    PasswordResetJobs,
+    ResetTokenRepository,
     SessionRepository,
     UserRepository,
 )
-from rastro.auth.domain.value_objects import SessionLifetime, SessionToken
+from rastro.auth.domain.value_objects import (
+    OutgoingEmail,
+    ResetLinkUrl,
+    ResetToken,
+    ResetTokenLifetime,
+    SessionLifetime,
+    SessionToken,
+)
 from rastro.common.domain.value_objects import TokenBytes
 
 
@@ -98,6 +112,64 @@ async def session_remove_expired(
     return SessionRemoveExpiredOutput(
         count=await sessions.remove_expired(at=clock.now())
     )
+
+
+async def password_reset_request(
+    input: PasswordResetRequestInput, *, password_reset_jobs: PasswordResetJobs
+) -> None:
+    await password_reset_jobs.defer_send(input.email)
+
+
+async def password_reset_send(
+    input: PasswordResetSendInput,
+    *,
+    users: UserRepository,
+    reset_tokens: ResetTokenRepository,
+    email_sender: EmailSender,
+    clock: Clock,
+    lifetime: ResetTokenLifetime,
+    token_bytes: TokenBytes,
+    link_url: ResetLinkUrl,
+) -> None:
+    user = await users.get_by_email(input.email)
+    if user is None:
+        return
+    token = ResetToken.generate(nbytes=token_bytes)
+    await reset_tokens.replace(
+        IssuedResetToken.issue(
+            id=await reset_tokens.next_id(),
+            user_id=user.id,
+            token=token,
+            at=clock.now(),
+            lifetime=lifetime,
+        )
+    )
+    await email_sender.send(
+        OutgoingEmail.password_reset(
+            to=user.email, link_url=link_url, token=token, lifetime=lifetime
+        )
+    )
+
+
+async def password_reset_confirm(
+    input: PasswordResetConfirmInput,
+    *,
+    users: UserRepository,
+    sessions: SessionRepository,
+    reset_tokens: ResetTokenRepository,
+    password_hasher: PasswordHasher,
+    clock: Clock,
+) -> None:
+    reset_token = await reset_tokens.consume(input.token.digest())
+    if reset_token is None or reset_token.is_expired(at=clock.now()):
+        raise InvalidResetTokenError()
+    user = await users.get_by_id(reset_token.user_id)
+    if user is None:
+        # The foreign key deletes each Reset token with its User, so the User exists.
+        raise LookupError(f"No User with the id {reset_token.user_id.root}.")
+    user.hashed_password = password_hasher.hash(password=input.password)
+    await users.update(user)
+    await sessions.remove_by_user_id(user.id)
 
 
 async def _active_session(
