@@ -113,7 +113,8 @@ def _field_error(error: ErrorDetails) -> BaseError:
             return TooLongError(
                 TooLongExtensions(max_length=error["ctx"]["max_length"])
             )
-        case "string_pattern_mismatch":
+        # A lone surrogate from JSON is no text that a pattern can read.
+        case "string_pattern_mismatch" | "string_unicode":
             return InvalidFormatError()
         case _:
             raise LookupError(

@@ -3,8 +3,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import SecretStr
 
-from rastro.auth.domain.aggregates import Session
+from rastro.auth.domain.aggregates import IssuedResetToken, Session
 from rastro.auth.domain.value_objects import (
+    ResetToken,
+    ResetTokenCooldown,
+    ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
 )
@@ -40,4 +43,57 @@ def test_a_session_starts_with_its_token_digest_and_ends_a_lifetime_later() -> N
 
     assert session == Session(
         id=Id(1), user_id=Id(2), hashed_token=TOKEN.digest(), expires_at=TEN_O_CLOCK
+    )
+
+
+def test_a_reset_token_is_issued_with_its_digest_and_expires_a_lifetime_later() -> None:
+    nine_o_clock = datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
+    token = ResetToken(SecretStr("token"))
+
+    issued = IssuedResetToken.issue(
+        id=Id(1),
+        user_id=Id(2),
+        token=token,
+        at=nine_o_clock,
+        lifetime=ResetTokenLifetime(timedelta(hours=1)),
+    )
+
+    assert issued == IssuedResetToken(
+        id=Id(1),
+        user_id=Id(2),
+        hashed_token=token.digest(),
+        issued_at=nine_o_clock,
+        expires_at=TEN_O_CLOCK,
+    )
+
+
+def test_a_reset_token_is_not_expired_before_its_expiry(
+    one_hour_reset_token: IssuedResetToken,
+) -> None:
+    before_its_expiry = one_hour_reset_token.expires_at - timedelta(seconds=1)
+
+    assert not one_hour_reset_token.is_expired(at=before_its_expiry)
+
+
+def test_a_reset_token_is_expired_from_the_moment_of_its_expiry(
+    one_hour_reset_token: IssuedResetToken,
+) -> None:
+    assert one_hour_reset_token.is_expired(at=one_hour_reset_token.expires_at)
+
+
+def test_a_reset_token_is_younger_than_a_cooldown_that_has_not_ended(
+    one_hour_reset_token: IssuedResetToken,
+) -> None:
+    assert one_hour_reset_token.is_younger_than(
+        ResetTokenCooldown(timedelta(seconds=60)),
+        at=one_hour_reset_token.issued_at + timedelta(seconds=59),
+    )
+
+
+def test_a_reset_token_is_not_younger_from_the_moment_the_cooldown_ends(
+    one_hour_reset_token: IssuedResetToken,
+) -> None:
+    assert not one_hour_reset_token.is_younger_than(
+        ResetTokenCooldown(timedelta(seconds=60)),
+        at=one_hour_reset_token.issued_at + timedelta(seconds=60),
     )
