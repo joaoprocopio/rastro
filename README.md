@@ -32,17 +32,15 @@ uv run --env-file .env.example procrastinate --app=rastro.worker.app worker
 
 ## Run the checks
 
-Each test run creates its own database on the Postgres server of `RASTRO_POSTGRES_URL` and drops it at the end, so parallel runs can share one server. If another rastro checkout already runs the `rastro` compose project, `docker compose up` reuses its Postgres container. In a worktree with its own ports, run `uv run --env-file .env pytest`:
+Each test run creates its own database on the Postgres server of `RASTRO_POSTGRES_URL` and drops it at the end, so parallel runs can share one server. If another rastro checkout already runs the `rastro` compose project, `docker compose up` reuses its Postgres container. In a worktree with its own ports, run `uv run --env-file .env poe check`:
 
 ```shell
 docker compose up -d --wait postgres
 uv sync
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy .
-uv run lint-imports
-uv run pytest
+uv run poe check
 ```
+
+`poe check` skips coverage. To measure coverage, run `uv run poe coverage`.
 
 ## Run a second stack beside another worktree's
 
@@ -60,7 +58,7 @@ Every `docker compose` command on this page then works unchanged. The `uv run` c
 
 ```shell
 uv run --env-file .env alembic upgrade head
-uv run --env-file .env pytest
+uv run --env-file .env poe test
 ```
 
 To remove the stack of a worktree with its volumes and the images it built, run this from the worktree root. It keeps the shared Postgres, ClickHouse, collector, and Grafana images:
