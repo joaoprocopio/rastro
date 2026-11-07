@@ -1,9 +1,7 @@
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import SecretStr
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
@@ -196,29 +194,6 @@ async def newer_reset_token(
         at=START + timedelta(hours=1),
         lifetime=RESET_TOKEN_LIFETIME,
     )
-
-
-@pytest.fixture
-async def committed_user(engine: AsyncEngine) -> AsyncIterator[User]:
-    """A User that every connection sees, which the test does not roll back."""
-    sessionmaker = create_sessionmaker(engine)
-    async with sessionmaker.begin() as db_session:
-        users = SqlUserRepository(db_session)
-        user = User(
-            id=await users.next_id(),
-            email=Email("committed@x.com"),
-            display_name=DisplayName("Committed"),
-            hashed_password=HashedPassword("fake$password"),
-        )
-        await users.add(user)
-
-    yield user
-
-    # The foreign key deletes each Session and the Reset token with their User.
-    async with sessionmaker.begin() as db_session:
-        await db_session.execute(
-            text("DELETE FROM auth_user WHERE id = :id"), {"id": user.id.root}
-        )
 
 
 @pytest.fixture

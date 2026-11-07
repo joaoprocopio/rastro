@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -19,9 +18,6 @@ from rastro.auth.domain.errors import (
     EmailTemporaryError,
 )
 from rastro.auth.domain.value_objects import (
-    DisplayName,
-    Email,
-    HashedPassword,
     ResetToken,
     ResetTokenCooldown,
 )
@@ -29,7 +25,6 @@ from rastro.auth.infrastructure.models import ResetTokenRow
 from rastro.auth.infrastructure.repositories import (
     SqlResetTokenRepository,
     SqlSessionRepository,
-    SqlUserRepository,
 )
 from rastro.auth.presentation import tasks
 from rastro.auth.presentation.dependencies import JOB_EMAIL_SENDER_KEY
@@ -287,29 +282,6 @@ async def test_a_second_job_within_the_default_cooldown_sends_nothing(
 
     assert await worker_app.job_manager.get_job_status_async(job_id) == Status.SUCCEEDED
     assert email_sender.sent == []
-
-
-@pytest.fixture
-async def committed_user(engine: AsyncEngine) -> AsyncIterator[User]:
-    """A User that every connection sees, which the test does not roll back."""
-    sessionmaker = create_sessionmaker(engine)
-    async with sessionmaker.begin() as db_session:
-        users = SqlUserRepository(db_session)
-        user = User(
-            id=await users.next_id(),
-            email=Email("committed@example.com"),
-            display_name=DisplayName("Committed"),
-            hashed_password=HashedPassword("fake$password"),
-        )
-        await users.add(user)
-
-    yield user
-
-    # The foreign key deletes the Reset token with its User.
-    async with sessionmaker.begin() as db_session:
-        await db_session.execute(
-            text("DELETE FROM auth_user WHERE id = :id"), {"id": user.id.root}
-        )
 
 
 async def test_two_jobs_at_the_same_time_leave_one_token_of_the_last_email(

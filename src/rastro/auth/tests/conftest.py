@@ -22,6 +22,7 @@ from rastro.auth.domain.ports import PasswordHasher
 from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
+    HashedPassword,
     OutgoingEmail,
     RawPassword,
     ResetLinkUrl,
@@ -39,6 +40,7 @@ from rastro.auth.presentation.tasks import (
     password_reset_send_task,
 )
 from rastro.common.domain.value_objects import Id
+from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.settings import Settings, SmtpPort, SmtpSecurity
 
 STATEMENTS_THAT_WAIT = text(
@@ -76,6 +78,29 @@ async def user(db_session: AsyncSession, password_hasher: PasswordHasher) -> Use
     await users.add(user)
     await db_session.commit()
     return user
+
+
+@pytest.fixture
+async def committed_user(engine: AsyncEngine) -> AsyncIterator[User]:
+    """A User that every connection sees, which the test does not roll back."""
+    sessionmaker = create_sessionmaker(engine)
+    async with sessionmaker.begin() as db_session:
+        users = SqlUserRepository(db_session)
+        user = User(
+            id=await users.next_id(),
+            email=Email("committed@x.com"),
+            display_name=DisplayName("Committed"),
+            hashed_password=HashedPassword("fake$password"),
+        )
+        await users.add(user)
+
+    yield user
+
+    # The foreign key deletes each Session and the Reset token with their User.
+    async with sessionmaker.begin() as db_session:
+        await db_session.execute(
+            text("DELETE FROM auth_user WHERE id = :id"), {"id": user.id.root}
+        )
 
 
 @pytest.fixture
