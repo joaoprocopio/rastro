@@ -73,7 +73,7 @@ class SqlUserRepository:
         row = await self._db_session.scalar(
             select(UserRow)
             .where(UserRow.email == email.root)
-            # key_share renders FOR NO KEY UPDATE, the mode that ADR 0002 chooses.
+            # key_share renders FOR NO KEY UPDATE, the mode that ADR 0005 chooses.
             .with_for_update(key_share=True)
         )
         return None if row is None else user_from_row(row)

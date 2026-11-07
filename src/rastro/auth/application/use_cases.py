@@ -68,7 +68,7 @@ async def session_start(
     lifetime: SessionLifetime,
     token_bytes: TokenBytes,
 ) -> SessionStartOutput:
-    # The lock holds a confirmation back until the commit, as ADR 0002 records.
+    # The lock holds a confirmation back until the commit, as ADR 0005 records.
     user = await users.get_by_email_locked(input.email)
     check = password_hasher.verify(
         password=input.password, hashed=None if user is None else user.hashed_password
