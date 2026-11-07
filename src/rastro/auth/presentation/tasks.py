@@ -45,6 +45,7 @@ async def password_reset_send_task(context: JobContext, *, email: str) -> None:
             email_sender=dependencies.job_email_sender(context),
             clock=dependencies.clock(),
             lifetime=settings.reset_token_lifetime,
+            cooldown=settings.reset_token_cooldown,
             token_bytes=settings.reset_token_bytes,
             link_url=settings.reset_link_url,
         )

@@ -8,6 +8,7 @@ from rastro.auth.domain.value_objects import (
     HashedResetToken,
     HashedSessionToken,
     ResetToken,
+    ResetTokenCooldown,
     ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
@@ -77,3 +78,6 @@ class IssuedResetToken(Aggregate):
 
     def is_expired(self, *, at: datetime) -> bool:
         return at >= self.expires_at
+
+    def is_younger_than(self, cooldown: ResetTokenCooldown, *, at: datetime) -> bool:
+        return at < self.issued_at + cooldown.root

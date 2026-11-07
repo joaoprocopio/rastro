@@ -6,6 +6,7 @@ from pydantic import SecretStr
 from rastro.auth.domain.aggregates import IssuedResetToken, Session
 from rastro.auth.domain.value_objects import (
     ResetToken,
+    ResetTokenCooldown,
     ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
@@ -76,6 +77,24 @@ def test_a_reset_token_is_expired_from_the_moment_of_its_expiry() -> None:
     issued = _issued_reset_token()
 
     assert issued.is_expired(at=TEN_O_CLOCK)
+
+
+def test_a_reset_token_is_younger_than_a_cooldown_that_has_not_ended() -> None:
+    issued = _issued_reset_token()
+
+    assert issued.is_younger_than(
+        ResetTokenCooldown(timedelta(seconds=60)),
+        at=issued.issued_at + timedelta(seconds=59),
+    )
+
+
+def test_a_reset_token_is_not_younger_from_the_moment_the_cooldown_ends() -> None:
+    issued = _issued_reset_token()
+
+    assert not issued.is_younger_than(
+        ResetTokenCooldown(timedelta(seconds=60)),
+        at=issued.issued_at + timedelta(seconds=60),
+    )
 
 
 def _issued_reset_token() -> IssuedResetToken:

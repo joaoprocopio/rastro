@@ -24,15 +24,12 @@ from rastro.auth.infrastructure.repositories import (
     SqlResetTokenRepository,
     SqlUserRepository,
 )
+from rastro.auth.tests.conftest import until_a_statement_waits
 from rastro.auth.tests.repositories.conftest import RESET_TOKEN_LIFETIME, START
 from rastro.common.infrastructure.database import create_sessionmaker
 from rastro.common.tests.adapter import RepositoryKind
 
 COMMITTED_TOKEN = ResetToken(SecretStr("committed"))
-STATEMENTS_THAT_WAIT = text(
-    "SELECT count(*) FROM pg_stat_activity"
-    " WHERE wait_event_type = 'Lock' AND query LIKE :statement"
-)
 
 
 @pytest.fixture
@@ -73,13 +70,6 @@ async def committed_reset_token(engine: AsyncEngine) -> AsyncIterator[IssuedRese
         )
 
 
-async def _until_a_statement_waits(probe: AsyncSession, *, statement: str) -> None:
-    async with asyncio.timeout(5):
-        while not await probe.scalar(STATEMENTS_THAT_WAIT, {"statement": statement}):
-            await probe.rollback()
-            await asyncio.sleep(0.01)
-
-
 async def test_a_consume_waits_for_a_concurrent_consume_and_then_finds_no_token(
     engine: AsyncEngine, committed_reset_token: IssuedResetToken
 ) -> None:
@@ -93,7 +83,7 @@ async def test_a_consume_waits_for_a_concurrent_consume_and_then_finds_no_token(
     ):
         consumed = await SqlResetTokenRepository(first).consume(digest)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).consume(digest))
-        await _until_a_statement_waits(probe, statement="DELETE FROM auth_reset_token%")
+        await until_a_statement_waits(probe, statement="DELETE FROM auth_reset_token%")
 
         await first.commit()
 
@@ -115,7 +105,7 @@ async def test_a_consume_that_rolls_back_leaves_the_token_for_a_waiting_consume(
     ):
         await SqlResetTokenRepository(first).consume(digest)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).consume(digest))
-        await _until_a_statement_waits(probe, statement="DELETE FROM auth_reset_token%")
+        await until_a_statement_waits(probe, statement="DELETE FROM auth_reset_token%")
 
         await first.rollback()
 
@@ -148,7 +138,7 @@ async def test_a_replace_waits_for_a_concurrent_replace_and_the_last_one_stays(
         last = await issue(second, "last")
         await SqlResetTokenRepository(first).replace(earlier)
         waiting = asyncio.create_task(SqlResetTokenRepository(second).replace(last))
-        await _until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
+        await until_a_statement_waits(probe, statement="INSERT INTO auth_reset_token%")
         await first.commit()
         await waiting
         await second.commit()

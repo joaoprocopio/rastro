@@ -10,6 +10,7 @@ from aiosmtpd.smtp import SMTP, AuthResult, Envelope, LoginPassword
 from aiosmtpd.smtp import Session as SmtpSession
 from fastapi import FastAPI
 from pydantic import SecretStr
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
@@ -27,6 +28,19 @@ from rastro.auth.infrastructure.repositories import (
     SqlUserRepository,
 )
 from rastro.settings import Settings, SmtpSecurity
+
+STATEMENTS_THAT_WAIT = text(
+    "SELECT count(*) FROM pg_stat_activity"
+    " WHERE datname = current_database()"
+    " AND wait_event_type = 'Lock' AND query LIKE :statement"
+)
+
+
+async def until_a_statement_waits(probe: AsyncSession, *, statement: str) -> None:
+    async with asyncio.timeout(5):
+        while not await probe.scalar(STATEMENTS_THAT_WAIT, {"statement": statement}):
+            await probe.rollback()
+            await asyncio.sleep(0.01)
 
 
 @pytest.fixture
