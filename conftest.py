@@ -28,7 +28,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from rastro import otel
-from rastro.app import ERROR_STATUSES, create_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
 from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
@@ -43,6 +42,7 @@ from rastro.common.tests.sample.presentation.views import (
 )
 from rastro.common.tests.sample.presentation.views import router as sample_router
 from rastro.otel import defaults
+from rastro.server_app import ERROR_STATUSES, create_app
 from rastro.settings import Settings
 from rastro.task_app import create_task_app
 

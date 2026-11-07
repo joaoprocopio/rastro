@@ -12,23 +12,23 @@ def test_only_presentation_modules_and_the_wiring_use_depends() -> None:
     assert depends_violations(rastro_sources()) == []
 
 
-def test_the_wiring_exemption_covers_only_rastro_app() -> None:
+def test_the_wiring_exemption_covers_only_rastro_server_app() -> None:
     sources = [
         (name, DEPENDS_SOURCE)
         for name in [
-            "rastro.app",
+            "rastro.server_app",
             "rastro.paint.presentation.views",
-            "rastro.app.wiring",
-            "rastro.apps",
-            "rastro.paint.app",
+            "rastro.server_app.wiring",
+            "rastro.server_apps",
+            "rastro.paint.server_app",
             "rastro",
         ]
     ]
 
     assert depends_violations(sources) == [
-        "rastro.app.wiring:1: from fastapi import Depends",
-        "rastro.apps:1: from fastapi import Depends",
-        "rastro.paint.app:1: from fastapi import Depends",
+        "rastro.server_app.wiring:1: from fastapi import Depends",
+        "rastro.server_apps:1: from fastapi import Depends",
+        "rastro.paint.server_app:1: from fastapi import Depends",
         "rastro:1: from fastapi import Depends",
     ]
 

@@ -5,8 +5,8 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from rastro.app import create_app
 from rastro.common.presentation.dependencies import AppSettings
+from rastro.server_app import create_app
 from rastro.settings import CorsOrigin, Settings
 
 OPENAPI_PAGES = ["/openapi.json", "/docs", "/redoc"]

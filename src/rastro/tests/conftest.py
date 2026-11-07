@@ -5,7 +5,7 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from rastro.app import create_app
+from rastro.server_app import create_app
 from rastro.settings import Settings
 
 POSTGRES_URL = "postgresql+psycopg://postgres:hunter2-secret@localhost:5432/postgres"
