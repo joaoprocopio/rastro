@@ -1,4 +1,4 @@
-from sqlalchemy import Column, func, select
+from sqlalchemy import Column, CursorResult, Delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -19,6 +19,14 @@ async def next_id(
     if next_id is None:
         raise RuntimeError("nextval returned no row.")
     return Id(next_id)
+
+
+async def removed_count(db_session: AsyncSession, *, statement: Delete) -> int:
+    result = await db_session.execute(statement)
+    # AsyncSession.execute types a Result, and only a CursorResult has a rowcount.
+    if not isinstance(result, CursorResult):
+        raise TypeError(f"The DELETE returned {result!r}, not a CursorResult.")
+    return result.rowcount
 
 
 async def existing_row[R: Row](

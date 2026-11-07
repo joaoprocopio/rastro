@@ -50,3 +50,7 @@ class PasswordResetSendOutput(DTO):
 class PasswordResetConfirmInput(DTO):
     token: ResetToken
     password: RawPassword
+
+
+class ResetTokenRemoveExpiredOutput(DTO):
+    count: int

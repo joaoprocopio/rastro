@@ -3,6 +3,7 @@ from rastro.auth.application.dtos import (
     PasswordResetRequestInput,
     PasswordResetSendInput,
     PasswordResetSendOutput,
+    ResetTokenRemoveExpiredOutput,
     SessionGetOutput,
     SessionRemoveExpiredOutput,
     SessionStartInput,
@@ -31,6 +32,7 @@ from rastro.auth.domain.value_objects import (
     OutgoingEmail,
     ResetLinkUrl,
     ResetToken,
+    ResetTokenCooldown,
     ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
@@ -130,11 +132,16 @@ async def password_reset_send(
     email_sender: EmailSender,
     clock: Clock,
     lifetime: ResetTokenLifetime,
+    cooldown: ResetTokenCooldown,
     token_bytes: TokenBytes,
     link_url: ResetLinkUrl,
 ) -> PasswordResetSendOutput:
     user = await users.get_by_email(input.email)
     if user is None:
+        return PasswordResetSendOutput(no_answer=False)
+    now = clock.now()
+    current = await reset_tokens.get_by_user_id(user.id)
+    if current is not None and current.is_younger_than(cooldown, at=now):
         return PasswordResetSendOutput(no_answer=False)
     token = ResetToken.generate(nbytes=token_bytes)
     await reset_tokens.replace(
@@ -142,7 +149,7 @@ async def password_reset_send(
             id=await reset_tokens.next_id(),
             user_id=user.id,
             token=token,
-            at=clock.now(),
+            at=now,
             lifetime=lifetime,
         )
     )
@@ -177,6 +184,14 @@ async def password_reset_confirm(
     user.hashed_password = password_hasher.hash(password=input.password)
     await users.update(user)
     await sessions.remove_by_user_id(user.id)
+
+
+async def reset_token_remove_expired(
+    *, reset_tokens: ResetTokenRepository, clock: Clock
+) -> ResetTokenRemoveExpiredOutput:
+    return ResetTokenRemoveExpiredOutput(
+        count=await reset_tokens.remove_expired(at=clock.now())
+    )
 
 
 async def _active_session(

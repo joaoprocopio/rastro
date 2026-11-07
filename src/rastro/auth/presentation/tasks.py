@@ -1,6 +1,6 @@
 import logging
 
-from procrastinate import Blueprint, JobContext, RetryStrategy
+from procrastinate import Blueprint, JobContext, RetryStrategy, builtin_tasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rastro.auth.application import use_cases
@@ -17,6 +17,7 @@ from rastro.common.presentation.dependencies import (
 from rastro.common.presentation.tasks import defer_in_transaction
 
 PASSWORD_RESET_QUEUE = "password_reset"
+PASSWORD_RESET_JOB_MAX_HOURS = 7 * 24
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,17 @@ async def session_remove_expired_task(context: JobContext, timestamp: int) -> No
             clock=dependencies.clock(),
         )
     logger.info("Expired Sessions removed: %d", output.count)
+
+
+@blueprint.periodic(cron="0 * * * *")
+@blueprint.task(pass_context=True)
+async def reset_token_remove_expired_task(context: JobContext, timestamp: int) -> None:
+    async with job_sessionmaker(context).begin() as db_session:
+        output = await use_cases.reset_token_remove_expired(
+            reset_tokens=dependencies.reset_token_repository(db_session),
+            clock=dependencies.clock(),
+        )
+    logger.info("Expired Reset tokens removed: %d", output.count)
 
 
 # This task takes an email address in place of an id, which spec #20 accepts, so the job row and the job logs hold the address.
@@ -52,6 +64,7 @@ async def password_reset_send_task(context: JobContext, *, email: str) -> None:
             email_sender=dependencies.job_email_sender(context),
             clock=dependencies.clock(),
             lifetime=settings.reset_token_lifetime,
+            cooldown=settings.reset_token_cooldown,
             token_bytes=settings.reset_token_bytes,
             link_url=settings.reset_link_url,
         )
@@ -61,6 +74,20 @@ async def password_reset_send_task(context: JobContext, *, email: str) -> None:
             "which may have gone out.",
             context.job.id,
         )
+
+
+# A failed job holds an email address too, so this task removes it as well.
+@blueprint.periodic(cron="0 0 * * *")
+@blueprint.task(pass_context=True)
+async def password_reset_remove_old_jobs_task(
+    context: JobContext, timestamp: int
+) -> None:
+    await builtin_tasks.remove_old_jobs(
+        context,
+        max_hours=PASSWORD_RESET_JOB_MAX_HOURS,
+        queue=PASSWORD_RESET_QUEUE,
+        remove_failed=True,
+    )
 
 
 # It sits beside its task, because the infrastructure imports no presentation.
