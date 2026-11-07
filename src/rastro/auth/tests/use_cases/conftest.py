@@ -123,3 +123,26 @@ async def reset_token(
         )
     )
     return token
+
+
+@pytest.fixture
+async def expired_reset_token(
+    users: FakeUserRepository, reset_tokens: FakeResetTokenRepository, clock: FakeClock
+) -> IssuedResetToken:
+    """A Reset token of a second User in `reset_tokens` that runs out at `clock.now()`."""
+    bia = User(
+        id=await users.next_id(),
+        email=Email("bia@x.com"),
+        display_name=DisplayName("Bia"),
+        hashed_password=HashedPassword("fake$password"),
+    )
+    await users.add(bia)
+    expired = IssuedResetToken.issue(
+        id=await reset_tokens.next_id(),
+        user_id=bia.id,
+        token=ResetToken(SecretStr("expired")),
+        at=clock.now() - RESET_TOKEN_LIFETIME.root,
+        lifetime=RESET_TOKEN_LIFETIME,
+    )
+    await reset_tokens.replace(expired)
+    return expired

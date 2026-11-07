@@ -165,6 +165,21 @@ async def reset_token(
 
 
 @pytest.fixture
+async def earlier_reset_token(
+    reset_tokens: ResetTokenRepository, users: UserRepository, bia: User
+) -> IssuedResetToken:
+    """A Reset token of the added `bia`, one hour before `reset_token`, not stored yet."""
+    await users.add(bia)
+    return IssuedResetToken.issue(
+        id=await reset_tokens.next_id(),
+        user_id=bia.id,
+        token=ResetToken(SecretStr("earlier")),
+        at=START - timedelta(hours=1),
+        lifetime=RESET_TOKEN_LIFETIME,
+    )
+
+
+@pytest.fixture
 async def newer_reset_token(
     reset_tokens: ResetTokenRepository, reset_token: IssuedResetToken, ana: User
 ) -> IssuedResetToken:

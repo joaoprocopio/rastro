@@ -1,11 +1,8 @@
 from datetime import timedelta
 
-from pydantic import SecretStr
-
 from rastro.auth.domain.aggregates import IssuedResetToken, User
 from rastro.auth.domain.ports import ResetTokenRepository, UserRepository
-from rastro.auth.domain.value_objects import HashedResetToken, ResetToken
-from rastro.auth.tests.repositories.conftest import RESET_TOKEN_LIFETIME, START
+from rastro.auth.domain.value_objects import HashedResetToken
 
 UNKNOWN_DIGEST = HashedResetToken(b"unknown")
 
@@ -53,23 +50,15 @@ async def test_replace_takes_the_place_of_the_reset_token_of_the_user(
 async def test_replace_keeps_the_reset_token_of_another_user(
     reset_tokens: ResetTokenRepository,
     read_reset_tokens: ResetTokenRepository,
-    users: UserRepository,
     reset_token: IssuedResetToken,
+    earlier_reset_token: IssuedResetToken,
     bia: User,
 ) -> None:
-    await users.add(bia)
-    other = IssuedResetToken.issue(
-        id=await reset_tokens.next_id(),
-        user_id=bia.id,
-        token=ResetToken(SecretStr("other")),
-        at=START,
-        lifetime=RESET_TOKEN_LIFETIME,
-    )
-    await reset_tokens.replace(other)
+    await reset_tokens.replace(earlier_reset_token)
 
     await reset_tokens.replace(reset_token)
 
-    assert await read_reset_tokens.get_by_user_id(bia.id) == other
+    assert await read_reset_tokens.get_by_user_id(bia.id) == earlier_reset_token
 
 
 async def test_consume_returns_the_reset_token_and_removes_it(
@@ -105,6 +94,69 @@ async def test_consume_of_an_unknown_digest_answers_none_and_keeps_the_others(
 
     assert await reset_tokens.consume(UNKNOWN_DIGEST) is None
     assert await read_reset_tokens.get_by_user_id(ana.id) == reset_token
+
+
+async def test_remove_expired_removes_an_expired_reset_token_and_keeps_a_valid_one(
+    reset_tokens: ResetTokenRepository,
+    read_reset_tokens: ResetTokenRepository,
+    reset_token: IssuedResetToken,
+    earlier_reset_token: IssuedResetToken,
+    ana: User,
+    bia: User,
+) -> None:
+    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace(earlier_reset_token)
+
+    await reset_tokens.remove_expired(at=reset_token.expires_at - timedelta(seconds=1))
+
+    assert await read_reset_tokens.get_by_user_id(ana.id) == reset_token
+    assert await read_reset_tokens.get_by_user_id(bia.id) is None
+
+
+async def test_remove_expired_removes_a_reset_token_that_expires_at_that_moment(
+    reset_tokens: ResetTokenRepository,
+    read_reset_tokens: ResetTokenRepository,
+    reset_token: IssuedResetToken,
+    ana: User,
+) -> None:
+    await reset_tokens.replace(reset_token)
+
+    await reset_tokens.remove_expired(at=reset_token.expires_at)
+
+    assert await read_reset_tokens.get_by_user_id(ana.id) is None
+
+
+async def test_remove_expired_keeps_every_valid_reset_token_and_returns_0(
+    reset_tokens: ResetTokenRepository,
+    read_reset_tokens: ResetTokenRepository,
+    reset_token: IssuedResetToken,
+    earlier_reset_token: IssuedResetToken,
+    ana: User,
+    bia: User,
+) -> None:
+    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace(earlier_reset_token)
+
+    removed = await reset_tokens.remove_expired(
+        at=earlier_reset_token.expires_at - timedelta(seconds=1)
+    )
+
+    assert removed == 0
+    assert await read_reset_tokens.get_by_user_id(ana.id) == reset_token
+    assert await read_reset_tokens.get_by_user_id(bia.id) == earlier_reset_token
+
+
+async def test_remove_expired_returns_the_number_of_removed_reset_tokens(
+    reset_tokens: ResetTokenRepository,
+    reset_token: IssuedResetToken,
+    earlier_reset_token: IssuedResetToken,
+) -> None:
+    await reset_tokens.replace(reset_token)
+    await reset_tokens.replace(earlier_reset_token)
+
+    removed = await reset_tokens.remove_expired(at=reset_token.expires_at)
+
+    assert removed == 2
 
 
 async def test_a_field_assigned_with_no_replace_keeps_its_stored_value(

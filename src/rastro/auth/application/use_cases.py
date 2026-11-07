@@ -2,6 +2,7 @@ from rastro.auth.application.dtos import (
     PasswordResetConfirmInput,
     PasswordResetRequestInput,
     PasswordResetSendInput,
+    ResetTokenRemoveExpiredOutput,
     SessionGetOutput,
     SessionRemoveExpiredOutput,
     SessionStartInput,
@@ -170,6 +171,14 @@ async def password_reset_confirm(
     user.hashed_password = password_hasher.hash(password=input.password)
     await users.update(user)
     await sessions.remove_by_user_id(user.id)
+
+
+async def reset_token_remove_expired(
+    *, reset_tokens: ResetTokenRepository, clock: Clock
+) -> ResetTokenRemoveExpiredOutput:
+    return ResetTokenRemoveExpiredOutput(
+        count=await reset_tokens.remove_expired(at=clock.now())
+    )
 
 
 async def _active_session(

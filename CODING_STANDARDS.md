@@ -140,7 +140,7 @@ A repository is one adapter per aggregate, and it receives the `AsyncSession` in
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
-`SqlSessionRepository.remove_expired` and `remove_by_user_id` are the methods that write many aggregates. The `DELETE` of `remove_expired` repeats the rule of `Session.is_active` in SQL, so the behaviour suite proves that both treat a Session as expired once the time reaches its `expires_at`.
+`SqlSessionRepository.remove_expired`, `SqlSessionRepository.remove_by_user_id`, and `SqlResetTokenRepository.remove_expired` are the methods that write many aggregates. Each `DELETE` of a `remove_expired` repeats a rule of its aggregate in SQL, `Session.is_active` or `IssuedResetToken.is_expired`, so the behaviour suite proves that both treat a row as expired once the time reaches its `expires_at`.
 
 `SqlResetTokenRepository` has no `add`, `update`, or `remove`, because two concurrent writers must not read and then write. `replace` is an upsert on the unique constraint of the User, so a second job waits for the row and then overwrites it. `consume` is a `DELETE` with `RETURNING`, so a second confirmation waits for the row and then finds none. An aggregate keeps a time that a rule reads in its own column, such as `issued_at`, because a mapper sets no audit column.
 
@@ -184,7 +184,7 @@ A value outside the body, for example a cookie, comes from a private dependency 
 
 ## Write tasks
 
-A task is an `async def` named `<entity>_<action>_task`, and it is an edge. Every task except `job_retry_stalled_task` parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. A task never uses FastAPI's `Depends`.
+A task is an `async def` named `<entity>_<action>_task`, and it is an edge. Every task except `job_retry_stalled_task` and `password_reset_remove_old_jobs_task` parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. A task never uses FastAPI's `Depends`.
 
 A task declares itself with `pass_context=True` on the `blueprint` of its app's `presentation/tasks.py`, so a tasks module imports no Procrastinate `App`. `create_job_app` in `rastro/worker_app.py` adds the `blueprint` of every app to one `App`, and `create_worker_app` adds the worker options to it, so the connector and the worker options live in that module only.
 
@@ -198,7 +198,7 @@ A use case defers a job through a port, because the application imports no Procr
 
 A task raises `UnboundTaskError` until an `App` binds it, so `rastro/api.py` calls `create_job_app` once. That `App` opens no pool, because each job runs on the connection of its transaction.
 
-The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task changes only the rows of Procrastinate, so it opens no transaction and calls no use case.
+The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task changes only the rows of Procrastinate, so it opens no transaction and calls no use case. `password_reset_remove_old_jobs_task` follows the same rule, because Procrastinate's `remove_old_jobs` deletes only job rows.
 
 To upgrade Procrastinate, stop at each version that adds a file to the package's `sql/migrations/`, as the [Procrastinate migration guide](https://procrastinate.readthedocs.io/en/stable/howto/production/migrations.html) requires. A `pre` file keeps the schema usable by the code of the previous version, and a `post` file can remove what the code of the previous version calls. For each version, copy each file into its own Alembic migration, in the order of the file names:
 
@@ -251,7 +251,7 @@ Each layer has its own kind of test. A test passes fakes as arguments or through
 - **Use case tests** call a use case with the in-memory fakes and assert the error class with `pytest.raises`.
 - **Repository tests** run one behaviour suite per port, and its `adapter` fixture runs each test once with the fake and once with the Sql adapter. Only the Sql case opens the test database, and it reads back through a second session, so the identity map hides nothing. The suite covers both mapper directions, `next_id` and the `Id` that it returns, the unique-violation translation, `LookupError` for a missing row, and the `model_copy()` rule. A test that only Postgres can pass lives in `test_sql_<aggregate>_repository.py`: a row that breaks its value object, such as the id `0`, the audit columns, and the query span.
 - **View tests** cover the HTTP contract and compare the literal JSON of each problem, because the literal is the contract that a client reads. The view tests own the code of each rejection.
-- **Task tests** defer the task, run the worker of the `worker_app` fixture on Procrastinate's `InMemoryConnector`, and read its rows and the emails of the `email_sender` fixture. A test defers a periodic task with `configure(task_kwargs={"timestamp": 0}).defer_async()`, because mypy accepts a `defer_async()` with no timestamp, and the job then fails.
+- **Task tests** defer the task, run the worker of the `worker_app` fixture on Procrastinate's `InMemoryConnector`, and read its rows and the emails of the `email_sender` fixture. A test defers a periodic task with `configure(task_kwargs={"timestamp": 0}).defer_async()`, because mypy accepts a `defer_async()` with no timestamp, and the job then fails. `InMemoryConnector` runs its own Python in place of each Procrastinate query, so a test of a task whose result depends on that query uses the `connector_app` fixture, which runs it once on each connector.
 
 A test lives in `rastro/<app>/tests/`, beside the code that it covers, for example `views/test_session_start.py`. A test name states the behaviour as a sentence, for example `test_an_email_in_use_is_a_conflict`, and a blank line splits the setup and the call from the assertions. An input that several tests share is a module-level constant. A test class is optional, so group tests in a class only when the group helps the reader.
 

@@ -147,6 +147,16 @@ class FakeResetTokenRepository:
                 return reset_token
         return None
 
+    async def remove_expired(self, *, at: datetime) -> int:
+        expired = [
+            user_id
+            for user_id, reset_token in self.reset_tokens.items()
+            if reset_token.is_expired(at=at)
+        ]
+        for user_id in expired:
+            del self.reset_tokens[user_id]
+        return len(expired)
+
 
 class FakeClock:
     def __init__(self, now: datetime) -> None:
