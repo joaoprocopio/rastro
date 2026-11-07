@@ -80,6 +80,28 @@ async def test_each_invalid_field_names_the_rule_that_failed(
     assert await _user_count(db_session) == 0
 
 
+async def test_a_password_with_a_lone_surrogate_registers_no_user(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    # The JSON encoder of httpx rejects a lone surrogate, so the body stays literal.
+    response = await client.post(
+        PATH,
+        content=(
+            '{"email": "ada@example.com", "display_name": "Ada",'
+            ' "password": "\\ud800aaaaaaaa"}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#/password", "type": "request.invalid_format"}],
+    }
+    assert await _user_count(db_session) == 0
+
+
 async def test_an_email_longer_than_254_characters_is_too_long(
     client: httpx.AsyncClient,
 ) -> None:

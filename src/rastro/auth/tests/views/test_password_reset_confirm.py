@@ -169,6 +169,26 @@ async def test_a_password_that_raw_password_rejects_keeps_the_token_working(
     assert accepted.status_code == HTTPStatus.NO_CONTENT
 
 
+async def test_a_password_with_a_lone_surrogate_keeps_the_token_working(
+    client: httpx.AsyncClient, reset_token: ResetToken
+) -> None:
+    # The JSON encoder of httpx rejects a lone surrogate, so the body stays literal.
+    rejected = await client.post(
+        PATH,
+        content='{"token": "reset", "password": "\\ud800aaaaaaaa"}',
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert rejected.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert rejected.json() == {
+        "type": "request.validation_failed",
+        "status": 422,
+        "errors": [{"pointer": "#/password", "type": "request.invalid_format"}],
+    }
+    accepted = await client.post(PATH, json=_body(reset_token))
+    assert accepted.status_code == HTTPStatus.NO_CONTENT
+
+
 async def test_a_body_with_no_token_is_a_validation_problem(
     client: httpx.AsyncClient,
 ) -> None:

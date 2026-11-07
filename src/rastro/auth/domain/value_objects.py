@@ -4,7 +4,13 @@ import unicodedata
 from datetime import timedelta
 from typing import Annotated, Self
 
-from pydantic import BeforeValidator, Field, SecretStr, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BeforeValidator,
+    Field,
+    SecretStr,
+    StringConstraints,
+)
 
 from rastro.common.domain.value_objects import (
     RootValueObject,
@@ -58,10 +64,22 @@ class DisplayName(
     pass
 
 
-class RawPassword(
+# A rule on a str makes Pydantic read its characters, so a lone surrogate fails as on Email.
+class _RawPasswordText(
     RootValueObject[
-        Annotated[SecretStr, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]
+        Annotated[str, StringConstraints(min_length=RAW_PASSWORD_MIN_LENGTH)]
     ]
+):
+    pass
+
+
+def _with_valid_text(password: SecretStr) -> SecretStr:
+    _RawPasswordText(password.get_secret_value())
+    return password
+
+
+class RawPassword(
+    RootValueObject[Annotated[SecretStr, AfterValidator(_with_valid_text)]]
 ):
     pass
 
