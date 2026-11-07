@@ -42,6 +42,7 @@ from rastro.common.tests.sample.presentation.views import (
     ERROR_STATUSES as SAMPLE_ERROR_STATUSES,
 )
 from rastro.common.tests.sample.presentation.views import router as sample_router
+from rastro.otel import defaults
 from rastro.settings import Settings
 from rastro.task_app import create_task_app
 
@@ -64,6 +65,12 @@ def settings() -> Settings:
     # str() of a URL masks the password, so the copy renders it in full.
     postgres_url = Secret(PostgresDsn(url.render_as_string(hide_password=False)))
     return local.model_copy(update={"postgres_url": postgres_url})
+
+
+@pytest.fixture(scope="session", autouse=True)
+def otel_defaults(settings: Settings) -> None:
+    """Apply the defaults before the first instrumentation, which reads the opt-in once."""
+    defaults.apply(settings)
 
 
 @pytest.fixture(scope="session")

@@ -66,7 +66,7 @@ async def test_a_query_span_keeps_the_statement_and_no_parameters(
     await users.add(ana)
 
     attributes = [dict(span.attributes or {}) for span in spans.get_finished_spans()]
-    statements = [str(a["db.statement"]) for a in attributes if "db.statement" in a]
+    statements = [str(a["db.query.text"]) for a in attributes if "db.query.text" in a]
     assert any(s.startswith("INSERT INTO auth_user ") for s in statements)
     assert "fake$password" not in str(attributes)
     assert "ana@x.com" not in str(attributes)

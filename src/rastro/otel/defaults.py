@@ -1,6 +1,7 @@
 import os
 from urllib import parse
 
+from opentelemetry.instrumentation._semconv import OTEL_SEMCONV_STABILITY_OPT_IN
 from opentelemetry.instrumentation.logging.environment_variables import (
     OTEL_PYTHON_LOG_HANDLER_LEVEL,
 )
@@ -42,6 +43,7 @@ def defaults(settings: Settings) -> dict[str, str | int]:
         OTEL_BLRP_MAX_QUEUE_SIZE: 8_192,
         OTEL_BLRP_MAX_EXPORT_BATCH_SIZE: 1_024,
         OTEL_BLRP_SCHEDULE_DELAY: 2_000,  # ms
+        OTEL_SEMCONV_STABILITY_OPT_IN: "http,database",
     }
 
 
