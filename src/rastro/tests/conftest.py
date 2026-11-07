@@ -5,7 +5,7 @@ import httpx
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from rastro.app import create_app
+from rastro.api_app import create_api_app
 from rastro.settings import Settings
 
 POSTGRES_URL = "postgresql+psycopg://postgres:hunter2-secret@localhost:5432/postgres"
@@ -28,7 +28,7 @@ async def openapi_client(
     settings: Settings, openapi_enabled: bool
 ) -> AsyncIterator[httpx.AsyncClient]:
     """A client of an app whose test parametrizes `openapi_enabled`."""
-    app = create_app(
+    app = create_api_app(
         settings=settings.model_copy(update={"openapi_enabled": openapi_enabled}),
         sessionmaker=async_sessionmaker(),
     )
@@ -46,7 +46,7 @@ async def cors_client(
     # model_copy() skips validation, so a misspelled field would test nothing.
     fields = Settings.model_fields
     update = {fields[name].alias: value for name, value in cors_settings.items()}
-    app = create_app(
+    app = create_api_app(
         settings=Settings.model_validate(settings.model_dump(by_alias=True) | update),
         sessionmaker=async_sessionmaker(),
     )

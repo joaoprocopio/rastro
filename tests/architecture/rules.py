@@ -25,7 +25,7 @@ DOMAIN = "domain"
 APPLICATION = "application"
 USE_CASES = "use_cases"
 ALIASED_FORMS = frozenset({"Annotated", "Literal"})
-WIRING = "rastro.app"
+WIRING = "rastro.api_app"
 
 
 def domain_modules() -> list[ModuleType]:

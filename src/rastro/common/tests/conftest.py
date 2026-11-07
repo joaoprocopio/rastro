@@ -27,15 +27,15 @@ def note_count(
 
 
 @pytest.fixture
-def doing_job(task_app: App) -> Callable[[timedelta], Awaitable[int]]:
+def doing_job(worker_app: App) -> Callable[[timedelta], Awaitable[int]]:
     """Start a job of the `stalled` queue on a worker whose last heartbeat is that old."""
-    connector = task_app.connector
+    connector = worker_app.connector
     assert isinstance(connector, InMemoryConnector)
 
     async def start(heartbeat_age: timedelta) -> int:
         job_id = await note_create_task.configure(queue="stalled").defer_async()
-        worker_id = await task_app.job_manager.register_worker()
-        await task_app.job_manager.fetch_job(queues=["stalled"], worker_id=worker_id)
+        worker_id = await worker_app.job_manager.register_worker()
+        await worker_app.job_manager.fetch_job(queues=["stalled"], worker_id=worker_id)
         connector.workers[worker_id] = datetime.now(UTC) - heartbeat_age
         return job_id
 

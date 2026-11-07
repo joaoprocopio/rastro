@@ -36,7 +36,7 @@ dev = [
 ]
 
 [tool.fastapi]
-entrypoint = "rastro.main:app"
+entrypoint = "rastro.api:app"
 
 [tool.alembic]
 script_location = "%(here)s/src/rastro/migrations"
@@ -117,6 +117,6 @@ type = "forbidden"
 source_modules = ["rastro.*"]
 forbidden_modules = ["rastro.security"]
 ignore_imports = [
-    "rastro.app -> rastro.security.**",
+    "rastro.api_app -> rastro.security.**",
     "rastro.security.** -> rastro.security.**",
 ]

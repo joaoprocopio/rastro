@@ -18,7 +18,7 @@ ERROR_STATUSES: ErrorStatuses = {
 }
 
 
-def create_app(
+def create_api_app(
     *, settings: Settings, sessionmaker: async_sessionmaker[AsyncSession]
 ) -> FastAPI:
     # openapi_url=None also turns off the /docs and /redoc pages.

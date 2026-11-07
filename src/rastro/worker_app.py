@@ -13,7 +13,7 @@ def _conninfo(settings: Settings) -> str:
 
 
 # add_tasks_from binds each task of a blueprint to this App, so a process calls it once.
-def create_task_app(
+def create_worker_app(
     *, settings: Settings, sessionmaker: async_sessionmaker[AsyncSession]
 ) -> App:
     app = App(

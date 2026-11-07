@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 import pytest
 
-from rastro.app import ERROR_STATUSES
+from rastro.api_app import ERROR_STATUSES
 from rastro.common.domain.errors import BaseError
 from rastro.common.tests.sample.presentation.views import (
     ERROR_STATUSES as SAMPLE_ERROR_STATUSES,
