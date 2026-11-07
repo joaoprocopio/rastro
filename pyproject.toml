@@ -55,14 +55,14 @@ anyio_mode = "auto"
 testpaths = ["src", "tests"]
 
 [tool.poe.tasks]
-lint = ["_ruff", "_format", "_mypy", "_imports"]
+lint = ["_ruff_check", "_ruff_format_check", "_mypy", "_lint_imports"]
 test = "pytest"
 coverage = "pytest --cov src/"
 check = ["lint", "test"]
-_ruff = "ruff check ."
-_format = "ruff format --check ."
+_ruff_check = "ruff check ."
+_ruff_format_check = "ruff format --check ."
 _mypy = "mypy ."
-_imports = "lint-imports"
+_lint_imports = "lint-imports"
 
 [tool.ruff.lint]
 extend-select = ["TID251"]

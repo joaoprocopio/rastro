@@ -39,7 +39,7 @@ uv sync
 uv run poe check
 ```
 
-`poe check` runs `poe lint` and `poe test`, and skips coverage. To measure coverage as the pipeline does, run `uv run poe coverage`. To list the tasks, run `uv run poe`.
+`poe check` skips coverage. To measure coverage, run `uv run poe coverage`.
 
 ## Run a second stack beside another worktree's
 
