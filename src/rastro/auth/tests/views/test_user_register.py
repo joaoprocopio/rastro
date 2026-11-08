@@ -9,6 +9,7 @@ from rastro.auth.infrastructure.models import UserRow
 from rastro.settings import Settings
 
 PATH = "/api/v1/auth/register"
+SESSION_START_PATH = "/api/v1/auth/session/start"
 VALID_BODY = {
     "email": "ada@example.com",
     "display_name": "Ada",
@@ -75,6 +76,58 @@ async def test_each_invalid_field_names_the_rule_that_failed(
         "errors": [
             {"pointer": "#/email", "type": "request.invalid_format"},
             {"pointer": "#/password", "type": "request.too_short", "min_length": 8},
+        ],
+    }
+    assert await _user_count(db_session) == 0
+
+
+async def test_a_password_with_a_lone_surrogate_registers_a_user_who_starts_a_session(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    # The JSON encoder of httpx rejects a lone surrogate, so the body stays literal.
+    response = await client.post(
+        PATH,
+        content=(
+            '{"email": "ada@example.com", "display_name": "Ada",'
+            ' "password": "\\ud800aaaaaaaa"}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    assert await _user_count(db_session) == 1
+    started = await client.post(
+        SESSION_START_PATH,
+        content='{"email": "ada@example.com", "password": "\\ud800aaaaaaaa"}',
+        headers={"Content-Type": "application/json"},
+    )
+    wrong = await client.post(
+        SESSION_START_PATH,
+        content='{"email": "ada@example.com", "password": "\\ud801aaaaaaaa"}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert started.status_code == HTTPStatus.NO_CONTENT
+    assert wrong.status_code == HTTPStatus.UNAUTHORIZED
+
+
+async def test_a_short_password_with_a_lone_surrogate_is_too_short(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    response = await client.post(
+        PATH,
+        content=(
+            '{"email": "ada@example.com", "display_name": "Ada",'
+            ' "password": "\\ud800aaaaaa"}'
+        ),
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json() == {
+        "type": "request.validation_failed",
+        "status": 422,
+        "errors": [
+            {"pointer": "#/password", "type": "request.too_short", "min_length": 8}
         ],
     }
     assert await _user_count(db_session) == 0

@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from datetime import timedelta
 from http import HTTPStatus
 
@@ -8,7 +11,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from rastro.api_app import create_api_app
 from rastro.common.presentation.dependencies import AppSettings
 from rastro.settings import CorsOrigin, Settings
+from rastro.tests.conftest import POSTGRES_URL
 
+# Each process binds its tasks once, so this script runs in its own process.
+TASK_NAME_SCRIPT = """
+import rastro.api
+from rastro.auth.presentation.tasks import password_reset_send_task
+
+password_reset_send_task.configure()
+print(password_reset_send_task.name)
+"""
 OPENAPI_PAGES = ["/openapi.json", "/docs", "/redoc"]
 SESSION_PATH = "/api/v1/auth/session"
 CSRF_PATH = "/api/v1/security/csrf"
@@ -21,6 +33,26 @@ FRAME_HEADERS = {
     "X-Frame-Options": "DENY",
     "Content-Security-Policy": "frame-ancestors 'none'",
 }
+
+
+def test_the_api_process_binds_each_task_under_the_name_that_the_worker_reads() -> None:
+    kept = {
+        name: value
+        for name, value in os.environ.items()
+        if not name.startswith(("OTEL_", "RASTRO_"))
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-c", TASK_NAME_SCRIPT],
+        env={**kept, "RASTRO_POSTGRES_URL": POSTGRES_URL},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.strip() == (
+        "auth:rastro.auth.presentation.tasks.password_reset_send_task"
+    )
 
 
 def _preflight_headers(

@@ -1,13 +1,19 @@
 from datetime import timedelta
 from enum import StrEnum
 from http import HTTPMethod
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import HttpUrl, PostgresDsn, Secret, UrlConstraints
+from pydantic import Field, HttpUrl, PostgresDsn, Secret, SecretStr, UrlConstraints
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from rastro.auth.domain.value_objects import SessionLifetime
-from rastro.common.domain.value_objects import TokenBytes
+from rastro.auth.domain.value_objects import (
+    Email,
+    ResetLinkUrl,
+    ResetTokenCooldown,
+    ResetTokenLifetime,
+    SessionLifetime,
+)
+from rastro.common.domain.value_objects import RootValueObject, TokenBytes
 
 
 # The scheme names the SQLAlchemy driver, so another driver fails at startup.
@@ -30,6 +36,22 @@ class SameSite(StrEnum):
     NONE = "none"
 
 
+class SmtpPort(RootValueObject[Annotated[int, Field(ge=1, le=65535, strict=False)]]):
+    pass
+
+
+class SmtpTimeout(
+    RootValueObject[Annotated[timedelta, Field(gt=timedelta(0), strict=False)]]
+):
+    pass
+
+
+class SmtpSecurity(StrEnum):
+    NONE = "none"
+    STARTTLS = "starttls"
+    TLS = "tls"
+
+
 def _variable(field: str) -> str:
     return f"RASTRO_{field.upper()}"
 
@@ -40,6 +62,8 @@ class Settings(BaseSettings):
         alias_generator=_variable,
         # An env file also holds the OTEL_* variables, which the SDK reads, and the ports, which compose reads.
         extra="ignore",
+        # An env file holds a line for every setting, so an empty line means unset.
+        env_ignore_empty=True,
         frozen=True,
         hide_input_in_errors=True,
     )
@@ -68,6 +92,20 @@ class Settings(BaseSettings):
     csrf_cookie_samesite: SameSite = SameSite.LAX
     csrf_token_bytes: TokenBytes = TokenBytes(32)
     csrf_header_name: str = "X-CSRF-Token"
+
+    smtp_host: str = "localhost"
+    smtp_port: SmtpPort = SmtpPort(587)
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_security: SmtpSecurity = SmtpSecurity.STARTTLS
+    smtp_sender: Email = Email("no-reply@rastro.example")
+    smtp_timeout: SmtpTimeout = SmtpTimeout(timedelta(seconds=60))
+
+    # A relay with click tracking rewrites the link and reads the token, so turn it off.
+    reset_link_url: ResetLinkUrl = ResetLinkUrl("http://localhost:5173/password-reset")
+    reset_token_lifetime: ResetTokenLifetime = ResetTokenLifetime(timedelta(hours=1))
+    reset_token_cooldown: ResetTokenCooldown = ResetTokenCooldown(timedelta(seconds=60))
+    reset_token_bytes: TokenBytes = TokenBytes(32)
 
     # Empty, so a deployment that forgets the variable allows no other origin.
     cors_allowed_origins: list[CorsOrigin] = []

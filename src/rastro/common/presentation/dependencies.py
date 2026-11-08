@@ -26,6 +26,7 @@ DatabaseSession = Annotated[AsyncSession, Depends(database_session, scope="funct
 
 
 JOB_SESSIONMAKER_KEY = "sessionmaker"
+JOB_SETTINGS_KEY = "settings"
 
 
 def job_sessionmaker(context: JobContext) -> async_sessionmaker[AsyncSession]:
@@ -34,3 +35,8 @@ def job_sessionmaker(context: JobContext) -> async_sessionmaker[AsyncSession]:
     if not isinstance(sessionmaker, async_sessionmaker):
         raise TypeError(f"The job context holds {sessionmaker!r} as its sessionmaker.")
     return sessionmaker
+
+
+def job_settings(context: JobContext) -> Settings:
+    settings: Settings = context.additional_context[JOB_SETTINGS_KEY]
+    return settings

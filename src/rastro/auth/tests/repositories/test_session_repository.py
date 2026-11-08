@@ -1,9 +1,12 @@
 from datetime import timedelta
 
 import pytest
+from pydantic import SecretStr
 
-from rastro.auth.domain.aggregates import Session
-from rastro.auth.domain.ports import SessionRepository
+from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.ports import SessionRepository, UserRepository
+from rastro.auth.domain.value_objects import SessionToken
+from rastro.auth.tests.repositories.conftest import LIFETIME, START
 
 
 async def test_get_by_hashed_token_reads_back_every_field_that_add_wrote(
@@ -104,6 +107,54 @@ async def test_remove_expired_returns_the_number_of_removed_sessions(
     removed = await sessions.remove_expired(at=session.expires_at)
 
     assert removed == 2
+
+
+async def test_remove_by_user_id_removes_every_session_of_the_user(
+    sessions: SessionRepository,
+    read_sessions: SessionRepository,
+    session: Session,
+    earlier_session: Session,
+    ana: User,
+) -> None:
+    await sessions.add(session)
+    await sessions.add(earlier_session)
+
+    await sessions.remove_by_user_id(ana.id)
+
+    assert await read_sessions.get_by_hashed_token(session.hashed_token) is None
+    assert await read_sessions.get_by_hashed_token(earlier_session.hashed_token) is None
+
+
+async def test_remove_by_user_id_keeps_the_session_of_another_user(
+    sessions: SessionRepository,
+    read_sessions: SessionRepository,
+    users: UserRepository,
+    session: Session,
+    ana: User,
+    bia: User,
+) -> None:
+    await users.add(bia)
+    other = Session.start(
+        id=await sessions.next_id(),
+        user_id=bia.id,
+        token=SessionToken(SecretStr("other")),
+        at=START,
+        lifetime=LIFETIME,
+    )
+    await sessions.add(session)
+    await sessions.add(other)
+
+    await sessions.remove_by_user_id(ana.id)
+
+    assert await read_sessions.get_by_hashed_token(other.hashed_token) == other
+
+
+async def test_remove_by_user_id_of_a_user_with_no_session_removes_nothing(
+    sessions: SessionRepository, ana: User, users: UserRepository
+) -> None:
+    await users.add(ana)
+
+    await sessions.remove_by_user_id(ana.id)
 
 
 async def test_a_field_assigned_with_no_update_keeps_its_stored_value(

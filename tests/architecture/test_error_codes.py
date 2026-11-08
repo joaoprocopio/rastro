@@ -37,6 +37,7 @@ def test_every_error_answers_the_status_of_the_contract() -> None:
     assert {error.code: STATUSES[error] for error in error_classes()} == {
         "auth.email_in_use": 409,
         "auth.incorrect_credentials": 401,
+        "auth.invalid_reset_token": 400,
         "auth.not_authenticated": 401,
         "common_sample.note_rejected": 409,
         "security.csrf_failed": 403,

@@ -53,7 +53,7 @@ Each app is one bounded context, and its package name is its app label, for exam
     dependencies.py    # the FastAPI dependency that builds each adapter
     views.py           # the router, the views, and the error-to-status table
     middleware.py      # the middleware and the constants for add_middleware
-    tasks.py           # the blueprint and its Procrastinate tasks
+    tasks.py           # the blueprint, its Procrastinate tasks, and each job adapter
   tests/
 ```
 
@@ -80,7 +80,7 @@ A data type is always a class, never a module-level `Annotated` or `Literal` ali
 
 ## Write Pydantic classes
 
-Every Pydantic class outside the settings module subclasses the rastro base of its kind (`Aggregate`, `ValueObject`, `RootValueObject`, or `DTO`) and inherits one strict configuration. No class is named `BaseModel`, so `BaseModel` always means Pydantic's class. Two flags of that configuration carry a reason. `extra="forbid"` rejects an unknown key, so a misspelled optional field fails in place of a silent drop. `hide_input_in_errors` keeps the input out of a `ValidationError` message, so a password or an email never reaches a log.
+Every Pydantic class outside the settings module subclasses the rastro base of its kind (`Aggregate`, `ValueObject`, `RootValueObject`, or `DTO`) and inherits one strict configuration. No class is named `BaseModel`, so `BaseModel` always means Pydantic's class. Two flags of that configuration carry a reason. `extra="forbid"` rejects an unknown key, so a misspelled optional field fails in place of a silent drop. `hide_input_in_errors` keeps the input out of a `ValidationError` message, so such a message never carries a password or an email into a log.
 
 An aggregate method exists only when a change protects a rule across fields. Otherwise a use case assigns the field, and `validate_assignment` checks the value. An aggregate refers to another aggregate only by its `Id`, so a repository loads and writes one aggregate at a time.
 
@@ -96,7 +96,7 @@ Every aggregate id is an `Id`, so all ids share one type, and a row with the id 
 
 A configuration value with a rule that domain code reads is a value object too, for example `TokenBytes`, so an invalid value fails wherever code builds it. The settings, the use case, and the aggregate pass the value object, and only the code that needs the number reads `.root`.
 
-A value object that holds a secret wraps a `SecretStr`, so a log line or a traceback shows `**********`. A secret is a value that lets its holder act, such as a password or a token. A digest stays plain, because it lets no one act, and so does a value that a response sends, such as `Email`. Code reads a secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie, or compares two tokens, and a test reads it to check the value. A Session stores only the digest of its Session token, so a leaked database starts no Session.
+A value object that holds a secret wraps a `SecretStr`, so a log line or a traceback shows `**********`. A secret is a value that lets its holder act, such as a password or a token. A digest stays plain, because it lets no one act, and so does a value that a response sends, such as `Email`. Code reads a secret with `.root.get_secret_value()` only where it hashes the secret, writes a cookie or an email, or compares two tokens, and a test reads it to check the value. A Session stores only the digest of its Session token, so a leaked database starts no Session.
 
 A token value object has no format rule. A header or a cookie then always parses, and a wrong token fails the check that compares it, in place of a validation error. `CsrfToken` lives in the value objects of the `security` app, and its `matches` compares UTF-8 bytes, because `secrets.compare_digest` raises `TypeError` on a `str` with characters outside ASCII, so such a header answers `403` and not `500`.
 
@@ -114,7 +114,7 @@ A use case is an `async def` named `<entity>_<action>`, for example `user_regist
 - It takes each configuration value after the ports, as a keyword-only argument with the type of its setting. The view reads the value from the settings, so the application and the domain never read `Settings`.
 - It returns an Output DTO, a value object, or nothing.
 - It reads the time from the `Clock` port and passes it to the domain as a value, so a domain test needs no fake clock.
-- It creates a random secret with the `generate` method of its value object and returns the secret. A port wraps only a source that a test must control, and a test reads a random value from the return value.
+- It creates a random secret with the `generate` method of its value object and returns the secret. A port wraps only a source that a test must control, and a test reads a random value from the return value. A secret that leaves through a port stays out of the return value, and a test reads it from the fake of that port, as `password_reset_send` does with the Reset token.
 - It never calls `commit` or `rollback`, because the edge owns the transaction.
 - It reads through a repository that returns an aggregate, so a read has the same shape as a write.
 
@@ -128,7 +128,7 @@ A port describes the business operation as it is today, not a provider that may 
 
 A row subclasses `Row`, takes the suffix `Row`, and has `Mapped` columns of primitive types. Its table is named `<app label>_<entity>`, for example `auth_user`. The prefix also avoids reserved words, because `select * from user` in Postgres returns the database user with no error. The column conventions follow:
 
-- `id` is `bigint generated by default as identity`. A foreign key references the column object, for example `ForeignKey(UserRow.id)`, so a rename fails mypy, and it declares `index=True`.
+- `id` is `bigint generated by default as identity`. A foreign key references the column object, for example `ForeignKey(UserRow.id)`, so a rename fails mypy, and it declares `index=True`, unless a unique constraint on the column already indexes it.
 - `created_at` and `updated_at` use `server_default=func.now()`, and `updated_at` also uses `onupdate`, so no Python code reads a clock for audit data.
 - A unique constraint that a repository translates has an explicit name in `__table_args__`, so the repository and the migration read one name.
 
@@ -140,7 +140,9 @@ A repository is one adapter per aggregate, and it receives the `AsyncSession` in
 - A mapper sets no audit column, so `merge` keeps `created_at`.
 - A `get_by_*` method returns the aggregate or `None`.
 
-`SqlSessionRepository.remove_expired` is the one method that writes many aggregates, and its `DELETE` repeats the rule of `Session.is_active` in SQL, so the behaviour suite proves that both treat a Session as expired once the time reaches its `expires_at`.
+`SqlSessionRepository.remove_expired`, `SqlSessionRepository.remove_by_user_id`, and `SqlResetTokenRepository.remove_expired` are the methods that write many aggregates. Each `DELETE` of a `remove_expired` repeats a rule of its aggregate in SQL, `Session.is_active` or `IssuedResetToken.is_expired`, so the behaviour suite proves that both treat a row as expired once the time reaches its `expires_at`.
+
+`SqlResetTokenRepository` has no `add`, `update`, or `remove`, because two concurrent writers must not read and then write. `replace_after_cooldown` is an upsert on the unique constraint of the User, with a `WHERE` that repeats the rule of `IssuedResetToken.is_younger_than` in SQL and a `RETURNING` that tells the use case whether it wrote. A second job waits for the row, and Postgres then evaluates the `WHERE` on the row that the first job left, so a commit of the first job stops the second one, and a rollback lets it write. The behaviour suite proves that the `WHERE` and `is_younger_than` agree at the end of the cooldown. `consume` is a `DELETE` with `RETURNING`, so a second confirmation waits for the row and then finds none. An aggregate keeps a time that a rule reads in its own column, such as `issued_at`, because a mapper sets no audit column.
 
 A fake repository passes the behaviour suite of its port, so a use case test that passes with the fake also passes on Postgres. It stores and returns a `model_copy()` of each aggregate, so a use case that assigns a field without `update` leaves the stored aggregate as it was. Its `add` and `update` raise the error of each unique rule, and its `update` and `remove` raise `LookupError` for a missing id.
 
@@ -162,11 +164,11 @@ Each route declares every adapter as an `Annotated[Port, Depends(factory)]` para
 
 A factory builds a new adapter on each call. An adapter that is costly to build and holds no request state is the exception, so its factory is `@functools.cache`, for example `password_hasher`. A factory that does no I/O is a plain `def`.
 
-An adapter that several apps use lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters, dependencies, and views read `Settings`.
+An adapter that several apps use lives in `rastro.common.infrastructure.adapters`, and each consumer app still declares its own port. In an app, only adapters, dependencies, views, and tasks read `Settings`.
 
 ## Write views
 
-A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task. No view or use case defers a job yet, and the first one that defers a job adds the defer helper of ADR 0004. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
+A view is an `async def` named `<entity>_<action>_view`. It reads typed parameters, calls one use case, and returns its Output DTO or nothing, with no business logic. It never calls the body of a task, and it defers a job only through its use case. A view that only hands the client a value of the edge calls no use case, because no business rule and no row is involved. `csrf_set_view` is the one such view.
 
 Each app has one `APIRouter` under `/api/v1/<app label>/`, and no router declares the CSRF check. `create_api_app` declares `dependencies=[Depends(csrf_check)]` once, so every route runs the check and a new app needs no line for it. The check stays a dependency, because a user middleware runs outside the `ExceptionMiddleware`, so its `CsrfFailedError` would answer `500`. Only `rastro/api_app.py` imports the `security` app, and an import-linter contract forbids every other module of rastro to import it. The `security` app owns CSRF: its router serves `GET /api/v1/security/csrf`, and its `presentation/csrf_cookie.py` holds `csrf_check` and the cookie functions, with the shape of the Session cookie module of `auth`. `common` holds no CSRF code. A command uses `POST` on a path that names the action, for example `POST /api/v1/auth/session/start`, and a query uses `GET`.
 
@@ -182,15 +184,21 @@ A value outside the body, for example a cookie, comes from a private dependency 
 
 ## Write tasks
 
-A task is an `async def` named `<entity>_<action>_task`, and it is an edge. Every task except `job_retry_stalled_task` parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. A task never uses FastAPI's `Depends`.
+A task is an `async def` named `<entity>_<action>_task`, and it is an edge. Every task except `job_retry_stalled_task` and `password_reset_remove_old_jobs_task` parses its arguments, opens its own transaction, builds its repositories with the `dependencies` factories, and calls one use case. A task never uses FastAPI's `Depends`.
 
-A task declares itself with `pass_context=True` on the `blueprint` of its app's `presentation/tasks.py`, so a tasks module imports no Procrastinate `App`. `create_worker_app` in `rastro/worker_app.py` adds the `blueprint` of every app to one `App`, so the connector and the worker options live in that module only.
+A task declares itself with `pass_context=True` on the `blueprint` of its app's `presentation/tasks.py`, so a tasks module imports no Procrastinate `App`. `create_job_app` in `rastro/worker_app.py` adds the `blueprint` of every app to one `App`, and `create_worker_app` adds the worker options to it, so the connector and the worker options live in that module only.
 
-The task reads its sessionmaker with `job_sessionmaker(context)` and opens the transaction in its body with `sessionmaker.begin()`. The transaction stays in the body because Procrastinate has no dependency injection, and a commit that fails in the body fails the job, so Procrastinate retries the job or records the failure.
+The task reads its sessionmaker with `job_sessionmaker(context)` and opens the transaction in its body with `sessionmaker.begin()`. It reads its settings with `job_settings(context)` and an adapter that holds configuration, such as the email sender, with its own function, because `create_worker_app` receives that adapter and a task test passes a fake the same way. The transaction stays in the body because Procrastinate has no dependency injection, and a commit that fails in the body fails the job, so Procrastinate retries the job or records the failure.
 
 Procrastinate delivers each job at least once, so a job whose worker dies after the commit runs again. A task therefore takes ids, reads its state from the database, and does nothing on a second run.
 
-The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task changes only the rows of Procrastinate, so it opens no transaction and calls no use case.
+`password_reset_send_task` is the one exception, because it takes an email address, so the request route looks up no User and both kinds of address take the same path. The address sits in the job row and in the Procrastinate logs, including the logs that reach ClickHouse, and rastro adds no log filter. The maintainer accepted this consequence in spec #20, so a change to this decision needs the maintainer. A worker that dies after the send and before the commit runs the job again, so the User receives a second email, and only the second link works.
+
+A use case defers a job through a port, because the application imports no Procrastinate. The adapter of that port calls `defer_in_transaction` of `rastro/common/presentation/tasks.py`, which runs the `INSERT` of the job on the psycopg connection of the `AsyncSession`, so the job commits or rolls back with the transaction. The same helper restores the signature of the task, so mypy rejects a wrong or missing argument. The adapter and its factory sit in the app's `presentation/tasks.py`, because the infrastructure imports no presentation, and `dependencies` cannot import the `tasks` module that imports it.
+
+A task raises `UnboundTaskError` until an `App` binds it, so `rastro/api.py` calls `create_job_app` once. That `App` opens no pool, because each job runs on the connection of its transaction.
+
+The job of a dead worker runs again because `job_retry_stalled_task` in `rastro/common/presentation/tasks.py` retries it. That task changes only the rows of Procrastinate, so it opens no transaction and calls no use case. `password_reset_remove_old_jobs_task` follows the same rule, because Procrastinate's `remove_old_jobs` deletes only job rows.
 
 To upgrade Procrastinate, stop at each version that adds a file to the package's `sql/migrations/`, as the [Procrastinate migration guide](https://procrastinate.readthedocs.io/en/stable/howto/production/migrations.html) requires. A `pre` file keeps the schema usable by the code of the previous version, and a `post` file can remove what the code of the previous version calls. For each version, copy each file into its own Alembic migration, in the order of the file names:
 
@@ -215,6 +223,8 @@ Every error response is an RFC 9457 problem with `application/problem+json`. Its
 
 An error is a `BaseError` subclass in the domain's `errors` module, its name ends in `Error`, and it declares `code = "<prefix>.<name>"`. The prefix is the app label, `request` for an HTTP error that every app shares, or `server` for a failure of rastro itself. An error carries no HTTP status, so a task raises the same error as a view. An error with data declares its own extensions class, which is a `ValueObject` for a domain error and a `DTO` for a request error.
 
+A failure that a port reports and that no client can cause, such as `EmailTemporaryError`, is a plain `Exception` subclass in the same `errors` module, with no code and no row in a table, because a use case or a retry strategy reads it and no response names it.
+
 The presentation layer chooses each status. Each app's `views` module declares an `ERROR_STATUSES` table, and `rastro/api_app.py` merges the tables. A new error therefore needs its class and a row in its app's table, and a new app needs its table in the merge. The handlers read the exact class, so a subclass needs its own row.
 
 `rastro.common.presentation.problems` is the only module that builds a problem body or reads a Pydantic error type. A new validation rule with data needs an error class with its extensions and one case in its `match`. No problem shows the input value, so `InvalidFormatError` has no extensions, and the pattern of a rule never reaches a response.
@@ -223,7 +233,7 @@ The presentation layer chooses each status. Each app's `views` module declares a
 
 A setting holds every value that an operator may change, for example a cookie name, a cookie flag, a token size, or the allowed CORS origins. A value that a standard fixes stays a constant, for example `SAFE_METHODS` or the frame headers `X-Frame-Options` and `Content-Security-Policy`. The `middleware` module of the `security` app holds the frame headers as its constant and the middleware functions `cors` and `frame_headers`, and `create_api_app` registers each function with `add_middleware`. Every setting has a default except `RASTRO_POSTGRES_URL`, so no password sits in the code. A password with `@` or `/` needs percent-encoding in that URL. `RASTRO_OPENAPI_ENABLED` is off by default, so a deployment that forgets the variable shows no route list.
 
-A new setting needs a field with a default and a line in `.env.example`. A configuration type that only the settings read, for example `PsycopgDsn` or `CorsOrigin`, subclasses the Pydantic type it narrows and lives in the settings module, and a type that domain code reads, for example `TokenBytes`, lives in its app. Only a process entry and a test build `Settings()`, and every factory receives the settings as an argument, so a test builds each one with the settings of its own database. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`. A middleware receives its settings once, in `create_api_app`, so the override never reaches it, and a test of a middleware setting builds the middleware or the app with those settings, as `cors_client` does.
+A new setting needs a field with a default and a line in `.env.example`, and an empty value in an env file means unset. A configuration type that only the settings read, for example `PsycopgDsn` or `CorsOrigin`, subclasses the Pydantic type it narrows and lives in the settings module, and a type that domain code reads, for example `TokenBytes`, lives in its app. Only a process entry and a test build `Settings()`, and every factory receives the settings as an argument, so a test builds each one with the settings of its own database. An HTTP test changes a setting through `app.dependency_overrides[app_settings]`. A middleware receives its settings once, in `create_api_app`, so the override never reaches it, and a test of a middleware setting builds the middleware or the app with those settings, as `cors_client` does.
 
 ## Write Python for mypy strict
 
@@ -243,7 +253,7 @@ Each layer has its own kind of test. A test passes fakes as arguments or through
 - **Use case tests** call a use case with the in-memory fakes and assert the error class with `pytest.raises`.
 - **Repository tests** run one behaviour suite per port, and its `adapter` fixture runs each test once with the fake and once with the Sql adapter. Only the Sql case opens the test database, and it reads back through a second session, so the identity map hides nothing. The suite covers both mapper directions, `next_id` and the `Id` that it returns, the unique-violation translation, `LookupError` for a missing row, and the `model_copy()` rule. A test that only Postgres can pass lives in `test_sql_<aggregate>_repository.py`: a row that breaks its value object, such as the id `0`, the audit columns, and the query span.
 - **View tests** cover the HTTP contract and compare the literal JSON of each problem, because the literal is the contract that a client reads. The view tests own the code of each rejection.
-- **Task tests** defer the task, run the worker of the `worker_app` fixture on Procrastinate's `InMemoryConnector`, and read its rows. A test defers a periodic task with `configure(task_kwargs={"timestamp": 0}).defer_async()`, because mypy accepts a `defer_async()` with no timestamp, and the job then fails.
+- **Task tests** defer the task, run the worker of the `worker_app` fixture on Procrastinate's `InMemoryConnector`, and read its rows and the emails of the `email_sender` fixture. A test defers a periodic task with `configure(task_kwargs={"timestamp": 0}).defer_async()`, because mypy accepts a `defer_async()` with no timestamp, and the job then fails. `InMemoryConnector` runs its own Python in place of each Procrastinate query, so a test of a task whose result depends on that query uses the `connector_app` fixture, which runs it once on each connector.
 
 A test lives in `rastro/<app>/tests/`, beside the code that it covers, for example `views/test_session_start.py`. A test name states the behaviour as a sentence, for example `test_an_email_in_use_is_a_conflict`, and a blank line splits the setup and the call from the assertions. An input that several tests share is a module-level constant. A test class is optional, so group tests in a class only when the group helps the reader.
 

@@ -3,17 +3,34 @@ from pathlib import Path
 
 import pytest
 
-from rastro.auth.domain.value_objects import SessionLifetime
+from rastro.auth.domain.value_objects import (
+    Email,
+    ResetLinkUrl,
+    ResetTokenCooldown,
+    ResetTokenLifetime,
+    SessionLifetime,
+)
 from rastro.common.domain.value_objects import TokenBytes
-from rastro.settings import CorsOrigin, SameSite, Settings
+from rastro.settings import (
+    CorsOrigin,
+    SameSite,
+    Settings,
+    SmtpPort,
+    SmtpSecurity,
+    SmtpTimeout,
+)
 
 ENV_EXAMPLE = Path(__file__).parents[3] / ".env.example"
 
 
 def _example_variables() -> dict[str, str]:
     lines = ENV_EXAMPLE.read_text().splitlines()
-    # Compose reads the `_PORT` variables, and Settings reads the others.
-    pairs = (line.split("=", 1) for line in lines if line and "_PORT=" not in line)
+    # Compose reads the `_PORT` variables, and Settings reads the others and this one.
+    pairs = (
+        line.split("=", 1)
+        for line in lines
+        if line and ("_PORT=" not in line or line.startswith("RASTRO_SMTP_PORT="))
+    )
     # `uv run --env-file` strips double quotes inside a bare value, so JSON sits in single quotes.
     return {name: value.strip("'") for name, value in pairs}
 
@@ -40,6 +57,20 @@ def test_env_example_loads(
     )
     assert settings.openapi_enabled is True
     assert settings.cors_allowed_origins == [CorsOrigin("http://localhost:5173")]
+    assert settings.smtp_port == SmtpPort(1025)
+    assert settings.smtp_security == SmtpSecurity.NONE
+
+
+def test_an_empty_variable_of_the_env_example_counts_as_unset(
+    empty_environment: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name, value in _example_variables().items():
+        monkeypatch.setenv(name, value)
+
+    settings = Settings()
+
+    assert settings.smtp_user is None
+    assert settings.smtp_password is None
 
 
 @pytest.mark.parametrize(
@@ -62,6 +93,17 @@ def test_env_example_loads(
         ("csrf_cookie_samesite", SameSite.LAX),
         ("csrf_token_bytes", TokenBytes(32)),
         ("csrf_header_name", "X-CSRF-Token"),
+        ("smtp_host", "localhost"),
+        ("smtp_port", SmtpPort(587)),
+        ("smtp_user", None),
+        ("smtp_password", None),
+        ("smtp_security", SmtpSecurity.STARTTLS),
+        ("smtp_sender", Email("no-reply@rastro.example")),
+        ("smtp_timeout", SmtpTimeout(timedelta(seconds=60))),
+        ("reset_link_url", ResetLinkUrl("http://localhost:5173/password-reset")),
+        ("reset_token_lifetime", ResetTokenLifetime(timedelta(hours=1))),
+        ("reset_token_cooldown", ResetTokenCooldown(timedelta(seconds=60))),
+        ("reset_token_bytes", TokenBytes(32)),
         ("cors_allowed_origins", []),
         ("cors_allowed_origin_regex", None),
         (
@@ -102,6 +144,117 @@ def test_every_setting_but_the_postgres_url_has_a_default() -> None:
     assert required == ["RASTRO_POSTGRES_URL"]
 
 
+@pytest.mark.parametrize(
+    ("name", "value", "expected"),
+    [
+        (
+            "RASTRO_RESET_TOKEN_LIFETIME",
+            "PT30M",
+            ResetTokenLifetime(timedelta(minutes=30)),
+        ),
+        (
+            "RASTRO_RESET_TOKEN_COOLDOWN",
+            "PT5M",
+            ResetTokenCooldown(timedelta(minutes=5)),
+        ),
+    ],
+)
+def test_a_reset_token_duration_reads_an_iso_8601_duration(
+    postgres_url_only: None,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    value: str,
+    expected: object,
+) -> None:
+    monkeypatch.setenv(name, value)
+
+    assert getattr(Settings(), name.removeprefix("RASTRO_").lower()) == expected
+
+
+@pytest.mark.parametrize(
+    "name", ["RASTRO_RESET_TOKEN_LIFETIME", "RASTRO_RESET_TOKEN_COOLDOWN"]
+)
+def test_a_reset_token_duration_of_zero_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    monkeypatch.setenv(name, "PT0S")
+
+    with pytest.raises(ValueError, match=rf"(?m)^{name}\n  .* \[type=greater_than\]"):
+        Settings()
+
+
+def test_a_reset_link_url_with_a_fragment_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_RESET_LINK_URL", "https://rastro.example/#/reset")
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_RESET_LINK_URL\n  "):
+        Settings()
+
+
+def test_a_sender_that_is_no_email_address_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_SENDER", "rastro")
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_SMTP_SENDER\n  "):
+        Settings()
+
+
+@pytest.mark.parametrize("value", ["none", "starttls", "tls"])
+def test_the_smtp_security_accepts_each_mode(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_SECURITY", value)
+
+    assert Settings().smtp_security == value
+
+
+def test_the_smtp_security_rejects_another_mode(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_SECURITY", "ssl")
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_SMTP_SECURITY\n  Input"):
+        Settings()
+
+
+@pytest.mark.parametrize("value", ["0", "65536"])
+def test_an_smtp_port_outside_the_tcp_range_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_PORT", value)
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_SMTP_PORT\n  "):
+        Settings()
+
+
+def test_the_smtp_timeout_reads_an_iso_8601_duration(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_TIMEOUT", "PT5S")
+
+    assert Settings().smtp_timeout == SmtpTimeout(timedelta(seconds=5))
+
+
+@pytest.mark.parametrize("value", ["PT0S", "-PT1S"])
+def test_an_smtp_timeout_that_is_not_positive_stops_the_settings(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_TIMEOUT", value)
+
+    with pytest.raises(ValueError, match=r"(?m)^RASTRO_SMTP_TIMEOUT\n  "):
+        Settings()
+
+
+def test_the_repr_hides_the_smtp_password(
+    postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTRO_SMTP_PASSWORD", "hunter2-secret")
+
+    assert "hunter2-secret" not in repr(Settings())
+
+
 def test_the_session_lifetime_reads_an_iso_8601_duration(
     postgres_url_only: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -130,7 +283,12 @@ def test_a_session_lifetime_that_is_not_a_positive_duration_stops_the_settings(
 
 
 @pytest.mark.parametrize(
-    "name", ["RASTRO_SESSION_TOKEN_BYTES", "RASTRO_CSRF_TOKEN_BYTES"]
+    "name",
+    [
+        "RASTRO_SESSION_TOKEN_BYTES",
+        "RASTRO_CSRF_TOKEN_BYTES",
+        "RASTRO_RESET_TOKEN_BYTES",
+    ],
 )
 def test_a_token_size_of_16_bytes_loads(
     postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str
@@ -141,7 +299,12 @@ def test_a_token_size_of_16_bytes_loads(
 
 
 @pytest.mark.parametrize(
-    "name", ["RASTRO_SESSION_TOKEN_BYTES", "RASTRO_CSRF_TOKEN_BYTES"]
+    "name",
+    [
+        "RASTRO_SESSION_TOKEN_BYTES",
+        "RASTRO_CSRF_TOKEN_BYTES",
+        "RASTRO_RESET_TOKEN_BYTES",
+    ],
 )
 def test_a_token_size_under_16_bytes_stops_the_settings(
     postgres_url_only: None, monkeypatch: pytest.MonkeyPatch, name: str

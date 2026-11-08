@@ -15,8 +15,8 @@ set_env() {
 # A second run keeps the ports, because a running stack still publishes them.
 if ! grep -qs '^COMPOSE_PROJECT_NAME=' .env; then
   # The range sits below the kernel's ephemeral ports, which outgoing connections take at any moment.
-  read -r api postgres clickhouse_native clickhouse_http otel_healthcheck otel_http grafana <<<"$(
-    seq 20000 32767 | grep -vxFf <(ss -Hltn | awk '{print $4}' | sed 's/.*://') | shuf -n 7 | xargs
+  read -r api postgres clickhouse_native clickhouse_http otel_healthcheck otel_http grafana mailpit_smtp mailpit_http <<<"$(
+    seq 20000 32767 | grep -vxFf <(ss -Hltn | awk '{print $4}' | sed 's/.*://') | shuf -n 9 | xargs
   )"
   project=rastro-$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' -)
 
@@ -31,6 +31,9 @@ if ! grep -qs '^COMPOSE_PROJECT_NAME=' .env; then
     "RASTRO_OTEL_HEALTHCHECK_PORT=$otel_healthcheck" \
     "RASTRO_OTEL_HTTP_PORT=$otel_http" \
     "RASTRO_GRAFANA_PORT=$grafana" \
+    "RASTRO_MAILPIT_SMTP_PORT=$mailpit_smtp" \
+    "RASTRO_MAILPIT_HTTP_PORT=$mailpit_http" \
+    "RASTRO_SMTP_PORT=$mailpit_smtp" \
     "RASTRO_POSTGRES_URL=postgresql+psycopg://postgres:postgres@localhost:$postgres/postgres" \
     "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:$otel_http"
 fi

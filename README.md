@@ -11,7 +11,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The `migrate` service runs the Alembic migrations. Then the API answers on `http://localhost:8000`, the `worker` service runs the tasks, and Grafana answers on `http://localhost:7141`.
+The `migrate` service runs the Alembic migrations. Then the API answers on `http://localhost:8000`, the `worker` service runs the tasks, Grafana answers on `http://localhost:7141`, and Mailpit shows each email that rastro sends on `http://localhost:8025`.
 
 ## Run the API locally
 
@@ -23,9 +23,10 @@ uv run --env-file .env.example alembic upgrade head
 uv run --env-file .env.example fastapi dev
 ```
 
-To run the tasks, start the worker in a second shell:
+To run the tasks, start Mailpit and the worker in a second shell:
 
 ```shell
+docker compose up -d mailpit
 uv run --env-file .env.example procrastinate --app=rastro.worker.app worker
 ```
 
@@ -51,7 +52,7 @@ scripts/worktree.sh
 
 The script names the worktree and its branch `wt-` and a random suffix, so give the branch its real name with `git branch -m`. It then runs `scripts/ports.sh`, which you run by hand in a worktree you created another way.
 
-`scripts/ports.sh` takes seven random ports from 20000 to 32767 that no process listens on, and prints them. It writes the ports, the compose project name, `RASTRO_POSTGRES_URL`, and `OTEL_EXPORTER_OTLP_ENDPOINT` into `.env`, and it keeps every other value. Run it again and it keeps the ports.
+`scripts/ports.sh` takes nine random ports from 20000 to 32767 that no process listens on, and prints them. It writes the ports, the compose project name, `RASTRO_POSTGRES_URL`, `RASTRO_SMTP_PORT`, and `OTEL_EXPORTER_OTLP_ENDPOINT` into `.env`, and it keeps every other value. Run it again and it keeps the ports.
 
 Every `docker compose` command on this page then works unchanged. The `uv run` commands that read the settings load `.env` in place of `.env.example`, because `.env.example` keeps the default ports:
 

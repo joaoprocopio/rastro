@@ -5,8 +5,14 @@ from datetime import timedelta
 import pytest
 from procrastinate import App
 from procrastinate.jobs import Status
+from procrastinate.testing import InMemoryConnector
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from rastro.common.presentation.tasks import job_retry_stalled_task
+from rastro.common.presentation.tasks import (
+    defer_in_transaction,
+    job_retry_stalled_task,
+)
 from rastro.common.tests.sample.domain.errors import NoteRejectedError
 from rastro.common.tests.sample.presentation.tasks import (
     note_create_task,
@@ -39,6 +45,55 @@ async def test_a_task_that_raises_rolls_back_its_writes(
     assert record.exc_info is not None
     assert isinstance(record.exc_info[1], NoteRejectedError)
     assert await note_count() == 0
+
+
+@pytest.mark.usefixtures("unbound_worker_app")
+async def test_a_job_commits_with_the_transaction_that_defers_it(
+    sessionmaker: async_sessionmaker[AsyncSession], reader: AsyncSession
+) -> None:
+    async with sessionmaker.begin() as db_session:
+        job_id = await defer_in_transaction(note_create_task, db_session=db_session)()
+
+    jobs = await reader.execute(text("SELECT id, status FROM procrastinate_jobs"))
+    assert [tuple(job) for job in jobs] == [(job_id, "todo")]
+
+
+@pytest.mark.usefixtures("unbound_worker_app")
+async def test_a_job_rolls_back_with_the_transaction_that_defers_it(
+    sessionmaker: async_sessionmaker[AsyncSession], reader: AsyncSession
+) -> None:
+    with pytest.raises(NoteRejectedError):
+        async with sessionmaker.begin() as db_session:
+            await defer_in_transaction(note_create_task, db_session=db_session)()
+            raise NoteRejectedError()
+
+    jobs = await reader.execute(text("SELECT id FROM procrastinate_jobs"))
+    assert list(jobs) == []
+
+
+async def test_a_deferred_job_keeps_the_arguments_that_its_task_declares(
+    worker_app: App, db_session: AsyncSession
+) -> None:
+    @worker_app.task(name="wall_paint_task")
+    async def wall_paint_task(*, color: str) -> None:
+        pass
+
+    job_id = await defer_in_transaction(wall_paint_task, db_session=db_session)(
+        color="yellow"
+    )
+
+    connector = worker_app.connector
+    assert isinstance(connector, InMemoryConnector)
+    assert connector.jobs[job_id]["args"] == {"color": "yellow"}
+
+
+async def test_a_positional_argument_raises_in_place_of_a_job_that_would_fail(
+    worker_app: App, db_session: AsyncSession
+) -> None:
+    defer = defer_in_transaction(note_create_task, db_session=db_session)
+
+    with pytest.raises(TypeError, match="takes keyword arguments only"):
+        await defer(0)  # type: ignore[call-arg]
 
 
 async def test_a_job_whose_worker_sent_no_heartbeat_for_over_30_seconds_is_todo_again(
