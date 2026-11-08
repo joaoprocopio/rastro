@@ -31,7 +31,7 @@ from rastro import otel
 from rastro.api_app import ERROR_STATUSES, create_api_app
 from rastro.auth.domain.ports import Clock, PasswordHasher
 from rastro.auth.presentation import dependencies as auth_dependencies
-from rastro.auth.tests.fakes import FakeClock, FakePasswordHasher
+from rastro.auth.tests.fakes import FakeClock, FakeEmailSender, FakePasswordHasher
 from rastro.common.presentation.problems import install_problem_handlers
 from rastro.common.tests.adapter import RepositoryKind
 from rastro.common.tests.sample.infrastructure.models import SampleRow
@@ -181,12 +181,32 @@ def adapter(request: pytest.FixtureRequest) -> RepositoryKind:
 
 
 @pytest.fixture(scope="session")
+def unbound_email_sender() -> FakeEmailSender:
+    """The fake of `unbound_worker_app`, which holds the emails of every test."""
+    return FakeEmailSender()
+
+
+@pytest.fixture
+def email_sender(unbound_email_sender: FakeEmailSender) -> FakeEmailSender:
+    """The fake that a job of this test sends through, with no earlier email."""
+    unbound_email_sender.sent.clear()
+    unbound_email_sender.error = None
+    return unbound_email_sender
+
+
+@pytest.fixture(scope="session")
 def unbound_worker_app(
-    settings: Settings, unbound_sessionmaker: async_sessionmaker[AsyncSession]
+    settings: Settings,
+    unbound_sessionmaker: async_sessionmaker[AsyncSession],
+    unbound_email_sender: FakeEmailSender,
 ) -> App:
     """The App that the worker builds, with the sample tasks added."""
     # add_tasks_from binds each task to its App, so the test run builds one App.
-    app = create_worker_app(settings=settings, sessionmaker=unbound_sessionmaker)
+    app = create_worker_app(
+        settings=settings,
+        sessionmaker=unbound_sessionmaker,
+        email_sender=unbound_email_sender,
+    )
     app.add_tasks_from(sample_blueprint, namespace="sample")
     # A run defers no periodic job, so a test runs only the jobs that it defers.
     app.periodic_defaults["max_delay"] = -1
@@ -222,6 +242,7 @@ def app(
     sessionmaker: async_sessionmaker[AsyncSession],
     password_hasher: PasswordHasher,
     clock: Clock,
+    unbound_worker_app: App,
 ) -> FastAPI:
     app = create_api_app(settings=settings, sessionmaker=sessionmaker)
     otel.instrument_app(app)

@@ -3,17 +3,28 @@ from datetime import timedelta
 import pytest
 from pydantic import SecretStr
 
-from rastro.auth.domain.aggregates import Session, User
+from rastro.auth.domain.aggregates import IssuedResetToken, Session, User
 from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    ResetToken,
+    ResetTokenCooldown,
+    ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
 )
-from rastro.auth.tests.fakes import FakeClock, FakeSessionRepository, FakeUserRepository
+from rastro.auth.tests.fakes import (
+    FakeClock,
+    FakePasswordResetJobs,
+    FakeResetTokenRepository,
+    FakeSessionRepository,
+    FakeUserRepository,
+)
 
 LIFETIME = SessionLifetime(timedelta(seconds=1))
+RESET_TOKEN_LIFETIME = ResetTokenLifetime(timedelta(hours=1))
+RESET_TOKEN_COOLDOWN = ResetTokenCooldown(timedelta(seconds=60))
 
 
 @pytest.fixture
@@ -24,6 +35,16 @@ def users() -> FakeUserRepository:
 @pytest.fixture
 def sessions() -> FakeSessionRepository:
     return FakeSessionRepository()
+
+
+@pytest.fixture
+def reset_tokens() -> FakeResetTokenRepository:
+    return FakeResetTokenRepository()
+
+
+@pytest.fixture
+def password_reset_jobs() -> FakePasswordResetJobs:
+    return FakePasswordResetJobs()
 
 
 @pytest.fixture
@@ -86,3 +107,45 @@ async def expired_session(
     )
     await sessions.add(session)
     return session
+
+
+@pytest.fixture
+async def reset_token(
+    ana: User, reset_tokens: FakeResetTokenRepository, clock: FakeClock
+) -> ResetToken:
+    """The token of a Reset token of `ana` in `reset_tokens`, issued at `clock.now()`."""
+    token = ResetToken(SecretStr("reset"))
+    await reset_tokens.replace_after_cooldown(
+        IssuedResetToken.issue(
+            id=await reset_tokens.next_id(),
+            user_id=ana.id,
+            token=token,
+            at=clock.now(),
+            lifetime=RESET_TOKEN_LIFETIME,
+        ),
+        cooldown=RESET_TOKEN_COOLDOWN,
+    )
+    return token
+
+
+@pytest.fixture
+async def expired_reset_token(
+    users: FakeUserRepository, reset_tokens: FakeResetTokenRepository, clock: FakeClock
+) -> IssuedResetToken:
+    """A Reset token of a second User in `reset_tokens` that runs out at `clock.now()`."""
+    bia = User(
+        id=await users.next_id(),
+        email=Email("bia@x.com"),
+        display_name=DisplayName("Bia"),
+        hashed_password=HashedPassword("fake$password"),
+    )
+    await users.add(bia)
+    expired = IssuedResetToken.issue(
+        id=await reset_tokens.next_id(),
+        user_id=bia.id,
+        token=ResetToken(SecretStr("expired")),
+        at=clock.now() - RESET_TOKEN_LIFETIME.root,
+        lifetime=RESET_TOKEN_LIFETIME,
+    )
+    await reset_tokens.replace_after_cooldown(expired, cooldown=RESET_TOKEN_COOLDOWN)
+    return expired

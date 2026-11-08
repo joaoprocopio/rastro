@@ -5,7 +5,11 @@ from rastro.auth.domain.value_objects import (
     DisplayName,
     Email,
     HashedPassword,
+    HashedResetToken,
     HashedSessionToken,
+    ResetToken,
+    ResetTokenCooldown,
+    ResetTokenLifetime,
     SessionLifetime,
     SessionToken,
 )
@@ -45,3 +49,35 @@ class Session(Aggregate):
 
     def is_active(self, *, at: datetime) -> bool:
         return at < self.expires_at
+
+
+class IssuedResetToken(Aggregate):
+    id: Id
+    user_id: Id
+    hashed_token: HashedResetToken
+    issued_at: datetime
+    expires_at: datetime
+
+    @classmethod
+    def issue(
+        cls,
+        *,
+        id: Id,
+        user_id: Id,
+        token: ResetToken,
+        at: datetime,
+        lifetime: ResetTokenLifetime,
+    ) -> Self:
+        return cls(
+            id=id,
+            user_id=user_id,
+            hashed_token=token.digest(),
+            issued_at=at,
+            expires_at=at + lifetime.root,
+        )
+
+    def is_expired(self, *, at: datetime) -> bool:
+        return at >= self.expires_at
+
+    def is_younger_than(self, cooldown: ResetTokenCooldown, *, at: datetime) -> bool:
+        return at < self.issued_at + cooldown.root

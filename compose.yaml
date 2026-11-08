@@ -11,6 +11,10 @@ x-rastro-environment: &rastro-environment
   RASTRO_DEPLOYMENT_ENVIRONMENT: "prod"
   OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4318"
 
+  RASTRO_SMTP_HOST: "mailpit"
+  RASTRO_SMTP_PORT: "1025"
+  RASTRO_SMTP_SECURITY: "none"
+
 services:
   migrate:
     build:
@@ -51,6 +55,8 @@ services:
         condition: service_completed_successfully
       otel:
         condition: service_started
+      mailpit:
+        condition: service_started
 
   postgres:
     image: "postgres:latest"
@@ -74,6 +80,16 @@ services:
       - type: volume
         source: postgres_data
         target: /var/lib/postgresql
+
+  mailpit:
+    image: "axllent/mailpit:v1.29"
+    ports:
+      - name: SMTP
+        published: ${RASTRO_MAILPIT_SMTP_PORT}
+        target: 1025
+      - name: HTTP
+        published: ${RASTRO_MAILPIT_HTTP_PORT}
+        target: 8025
 
   clickhouse:
     image: "clickhouse/clickhouse-server:26.2"

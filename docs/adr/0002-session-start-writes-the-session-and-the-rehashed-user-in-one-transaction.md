@@ -6,6 +6,8 @@ status: accepted
 
 `session_start` adds the new `Session` and, when the User's hash has outdated parameters, updates the `User` with a new hash, both inside the one transaction that the request opens. This writes two aggregates in one transaction on purpose. The reason is Vernon's user-aggregate affinity: only the User who signs in changes their own hash, and only at that moment, so no other request competes for the same `User` and the shared transaction costs no contention.
 
+ADR 0005 replaces the reason that no other request competes for the same `User`, because `password_reset_confirm` now writes its hash too.
+
 Fowler and Evans say that a transaction does not cross an aggregate boundary, and Vernon calls one aggregate per transaction a rule of thumb with named exceptions. The rehash fits his exceptions because the cleartext password exists only during the sign-in request: argon2-cffi recommends a rehash after each successful authentication for that reason. A later step cannot hash a password that it never receives.
 
 ## Considered options
